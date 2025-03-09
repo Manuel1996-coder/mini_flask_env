@@ -44,11 +44,13 @@ def auth_callback():
     if not shop or not code:
         return "Missing parameters", 400
     
-    # Access-Token holen
+    # Access-Token holenasfdasd
     payload = {
         "client_id": SHOPIFY_API_KEY,
         "client_secret": SHOPIFY_API_SECRET,
         "code": code
+
+        
     }
     response = requests.post(f"https://{shop}/admin/oauth/access_token", json=payload)
     if response.status_code != 200:
