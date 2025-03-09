@@ -6,24 +6,27 @@ import os
 import requests
 from urllib.parse import quote
 
+# ====================
+# 🌍 Environment-Variablen laden
+# ====================
+load_dotenv()
+
 # Flask App konfigurieren
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# Shopify API Keys
+# Shopify API Keys aus der .env Datei
 SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
 SHOPIFY_API_SECRET = os.getenv("SHOPIFY_API_SECRET")
-REDIRECT_URI = "https://miniflaskenv-production.up.railway.app/auth/callback"
-
-SECRET_KEY = os.getenv("SECRET_KEY")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
 SCOPES = os.getenv("SCOPES")
 
 # OpenAI konfigurieren
-load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Tracking-Data für Dashboard
 tracking_data = []
+
 
 # ====================
 # 🚀 OAuth Setup
@@ -34,8 +37,10 @@ def install():
     if not shop:
         return "Missing shop parameter", 400
     
-    install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope=read_orders,read_products&redirect_uri={quote(REDIRECT_URI)}"
+    # Shopify Installations-URL aufbauen
+    install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={quote(SCOPES)}&redirect_uri={quote(REDIRECT_URI)}"
     return redirect(install_url)
+
 
 @app.route('/auth/callback')
 def auth_callback():
@@ -44,20 +49,19 @@ def auth_callback():
     if not shop or not code:
         return "Missing parameters", 400
     
-    # Access-Token holenasfdasd
+    # Access-Token holen
     payload = {
         "client_id": SHOPIFY_API_KEY,
         "client_secret": SHOPIFY_API_SECRET,
         "code": code
-
-        
     }
     response = requests.post(f"https://{shop}/admin/oauth/access_token", json=payload)
+    
     if response.status_code != 200:
         return f"Failed to authenticate with Shopify: {response.text}", 400
 
     access_token = response.json().get("access_token")
-    
+
     # ✅ Access-Token dauerhaft speichern
     session['shop'] = shop
     session['access_token'] = access_token
@@ -67,6 +71,7 @@ def auth_callback():
         f"https://{shop}/admin/api/2023-07/shop.json",
         headers={"X-Shopify-Access-Token": access_token}
     )
+    
     if shop_response.status_code == 200:
         shop_data = shop_response.json()
         print(f"✅ Erfolgreich mit {shop_data['shop']['name']} verbunden")
@@ -88,6 +93,7 @@ def collect_data():
     
     return jsonify({"status": "success"}), 200
 
+
 # ====================
 # 📊 Dashboard
 # ====================
@@ -106,6 +112,7 @@ def dashboard():
         unique_pages=unique_pages,
         click_rate=click_rate
     )
+
 
 # ====================
 # 🤖 GPT Empfehlungen
@@ -135,6 +142,7 @@ def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
         print("Fehler bei OpenAI API:", e)
         return "Fehler bei der KI-Generierung."
 
+
 @app.route('/recommendations')
 def recommendations():
     total_pageviews = sum(1 for e in tracking_data if e.get('event_type') == 'page_view')
@@ -161,11 +169,16 @@ def recommendations():
         total_clicks=total_clicks
     )
 
+
+# ====================
+# 📦 Webhook Handling
+# ====================
 @app.route('/webhook/orders/create', methods=['POST'])
 def orders_create():
     data = request.json
     print("New order:", data)
     return "", 200
+
 
 @app.route('/webhook/customers/create', methods=['POST'])
 def customers_create():
@@ -191,3 +204,4 @@ def home():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
