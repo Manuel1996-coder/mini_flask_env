@@ -34,49 +34,60 @@ tracking_data = []
 @app.route('/install')
 def install():
     shop = request.args.get("shop")
+    print(f"Shop: {shop}")
+    print(f"SHOPIFY_API_KEY: {SHOPIFY_API_KEY}")
+    print(f"SCOPES: {SCOPES}")
+    print(f"REDIRECT_URI: {REDIRECT_URI}")
+    
     if not shop:
         return "Missing shop parameter", 400
     
-    # Shopify Installations-URL aufbauen
     install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={quote(SCOPES)}&redirect_uri={quote(REDIRECT_URI)}"
+    print(f"Install URL: {install_url}")
     return redirect(install_url)
+
 
 
 @app.route('/auth/callback')
 def auth_callback():
     shop = request.args.get("shop")
     code = request.args.get("code")
+    print(f"Shop: {shop}, Code: {code}")
+
     if not shop or not code:
         return "Missing parameters", 400
     
-    # Access-Token holen
     payload = {
         "client_id": SHOPIFY_API_KEY,
         "client_secret": SHOPIFY_API_SECRET,
         "code": code
     }
+
+    print(f"Sending payload: {payload}")
+
     response = requests.post(f"https://{shop}/admin/oauth/access_token", json=payload)
-    
+    print(f"Response: {response.status_code}, {response.text}")
+
     if response.status_code != 200:
         return f"Failed to authenticate with Shopify: {response.text}", 400
 
     access_token = response.json().get("access_token")
-
-    # ✅ Access-Token dauerhaft speichern
     session['shop'] = shop
     session['access_token'] = access_token
-    
+
     # ✅ Testaufruf zur Shopify-API für Verifizierung
     shop_response = requests.get(
         f"https://{shop}/admin/api/2023-07/shop.json",
         headers={"X-Shopify-Access-Token": access_token}
     )
-    
+    print(f"Shopify API Response: {shop_response.status_code}, {shop_response.json()}")
+
     if shop_response.status_code == 200:
         shop_data = shop_response.json()
         print(f"✅ Erfolgreich mit {shop_data['shop']['name']} verbunden")
 
     return redirect('/dashboard')
+
 
 
 # ====================
