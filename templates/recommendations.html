@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WIZARD AI TRACKING – Empfehlungen</title>
+  <style>
+    /* --- Reset/Grundstyles --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* --- Hintergrund & Body --- */
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f0f3f7 0%, #dfe3ee 100%);
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    /* --- TOP BAR / Branding --- */
+    .top-bar {
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      font-weight: bold;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+    .nav-links a {
+      margin-left: 20px;
+      text-decoration: none;
+      color: #2c3e50;
+      font-weight: 500;
+    }
+
+    /* --- Container --- */
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* --- Überschriften --- */
+    h1, h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-weight: 700;
+      font-size: 28px;
+      margin-top: 10px;
+    }
+    h2 {
+      font-weight: 600;
+      font-size: 20px;
+      margin-top: 30px;
+    }
+
+    /* --- KPI Boxen --- */
+    .kpi-boxes {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin-bottom: 25px;
+    }
+    .kpi {
+      background: #f4f7fb;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      flex: 1;
+      margin: 5px;
+      min-width: 120px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .kpi strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: #555;
+    }
+    .kpi span {
+      font-size: 1.3rem;
+      color: #000;
+      font-weight: 600;
+    }
+
+    /* --- Regelbasierte Empfehlungen --- */
+    .recommendation {
+      background: #e3f7e3;
+      border-left: 5px solid #27ae60;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      animation: fadeIn 0.3s ease;
+    }
+    /* --- GPT-Block mit Listen-Optik --- */
+    .gpt-block {
+      background: #dceefe;
+      border-left: 5px solid #2980b9;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 6px;
+      animation: fadeIn 0.3s ease;
+      /* GPT-Text: wir basteln es uns als Liste */
+    }
+    .gpt-text p {
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    /* Für Zeilenumbrüche in GPT-Output - optional */
+    .gpt-text {
+      white-space: pre-wrap; 
+    }
+
+    /* --- Keyframe-Animation --- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .kpi-boxes {
+        flex-direction: column;
+      }
+      .kpi {
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="brand">WIZARD AI TRACKING</div>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/recommendations">Empfehlungen</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>🔍 Shop-Empfehlungen</h1>
+
+    <!-- KPI Anzeige -->
+    <div class="kpi-boxes">
+      <div class="kpi">
+        <strong>Total Pageviews</strong>
+        <span>{{ total_pageviews }}</span>
+      </div>
+      <div class="kpi">
+        <strong>Total Clicks</strong>
+        <span>{{ total_clicks }}</span>
+      </div>
+      <div class="kpi">
+        <strong>Click Rate</strong>
+        <span>{{ click_rate }}%</span>
+      </div>
+    </div>
+
+    <h2>Regelbasierte Tipps</h2>
+    {% if recommendations %}
+      {% for rec in recommendations %}
+        <div class="recommendation">{{ rec }}</div>
+      {% endfor %}
+    {% else %}
+      <div class="recommendation">Alles sieht gut aus – keine speziellen Empfehlungen!</div>
+    {% endif %}
+
+    <h2>GPT KI-Empfehlungen</h2>
+    <div class="gpt-block">
+      <!-- Wir versuchen, den GPT Text in eine "Liste" zu verwandeln -->
+      <div class="gpt-text">
+        {{ gpt_text }}
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

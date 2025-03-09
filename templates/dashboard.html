@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WIZARD AI TRACKING – Dashboard</title>
+  <style>
+    /* --- Reset/Grundstyles --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* --- Hintergrund & Body --- */
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f0f3f7 0%, #dfe3ee 100%);
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    /* --- TOP BAR / Branding --- */
+    .top-bar {
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      font-weight: bold;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+    .nav-links a {
+      margin-left: 20px;
+      text-decoration: none;
+      color: #2c3e50;
+      font-weight: 500;
+    }
+
+    /* --- Container für Inhalte --- */
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* --- Überschriften --- */
+    h1 {
+      margin-bottom: 20px;
+      text-align: center;
+      color: #333;
+    }
+
+    /* --- KPI-Bereich --- */
+    .kpi-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin-bottom: 30px;
+    }
+    .kpi-box {
+      background: #f8f8f8;
+      border-radius: 8px;
+      padding: 20px;
+      flex: 1;
+      margin: 5px;
+      min-width: 180px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .kpi-box h2 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .kpi-box p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* --- Tabelle --- */
+    table {
+      width: 100%;
+      background: #fff;
+      border-collapse: collapse;
+      box-shadow: 0 0 6px rgba(0,0,0,0.05);
+      overflow: hidden;
+      border-radius: 8px;
+    }
+    thead {
+      background: #2c3e50;
+      color: #fff;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      font-size: 14px;
+    }
+    tbody tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+
+    /* --- Responsive: KPI & Tabelle anpassen --- */
+    @media (max-width: 600px) {
+      .kpi-container {
+        flex-direction: column;
+      }
+      .kpi-box {
+        margin: 10px 0;
+      }
+      th, td {
+        font-size: 12px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="brand">WIZARD AI TRACKING</div>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/recommendations">Empfehlungen</a>
+    </div>
+  </div>
+
+  <!-- Container -->
+  <div class="container">
+    <h1>Shopify Tracking Dashboard</h1>
+
+    <!-- KPI-Bereich -->
+    <div class="kpi-container">
+      <div class="kpi-box">
+        <h2>{{ total_pageviews }}</h2>
+        <p>Total Page Views</p>
+      </div>
+      <div class="kpi-box">
+        <h2>{{ total_clicks }}</h2>
+        <p>Total Clicks</p>
+      </div>
+      <div class="kpi-box">
+        <h2>{{ unique_pages }}</h2>
+        <p>Unique Pages Visited</p>
+      </div>
+      <div class="kpi-box">
+        <h2>{{ click_rate }}%</h2>
+        <p>Click Rate (Clicks/Pageviews)</p>
+      </div>
+    </div>
+
+    <!-- Tabelle mit allen Events -->
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Event Type</th>
+          <th>Page URL</th>
+          <th>Clicked Tag</th>
+          <th>Client Timestamp</th>
+          <th>Server Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ event.event_type }}</td>
+          <td>{{ event.page_url }}</td>
+          <td>{{ event.clicked_tag if event.event_type == "click" else "-" }}</td>
+          <td>{{ event.timestamp }}</td>
+          <td>{{ event.server_timestamp }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>
