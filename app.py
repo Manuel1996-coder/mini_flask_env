@@ -5,15 +5,15 @@ from dotenv import load_dotenv
 import os
 import requests
 from urllib.parse import quote
+from flask_cors import CORS
 
-# ====================
-# 🌍 Environment-Variablen laden
-# ====================
+# Environment-Variablen laden
 load_dotenv()
 
 # Flask App konfigurieren
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+CORS(app, resources={r"/collect": {"origins": "*"}})
 
 # Shopify API Keys aus der .env Datei
 SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
@@ -27,10 +27,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Tracking-Data für Dashboard
 tracking_data = []
 
-
-# ====================
-# 🚀 OAuth Setup
-# ====================
+# OAuth Setup
 @app.route('/install')
 def install():
     shop = request.args.get("shop")
@@ -45,7 +42,6 @@ def install():
     install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={quote(SCOPES)}&redirect_uri={quote(REDIRECT_URI)}"
     print(f"Install URL: {install_url}")
     return redirect(install_url)
-
 
 @app.route('/auth/callback')
 def auth_callback():
@@ -74,8 +70,7 @@ def auth_callback():
     session['shop'] = shop
     session['access_token'] = access_token
 
-    # ✅ Testaufruf zur Shopify-API für Verifizierung
-    #    Hier siehst du, ob du korrekt authentifiziert bist:
+    # Testaufruf zur Shopify-API für Verifizierung
     shop_response = requests.get(
         f"https://{shop}/admin/api/2023-07/shop.json",
         headers={"X-Shopify-Access-Token": access_token}
@@ -86,14 +81,11 @@ def auth_callback():
         shop_data = shop_response.json()
         print(f"✅ Erfolgreich mit {shop_data['shop']['name']} verbunden")
 
-    # ==========================================
-    # 🚀 Script-Tag in Shopify einfügen (Tracking)
-    # ==========================================
+    # Script-Tag in Shopify einfügen (Tracking)
     print("=== Attempting to create script tag for tracking... ===")
     script_tag_payload = {
         "script_tag": {
             "event": "onload",
-            # Dieser SRC zeigt auf unsere neue Route /static/tracking.js
             "src": "https://miniflaskenv-production.up.railway.app/static/tracking.js"
         }
     }
@@ -107,10 +99,7 @@ def auth_callback():
 
     return redirect('/dashboard')
 
-
-# ====================
-# 🚀 Tracking
-# ====================
+# Tracking
 @app.route('/collect', methods=['POST'])
 def collect_data():
     data = request.json
@@ -119,18 +108,15 @@ def collect_data():
 
     data['server_timestamp'] = datetime.datetime.utcnow().isoformat()
     tracking_data.append(data)
-
+    print(f"Collected data: {data}")
     return jsonify({"status": "success"}), 200
 
-
-# ====================
-# 📊 Dashboard
-# ====================
+# Dashboard
 @app.route('/dashboard')
 def dashboard():
     total_pageviews = sum(1 for e in tracking_data if e.get('event_type') == 'page_view')
     total_clicks = sum(1 for e in tracking_data if e.get('event_type') == 'click')
-    unique_pages = len(set(e.get('page_url') for e in tracking_data))
+    unique_pages = len(set(e.get('page_url') for e in tracking_data if e.get('page_url')))
     click_rate = round((total_clicks / total_pageviews) * 100, 2) if total_pageviews else 0
 
     return render_template(
@@ -142,10 +128,7 @@ def dashboard():
         click_rate=click_rate
     )
 
-
-# ====================
-# 🤖 GPT Empfehlungen
-# ====================
+# GPT Empfehlungen
 def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
     prompt = f"""
     Total Pageviews: {total_pageviews}
@@ -155,7 +138,7 @@ def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
     Gib konkrete Handlungsempfehlungen zur Conversion-Optimierung als knappe, klare Stichpunkte aus.
     """
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Du bist Experte für Conversion-Optimierung."},
@@ -164,13 +147,10 @@ def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
             max_tokens=200,
             temperature=0.7
         )
-
         return response.choices[0].message.content.strip()
-
     except Exception as e:
-        print("Fehler bei OpenAI API:", e)
+        print(f"Fehler bei OpenAI API: {e}")
         return "Fehler bei der KI-Generierung."
-
 
 @app.route('/recommendations')
 def recommendations():
@@ -186,7 +166,6 @@ def recommendations():
     elif click_rate > 20:
         rec_list.append("🔥 Click Rate top! Optimiere Funnel weiter.")
 
-    # GPT-Call
     gpt_text = generate_gpt_recommendations(total_pageviews, total_clicks, click_rate)
 
     return render_template(
@@ -198,16 +177,12 @@ def recommendations():
         total_clicks=total_clicks
     )
 
-
-# ====================
-# 📦 Webhook Handling
-# ====================
+# Webhook Handling
 @app.route('/webhook/orders/create', methods=['POST'])
 def orders_create():
     data = request.json
     print("New order:", data)
     return "", 200
-
 
 @app.route('/webhook/customers/create', methods=['POST'])
 def customers_create():
@@ -215,21 +190,12 @@ def customers_create():
     print("New customer:", data)
     return "", 200
 
-
-# ====================
-# 📜 Hier wird unser Tracking-Script serviert
-# ====================
+# Tracking-Script servieren
 @app.route('/static/tracking.js')
 def tracking_js():
-    """
-    Einfaches Tracking-Script:
-    - Sendet Pageview bei Laden der Seite
-    - Sendet Click-Events
-    """
     script_content = """
 document.addEventListener('DOMContentLoaded', function() {
-  // Pageview-Event
-  fetch('/collect', {
+  fetch('https://miniflaskenv-production.up.railway.app/collect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -237,11 +203,10 @@ document.addEventListener('DOMContentLoaded', function() {
       page_url: window.location.href,
       timestamp: new Date().toISOString()
     })
-  });
+  }).catch(err => console.error('Pageview tracking failed:', err));
 
-  // Klick-Events
   document.addEventListener('click', function(evt) {
-    fetch('/collect', {
+    fetch('https://miniflaskenv-production.up.railway.app/collect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -250,16 +215,13 @@ document.addEventListener('DOMContentLoaded', function() {
         clicked_tag: evt.target.tagName,
         timestamp: new Date().toISOString()
       })
-    });
+    }).catch(err => console.error('Click tracking failed:', err));
   });
 });
 """
     return Response(script_content, mimetype='application/javascript')
 
-
-# ====================
-# 🏡 Home Route
-# ====================
+# Home Route
 @app.route('/')
 def home():
     shop = request.args.get('shop')
@@ -267,10 +229,7 @@ def home():
         return redirect(f'/install?shop={shop}')
     return "Hello, Shopify World! Go to /dashboard or /recommendations."
 
-
-# ====================
-# 🏆 Flask Starten
-# ====================
+# Flask Starten
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
