@@ -38,10 +38,10 @@ def install():
     print(f"SHOPIFY_API_KEY: {SHOPIFY_API_KEY}")
     print(f"SCOPES: {SCOPES}")
     print(f"REDIRECT_URI: {REDIRECT_URI}")
-    
+
     if not shop:
         return "Missing shop parameter", 400
-    
+
     install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={quote(SCOPES)}&redirect_uri={quote(REDIRECT_URI)}"
     print(f"Install URL: {install_url}")
     return redirect(install_url)
@@ -55,7 +55,7 @@ def auth_callback():
 
     if not shop or not code:
         return "Missing parameters", 400
-    
+
     payload = {
         "client_id": SHOPIFY_API_KEY,
         "client_secret": SHOPIFY_API_SECRET,
@@ -75,11 +75,12 @@ def auth_callback():
     session['access_token'] = access_token
 
     # ✅ Testaufruf zur Shopify-API für Verifizierung
+    #    Hier siehst du, ob du korrekt authentifiziert bist:
     shop_response = requests.get(
         f"https://{shop}/admin/api/2023-07/shop.json",
         headers={"X-Shopify-Access-Token": access_token}
     )
-    print(f"Shopify API Response: {shop_response.status_code}, {shop_response.json()}")
+    print(f"Shopify API Response: {shop_response.status_code}, {shop_response.text}")
 
     if shop_response.status_code == 200:
         shop_data = shop_response.json()
@@ -88,6 +89,7 @@ def auth_callback():
     # ==========================================
     # 🚀 Script-Tag in Shopify einfügen (Tracking)
     # ==========================================
+    print("=== Attempting to create script tag for tracking... ===")
     script_tag_payload = {
         "script_tag": {
             "event": "onload",
@@ -114,10 +116,10 @@ def collect_data():
     data = request.json
     if not data:
         return jsonify({"error": "No data received"}), 400
-    
+
     data['server_timestamp'] = datetime.datetime.utcnow().isoformat()
     tracking_data.append(data)
-    
+
     return jsonify({"status": "success"}), 200
 
 
