@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, session
+from flask import Flask, request, jsonify, render_template, redirect, session, Response
 import datetime
 import openai
 from dotenv import load_dotenv
@@ -47,7 +47,6 @@ def install():
     return redirect(install_url)
 
 
-
 @app.route('/auth/callback')
 def auth_callback():
     shop = request.args.get("shop")
@@ -86,8 +85,25 @@ def auth_callback():
         shop_data = shop_response.json()
         print(f"✅ Erfolgreich mit {shop_data['shop']['name']} verbunden")
 
-    return redirect('/dashboard')
+    # ==========================================
+    # 🚀 Script-Tag in Shopify einfügen (Tracking)
+    # ==========================================
+    script_tag_payload = {
+        "script_tag": {
+            "event": "onload",
+            # Dieser SRC zeigt auf unsere neue Route /static/tracking.js
+            "src": "https://miniflaskenv-production.up.railway.app/static/tracking.js"
+        }
+    }
 
+    script_response = requests.post(
+        f"https://{shop}/admin/api/2023-07/script_tags.json",
+        json=script_tag_payload,
+        headers={"X-Shopify-Access-Token": access_token}
+    )
+    print(f"Script Tag Response: {script_response.status_code}, {script_response.text}")
+
+    return redirect('/dashboard')
 
 
 # ====================
@@ -199,6 +215,47 @@ def customers_create():
 
 
 # ====================
+# 📜 Hier wird unser Tracking-Script serviert
+# ====================
+@app.route('/static/tracking.js')
+def tracking_js():
+    """
+    Einfaches Tracking-Script:
+    - Sendet Pageview bei Laden der Seite
+    - Sendet Click-Events
+    """
+    script_content = """
+document.addEventListener('DOMContentLoaded', function() {
+  // Pageview-Event
+  fetch('/collect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_type: 'page_view',
+      page_url: window.location.href,
+      timestamp: new Date().toISOString()
+    })
+  });
+
+  // Klick-Events
+  document.addEventListener('click', function(evt) {
+    fetch('/collect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: 'click',
+        page_url: window.location.href,
+        clicked_tag: evt.target.tagName,
+        timestamp: new Date().toISOString()
+      })
+    });
+  });
+});
+"""
+    return Response(script_content, mimetype='application/javascript')
+
+
+# ====================
 # 🏡 Home Route
 # ====================
 @app.route('/')
@@ -215,4 +272,3 @@ def home():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
