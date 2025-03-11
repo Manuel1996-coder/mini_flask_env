@@ -74,6 +74,8 @@ def auth_callback():
 
     print(f"test test {access_token}")
 
+    print(f"Response: {response.status_code}, {response.text}")
+
     # Testaufruf zur Shopify-API für Verifizierung
     shop_response = requests.get(
         f"https://{shop}/admin/api/2023-07/shop.json",
@@ -194,36 +196,11 @@ def customers_create():
     print("New customer:", data)
     return "", 200
 
-# Tracking-Script servieren
+
+# Replace your current tracking.js route with this:
 @app.route('/static/tracking.js')
 def tracking_js():
-    script_content = """
-document.addEventListener('DOMContentLoaded', function() {
-  fetch('https://miniflaskenv-production.up.railway.app/collect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event_type: 'page_view',
-      page_url: window.location.href,
-      timestamp: new Date().toISOString()
-    })
-  }).catch(err => console.error('Pageview tracking failed:', err));
-
-  document.addEventListener('click', function(evt) {
-    fetch('https://miniflaskenv-production.up.railway.app/collect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_type: 'click',
-        page_url: window.location.href,
-        clicked_tag: evt.target.tagName,
-        timestamp: new Date().toISOString()
-      })
-    }).catch(err => console.error('Click tracking failed:', err));
-  });
-});
-"""
-    return Response(script_content, mimetype='application/javascript')
+    return app.send_static_file('tracking.js')
 
 # Home Route
 @app.route('/')
