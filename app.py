@@ -72,6 +72,8 @@ def auth_callback():
 
     print(f"Access Token: {access_token}")
 
+    print(f"test test {access_token}")
+
     # Testaufruf zur Shopify-API für Verifizierung
     shop_response = requests.get(
         f"https://{shop}/admin/api/2023-07/shop.json",
