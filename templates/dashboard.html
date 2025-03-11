@@ -1,188 +1,925 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>WIZARD AI TRACKING – Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShoppulseAI - Ecommerce Analytics Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* --- Reset/Grundstyles --- */
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --secondary: #f97316;
+      --dark: #1e293b;
+      --light: #f8fafc;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 10px;
+    }
+    
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-
-    /* --- Hintergrund & Body --- */
+    
     body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #f0f3f7 0%, #dfe3ee 100%);
-      margin: 0;
-      padding: 0;
-      color: #333;
+      background-color: #f9fafb;
+      color: var(--dark);
+      min-height: 100vh;
     }
-
-    /* --- TOP BAR / Branding --- */
-    .top-bar {
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 10px 20px;
+    
+    .app-container {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+    
+    /* === SIDEBAR === */
+    .sidebar {
+      background: white;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+      padding: 1.5rem;
+      position: fixed;
+      width: 260px;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 20;
+    }
+    
+    .brand {
+      display: flex;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .brand-icon {
+      background: var(--primary);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 0.75rem;
+      font-size: 1.2rem;
+    }
+    
+    .brand-text {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--dark);
+    }
+    
+    .menu-header {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-600);
+      margin: 1.5rem 0 0.75rem;
+    }
+    
+    .nav-links {
+      list-style: none;
+    }
+    
+    .nav-item {
+      margin-bottom: 0.25rem;
+    }
+    
+    .nav-link {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      color: var(--gray-700);
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+      background: var(--gray-100);
+    }
+    
+    .nav-link.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .nav-icon {
+      margin-right: 0.75rem;
+      font-size: 1.125rem;
+      width: 20px;
+      text-align: center;
+    }
+    
+    /* === MAIN CONTENT === */
+    .main-content {
+      grid-column: 2;
+      padding: 2rem;
+    }
+    
+    .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 2rem;
     }
-    .brand {
-      font-weight: bold;
-      font-size: 18px;
-      color: #2c3e50;
+    
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 600;
     }
-    .nav-links a {
-      margin-left: 20px;
-      text-decoration: none;
-      color: #2c3e50;
+    
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+    
+    .date-filter {
+      display: flex;
+      align-items: center;
+      background: white;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+    
+    .date-filter-icon {
+      margin-right: 0.5rem;
+      color: var(--gray-600);
+    }
+    
+    .export-btn {
+      display: flex;
+      align-items: center;
+      background: white;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    
+    .export-btn:hover {
+      background: var(--gray-100);
+    }
+    
+    .export-icon {
+      margin-right: 0.5rem;
+    }
+    
+    /* === SUMMARY CARDS === */
+    .summary-section {
+      margin-bottom: 2rem;
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+    
+    .summary-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    
+    .summary-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    
+    .card-title {
+      font-size: 0.875rem;
+      color: var(--gray-600);
       font-weight: 500;
     }
-
-    /* --- Container für Inhalte --- */
-    .container {
-      max-width: 1000px;
-      margin: 40px auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-    }
-
-    /* --- Überschriften --- */
-    h1 {
-      margin-bottom: 20px;
-      text-align: center;
-      color: #333;
-    }
-
-    /* --- KPI-Bereich --- */
-    .kpi-container {
+    
+    .card-icon {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: space-around;
-      margin-bottom: 30px;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: rgba(79, 70, 229, 0.1);
+      color: var(--primary);
     }
-    .kpi-box {
-      background: #f8f8f8;
-      border-radius: 8px;
-      padding: 20px;
-      flex: 1;
-      margin: 5px;
-      min-width: 180px;
-      box-shadow: 0 0 6px rgba(0,0,0,0.05);
-      text-align: center;
+    
+    .card-value {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
     }
-    .kpi-box h2 {
-      font-size: 28px;
-      margin-bottom: 10px;
-      color: #2c3e50;
+    
+    .card-trend {
+      display: flex;
+      align-items: center;
+      font-size: 0.875rem;
     }
-    .kpi-box p {
-      font-size: 14px;
-      color: #666;
+    
+    .trend-up {
+      color: var(--success);
     }
-
-    /* --- Tabelle --- */
+    
+    .trend-down {
+      color: var(--danger);
+    }
+    
+    .trend-icon {
+      margin-right: 0.25rem;
+    }
+    
+    .comparison-text {
+      color: var(--gray-600);
+      margin-left: 0.25rem;
+      font-size: 0.75rem;
+    }
+    
+    /* === CHARTS === */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .chart-container {
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .chart-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    
+    .chart-legend {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+    
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+    
+    .chart-placeholder {
+      width: 100%;
+      height: 300px;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-600);
+    }
+    
+    /* === BEHAVIOR INSIGHTS === */
+    .insights-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .insight-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .insight-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: rgba(79, 70, 229, 0.1);
+      color: var(--primary);
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+    
+    .insight-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .insight-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .insight-description {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+    }
+    
+    /* === DATA TABLE === */
+    .table-container {
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .table-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    
+    .table-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .table-filter {
+      background: var(--gray-100);
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+    
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+    }
+    
+    .search-icon {
+      color: var(--gray-600);
+      margin-right: 0.5rem;
+    }
+    
+    .search-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 0.875rem;
+    }
+    
     table {
       width: 100%;
-      background: #fff;
       border-collapse: collapse;
-      box-shadow: 0 0 6px rgba(0,0,0,0.05);
-      overflow: hidden;
-      border-radius: 8px;
     }
-    thead {
-      background: #2c3e50;
-      color: #fff;
-    }
-    th, td {
-      padding: 12px;
+    
+    th {
+      padding: 0.75rem 1rem;
       text-align: left;
-      font-size: 14px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-600);
+      border-bottom: 1px solid var(--gray-200);
     }
-    tbody tr:nth-child(even) {
-      background: #f9f9f9;
+    
+    td {
+      padding: 1rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tbody tr:hover {
+      background: var(--gray-100);
+    }
+    
+    .td-center {
+      text-align: center;
+    }
+    
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .badge-pageview {
+      background: rgba(79, 70, 229, 0.1);
+      color: var(--primary);
+    }
+    
+    .badge-click {
+      background: rgba(249, 115, 22, 0.1);
+      color: var(--secondary);
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+    }
+    
+    .page-info {
+      color: var(--gray-600);
+    }
+    
+    .page-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .page-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--gray-300);
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .page-btn:hover {
+      background: var(--gray-100);
+    }
+    
+    .page-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
     }
 
-    /* --- Responsive: KPI & Tabelle anpassen --- */
+    /* === AI RECOMMENDATIONS CARD === */
+    .ai-recommendations {
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .ai-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .ai-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: rgba(249, 115, 22, 0.1);
+      color: var(--secondary);
+      margin-right: 0.75rem;
+    }
+    
+    .ai-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    
+    .ai-recommendations-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .ai-rec-item {
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      padding: 1rem;
+      width: calc(50% - 0.5rem);
+      position: relative;
+    }
+    
+    .ai-rec-title {
+      display: flex;
+      align-items: center;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--dark);
+    }
+    
+    .ai-rec-icon {
+      color: var(--secondary);
+      margin-right: 0.5rem;
+    }
+    
+    .ai-rec-text {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      line-height: 1.5;
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 1200px) {
+      .charts-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .insights-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .sidebar {
+        display: none;
+      }
+      
+      .main-content {
+        grid-column: 1;
+      }
+      
+      .insights-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .ai-rec-item {
+        width: 100%;
+      }
+    }
+    
     @media (max-width: 600px) {
-      .kpi-container {
+      .header {
         flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
       }
-      .kpi-box {
-        margin: 10px 0;
+      
+      .header-actions {
+        width: 100%;
       }
-      th, td {
-        font-size: 12px;
+      
+      .date-filter, .export-btn {
+        flex: 1;
       }
     }
-
   </style>
 </head>
+
 <body>
-
-  <!-- Top Bar -->
-  <div class="top-bar">
-    <div class="brand">WIZARD AI TRACKING</div>
-    <div class="nav-links">
-      <a href="/dashboard">Dashboard</a>
-      <a href="/recommendations">Empfehlungen</a>
-    </div>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fas fa-bolt"></i>
+        </div>
+        <div class="brand-text">ShoppulseAI</div>
+      </div>
+      
+      <div class="menu-header">Analytics</div>
+      <ul class="nav-links">
+        <li class="nav-item">
+          <a href="/dashboard" class="nav-link active">
+            <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+            Dashboard
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/recommendations" class="nav-link">
+            <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
+            Recommendations
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <span class="nav-icon"><i class="fas fa-users"></i></span>
+            Visitor Analysis
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+            Purchase Funnel
+          </a>
+        </li>
+      </ul>
+      
+      <div class="menu-header">Configuration</div>
+      <ul class="nav-links">
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <span class="nav-icon"><i class="fas fa-cog"></i></span>
+            Settings
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <span class="nav-icon"><i class="fas fa-code"></i></span>
+            Integration
+          </a>
+        </li>
+      </ul>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="header">
+        <h1 class="page-title">Analytics Dashboard</h1>
+        <div class="header-actions">
+          <div class="date-filter">
+            <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
+            Last 7 days
+          </div>
+          <button class="export-btn">
+            <span class="export-icon"><i class="fas fa-download"></i></span>
+            Export
+          </button>
+        </div>
+      </div>
+      
+      <!-- Summary Cards -->
+      <section class="summary-section">
+        <div class="section-header">
+          <h2 class="section-title">Performance Overview</h2>
+        </div>
+        <div class="summary-container">
+          <div class="summary-card">
+            <div class="card-header">
+              <span class="card-title">Page Views</span>
+              <div class="card-icon">
+                <i class="fas fa-eye"></i>
+              </div>
+            </div>
+            <div class="card-value">{{ total_pageviews }}</div>
+            <div class="card-trend trend-up">
+              <span class="trend-icon"><i class="fas fa-arrow-up"></i></span>
+              12.3%
+              <span class="comparison-text">vs. last period</span>
+            </div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="card-header">
+              <span class="card-title">Total Clicks</span>
+              <div class="card-icon">
+                <i class="fas fa-mouse-pointer"></i>
+              </div>
+            </div>
+            <div class="card-value">{{ total_clicks }}</div>
+            <div class="card-trend trend-up">
+              <span class="trend-icon"><i class="fas fa-arrow-up"></i></span>
+              8.7%
+              <span class="comparison-text">vs. last period</span>
+            </div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="card-header">
+              <span class="card-title">Click Rate</span>
+              <div class="card-icon">
+                <i class="fas fa-percentage"></i>
+              </div>
+            </div>
+            <div class="card-value">{{ click_rate }}%</div>
+            <div class="card-trend trend-down">
+              <span class="trend-icon"><i class="fas fa-arrow-down"></i></span>
+              2.1%
+              <span class="comparison-text">vs. last period</span>
+            </div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="card-header">
+              <span class="card-title">Unique Pages</span>
+              <div class="card-icon">
+                <i class="fas fa-file"></i>
+              </div>
+            </div>
+            <div class="card-value">{{ unique_pages }}</div>
+            <div class="card-trend trend-up">
+              <span class="trend-icon"><i class="fas fa-arrow-up"></i></span>
+              5.4%
+              <span class="comparison-text">vs. last period</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- AI-Powered Recommendations -->
+      <section class="ai-recommendations">
+        <div class="ai-header">
+          <div class="ai-icon">
+            <i class="fas fa-robot"></i>
+          </div>
+          <h2 class="ai-title">AI-Powered Recommendations</h2>
+        </div>
+        <div class="ai-recommendations-list">
+          <div class="ai-rec-item">
+            <div class="ai-rec-title">
+              <span class="ai-rec-icon"><i class="fas fa-bullseye"></i></span>
+              Optimize Call-to-Action
+            </div>
+            <p class="ai-rec-text">Your click rate on product pages is below average. Try using more action-oriented button text and increase visual contrast to improve click-through rates.</p>
+          </div>
+          <div class="ai-rec-item">
+            <div class="ai-rec-title">
+              <span class="ai-rec-icon"><i class="fas fa-clock"></i></span>
+              Reduce Cart Abandonment
+            </div>
+            <p class="ai-rec-text">Visitors spend 45 seconds on average in checkout before leaving. Consider simplifying your checkout process or adding progress indicators.</p>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Charts Row -->
+      <div class="charts-row">
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3 class="chart-title">Traffic & Engagement Trends</h3>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: var(--primary);"></div>
+                Page Views
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: var(--secondary);"></div>
+                Clicks
+              </div>
+            </div>
+          </div>
+          <div class="chart-placeholder">
+            <img src="/api/placeholder/700/300" alt="Placeholder for traffic chart">
+          </div>
+        </div>
+        
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3 class="chart-title">Top Products</h3>
+          </div>
+          <div class="chart-placeholder">
+            <img src="/api/placeholder/300/300" alt="Placeholder for products chart">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Behavior Insights -->
+      <section class="summary-section">
+        <div class="section-header">
+          <h2 class="section-title">Behavior Insights</h2>
+        </div>
+        <div class="insights-container">
+          <div class="insight-card">
+            <div class="insight-icon">
+              <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div class="insight-title">Avg. Session Duration</div>
+            <div class="insight-value">2m 45s</div>
+            <p class="insight-description">Time spent by visitors browsing your store</p>
+          </div>
+          
+          <div class="insight-card">
+            <div class="insight-icon">
+              <i class="fas fa-route"></i>
+            </div>
+            <div class="insight-title">Pages per Session</div>
+            <div class="insight-value">3.8</div>
+            <p class="insight-description">Number of pages viewed in an average session</p>
+          </div>
+          
+          <div class="insight-card">
+            <div class="insight-icon">
+              <i class="fas fa-shopping-bag"></i>
+            </div>
+            <div class="insight-title">Add to Cart Rate</div>
+            <div class="insight-value">14.2%</div>
+            <p class="insight-description">Percentage of visits resulting in items added to cart</p>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Event Data Table -->
+      <section class="table-container">
+        <div class="table-header">
+          <h3 class="table-title">Recent Events</h3>
+          <div class="table-actions">
+            <select class="table-filter">
+              <option>All Events</option>
+              <option>Page Views</option>
+              <option>Clicks</option>
+            </select>
+            <div class="search-box">
+              <span class="search-icon"><i class="fas fa-search"></i></span>
+              <input type="text" class="search-input" placeholder="Search events...">
+            </div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Event Type</th>
+              <th>Page URL</th>
+              <th>Clicked Element</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in events %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>
+                {% if event.event_type == "page_view" %}
+                <span class="type-badge badge-pageview">Page View</span>
+                {% else %}
+                <span class="type-badge badge-click">Click</span>
+                {% endif %}
+              </td>
+              <td>{{ event.page_url }}</td>
+              <td>{{ event.clicked_tag if event.event_type == "click" else "-" }}</td>
+              <td>{{ event.timestamp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        
+        <div class="pagination">
+          <div class="page-info">Showing 1 to 10 of {{ events|length }} entries</div>
+          <div class="page-buttons">
+            <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
-
-  <!-- Container -->
-  <div class="container">
-    <h1>Shopify Tracking Dashboard</h1>
-
-    <!-- KPI-Bereich -->
-    <div class="kpi-container">
-      <div class="kpi-box">
-        <h2>{{ total_pageviews }}</h2>
-        <p>Total Page Views</p>
-      </div>
-      <div class="kpi-box">
-        <h2>{{ total_clicks }}</h2>
-        <p>Total Clicks</p>
-      </div>
-      <div class="kpi-box">
-        <h2>{{ unique_pages }}</h2>
-        <p>Unique Pages Visited</p>
-      </div>
-      <div class="kpi-box">
-        <h2>{{ click_rate }}%</h2>
-        <p>Click Rate (Clicks/Pageviews)</p>
-      </div>
-    </div>
-
-    <!-- Tabelle mit allen Events -->
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Event Type</th>
-          <th>Page URL</th>
-          <th>Clicked Tag</th>
-          <th>Client Timestamp</th>
-          <th>Server Timestamp</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for event in events %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ event.event_type }}</td>
-          <td>{{ event.page_url }}</td>
-          <td>{{ event.clicked_tag if event.event_type == "click" else "-" }}</td>
-          <td>{{ event.timestamp }}</td>
-          <td>{{ event.server_timestamp }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
 </body>
 </html>
