@@ -157,6 +157,13 @@ def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
     except Exception as e:
         print(f"Fehler bei OpenAI API: {e}")
         return "Fehler bei der KI-Generierung."
+    
+
+@app.route('/clv-analytics')
+def clv_analytics():
+    # Für den Anfang zeigen wir einfach eine Basis-Seite ohne komplexe Berechnungen.
+    return render_template("clv_analytics.html")
+
 
 @app.route('/recommendations')
 def recommendations():
