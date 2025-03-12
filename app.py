@@ -161,7 +161,7 @@ def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
 
 @app.route('/clv-analytics')
 def clv_analytics():
-    # Für den Anfang zeigen wir einfach eine Basis-Seite ohne komplexe Berechnungen.
+    # For now, we'll just render the template without complex calculations
     return render_template("clv_analytics.html")
 
 
