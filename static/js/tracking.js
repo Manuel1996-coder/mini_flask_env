@@ -39,7 +39,8 @@
         page_url: window.location.href,
         page: window.location.pathname,
         timestamp: Date.now(),
-        session_id: sessionId
+        session_id: sessionId,
+        shop_domain: Shopify.shop
       };
       
       console.log("Sending pageview data:", data);
@@ -76,7 +77,8 @@
           page: window.location.pathname,
           clicked_tag: evt.target.tagName,
           timestamp: Date.now(),
-          session_id: sessionId
+          session_id: sessionId,
+          shop_domain: Shopify.shop
         };
         
         console.log("Sending click data:", data);
@@ -116,7 +118,8 @@
           page: window.location.pathname,
           clicked_tag: 'MANUAL',
           timestamp: Date.now(),
-          session_id: sessionId
+          session_id: sessionId,
+          shop_domain: Shopify.shop
         };
         
         console.log("Sending manual click data:", data);

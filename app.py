@@ -30,10 +30,7 @@ SCOPES = os.getenv("SCOPES")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Tracking-Data für Dashboard
-tracking_data = {
-    'pageviews': [],
-    'clicks': []
-}
+tracking_data = {}  # Leeres Dictionary für alle Shops
 
 def save_tracking_data():
     """Speichert die Tracking-Daten in einer JSON-Datei."""
@@ -58,13 +55,21 @@ def load_tracking_data():
     except Exception as e:
         print(f"Fehler beim Laden der Tracking-Daten: {e}")
     
-    # Wenn keine Daten vorhanden sind, initialisiere leere Listen
-    if 'pageviews' not in tracking_data:
-        tracking_data['pageviews'] = []
-    if 'clicks' not in tracking_data:
-        tracking_data['clicks'] = []
-    
     return tracking_data
+
+def get_shop_data(shop_domain):
+    """Holt die Tracking-Daten für einen bestimmten Shop."""
+    global tracking_data
+    
+    # Wenn der Shop noch nicht im Dictionary existiert, initialisiere ihn
+    if shop_domain not in tracking_data:
+        tracking_data[shop_domain] = {
+            'pageviews': [],
+            'clicks': []
+        }
+        save_tracking_data()
+    
+    return tracking_data[shop_domain]
 
 def generate_implementation_tasks():
     """Generiert priorisierte Implementierungsaufgaben basierend auf Datenanalyse."""
@@ -172,7 +177,7 @@ def auth_callback():
     script_tag_payload = {
         "script_tag": {
             "event": "onload",
-            "src": "https://miniflaskenv-production.up.railway.app/static/tracking.js"
+            "src": "https://miniflaskenv-production.up.railway.app/static/js/tracking.js"
         }
     }
 
@@ -198,6 +203,14 @@ def collect_data():
 
         # Debug-Log für eingehende Daten
         print(f"Eingehende Daten: {data}")
+        
+        # Shop-Domain aus den Daten extrahieren
+        shop_domain = data.get('shop_domain')
+        if not shop_domain:
+            return jsonify({"error": "No shop_domain in data"}), 400
+        
+        # Daten für diesen Shop abrufen
+        shop_data = get_shop_data(shop_domain)
 
         # Aktuelle Zeit hinzufügen
         data['server_timestamp'] = datetime.datetime.utcnow().isoformat()
@@ -213,19 +226,15 @@ def collect_data():
             
         # Daten in die richtige Kategorie einfügen
         if data.get('event_type') == 'page_view':
-            if 'pageviews' not in tracking_data:
-                tracking_data['pageviews'] = []
-            tracking_data['pageviews'].append(data)
-            print(f"Pageview hinzugefügt. Neue Anzahl: {len(tracking_data['pageviews'])}")
+            shop_data['pageviews'].append(data)
+            print(f"Pageview für Shop {shop_domain} hinzugefügt. Neue Anzahl: {len(shop_data['pageviews'])}")
         elif data.get('event_type') == 'click':
-            if 'clicks' not in tracking_data:
-                tracking_data['clicks'] = []
-            tracking_data['clicks'].append(data)
-            print(f"Click hinzugefügt. Neue Anzahl: {len(tracking_data['clicks'])}")
+            shop_data['clicks'].append(data)
+            print(f"Click für Shop {shop_domain} hinzugefügt. Neue Anzahl: {len(shop_data['clicks'])}")
         else:
             print(f"Unbekannter event_type: {data.get('event_type')}")
             
-        print(f"Collected data: {data}")
+        print(f"Collected data for shop {shop_domain}: {data}")
         
         # Tracking-Daten speichern
         save_tracking_data()
@@ -242,21 +251,30 @@ def collect_data():
 def dashboard():
     """Dashboard-Seite mit Analysen und Empfehlungen."""
     try:
-        # Daten aus dem globalen Dictionary laden
-        global tracking_data
-        data = load_tracking_data()
+        # Shop aus der Session holen
+        shop = session.get('shop')
+        if not shop:
+            return redirect('/install')  # Umleitung zur Installation, wenn kein Shop in der Session
         
-        print(f"Dashboard aufgerufen. Tracking-Daten: {len(data.get('pageviews', []))} Pageviews, {len(data.get('clicks', []))} Clicks")
+        # Überprüfen, ob ein gültiges Access-Token vorhanden ist
+        access_token = session.get('access_token')
+        if not access_token:
+            return redirect('/install')  # Umleitung zur Installation, wenn kein Token vorhanden
+        
+        # Daten für diesen Shop laden
+        shop_data = get_shop_data(shop)
+        
+        print(f"Dashboard für Shop {shop} aufgerufen. Tracking-Daten: {len(shop_data.get('pageviews', []))} Pageviews, {len(shop_data.get('clicks', []))} Clicks")
         
         # Grundlegende Metriken berechnen
-        total_pageviews = len(data.get('pageviews', []))
-        total_clicks = len(data.get('clicks', []))
+        total_pageviews = len(shop_data.get('pageviews', []))
+        total_clicks = len(shop_data.get('clicks', []))
         
         print(f"Berechnete Metriken: {total_pageviews} Pageviews, {total_clicks} Clicks")
         
         # Unique Pages berechnen
         unique_pages_set = set()
-        for pv in data.get('pageviews', []):
+        for pv in shop_data.get('pageviews', []):
             if 'page' in pv and pv['page']:
                 unique_pages_set.add(pv['page'])
         unique_pages = len(unique_pages_set)
@@ -267,7 +285,7 @@ def dashboard():
         
         # Durchschnittliche Sitzungsdauer berechnen
         session_durations = {}
-        for pageview in data.get('pageviews', []):
+        for pageview in shop_data.get('pageviews', []):
             session_id = pageview.get('session_id', '')
             timestamp = pageview.get('timestamp', 0)
             
@@ -304,7 +322,7 @@ def dashboard():
         events = []
         
         # Pageviews hinzufügen
-        for pv in data.get('pageviews', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
+        for pv in shop_data.get('pageviews', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
             events.append({
                 'event_type': 'page_view',
                 'page_url': pv.get('page', ''),
@@ -312,7 +330,7 @@ def dashboard():
             })
         
         # Clicks hinzufügen
-        for click in data.get('clicks', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
+        for click in shop_data.get('clicks', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
             events.append({
                 'event_type': 'click',
                 'page_url': click.get('page', ''),
@@ -625,10 +643,7 @@ def debug_tracking():
 @app.route('/debug/clear_tracking')
 def clear_tracking():
     global tracking_data
-    tracking_data = {
-        'pageviews': [],
-        'clicks': []
-    }
+    tracking_data = {}
     save_tracking_data()
     return jsonify({
         'status': 'success',
