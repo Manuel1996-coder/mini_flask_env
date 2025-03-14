@@ -1,6 +1,23 @@
 (function() {
     console.log("WIZARD AI TRACKING initialized");
     
+    // Generiere eine eindeutige Session-ID
+    function generateSessionId() {
+        return 'session_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+    
+    // Hole oder erstelle Session-ID
+    function getSessionId() {
+        let sessionId = localStorage.getItem('wizard_ai_session_id');
+        if (!sessionId) {
+            sessionId = generateSessionId();
+            localStorage.setItem('wizard_ai_session_id', sessionId);
+        }
+        return sessionId;
+    }
+    
+    const sessionId = getSessionId();
+    
     // Send pageview event
     function trackPageview() {
       fetch('https://miniflaskenv-production.up.railway.app/collect', {
@@ -9,7 +26,9 @@
         body: JSON.stringify({
           event_type: 'page_view',
           page_url: window.location.href,
-          timestamp: new Date().toISOString()
+          page: window.location.pathname,
+          timestamp: Date.now(),
+          session_id: sessionId
         }),
         mode: 'cors'
       })
@@ -29,8 +48,10 @@
           body: JSON.stringify({
             event_type: 'click',
             page_url: window.location.href,
+            page: window.location.pathname,
             clicked_tag: evt.target.tagName,
-            timestamp: new Date().toISOString()
+            timestamp: Date.now(),
+            session_id: sessionId
           }),
           mode: 'cors'
         })

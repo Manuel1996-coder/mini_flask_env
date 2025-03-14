@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShoppulseAI - Layout</title>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Zentrales CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <div class="app-container">
+    {% include "sidebar.html" %}
+    <main class="main-content">
+      {% block content %}
+      <!-- Der spezifische Seiteninhalt wird hier eingefügt -->
+      {% endblock %}
+    </main>
+  </div>
+  
+  {% block scripts %}
+  <!-- Hier werden spezifische Scripts eingefügt -->
+  {% endblock %}
+</body>
+</html>

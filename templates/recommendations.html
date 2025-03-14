@@ -1,441 +1,303 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShoppulseAI – Smart Recommendations</title>
-  <style>
-    :root {
-      --primary: #4361ee;
-      --primary-light: #eef2ff;
-      --success: #10b981;
-      --success-light: #ecfdf5;
-      --neutral-50: #f9fafb;
-      --neutral-100: #f3f4f6;
-      --neutral-200: #e5e7eb;
-      --neutral-700: #374151;
-      --neutral-800: #1f2937;
-      --neutral-900: #111827;
-      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      --radius-md: 0.375rem;
-      --radius-lg: 0.5rem;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background-color: var(--neutral-100);
-      color: var(--neutral-800);
-      line-height: 1.5;
-    }
-
-    /* Header & Navigation */
-    header {
-      background-color: white;
-      box-shadow: var(--shadow-sm);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .header-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 700;
-      font-size: 1.25rem;
-      color: var(--neutral-900);
-    }
-
-    .logo-icon {
-      color: var(--primary);
-      font-size: 1.5rem;
-    }
-
-    nav {
-      display: flex;
-      gap: 1.5rem;
-    }
-
-    nav a {
-      text-decoration: none;
-      color: var(--neutral-700);
-      font-weight: 500;
-      padding: 0.5rem 0;
-      position: relative;
-      transition: color 0.2s;
-    }
-
-    nav a:hover {
-      color: var(--primary);
-    }
-
-    nav a.active {
-      color: var(--primary);
-    }
-
-    nav a.active::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background-color: var(--primary);
-      border-radius: 2px;
-    }
-
-    /* Main Content */
-    main {
-      max-width: 1000px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    .page-header {
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: var(--neutral-900);
-      margin-bottom: 0.5rem;
-    }
-
-    .subtitle {
-      color: var(--neutral-700);
-      font-size: 1.125rem;
-    }
-
-    /* Metrics Cards */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .metric-card {
-      background-color: white;
-      border-radius: var(--radius-md);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .metric-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .metric-label {
-      font-size: 0.875rem;
-      color: var(--neutral-700);
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .metric-value {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--neutral-900);
-    }
-
-    .metric-trend {
-      margin-top: 0.5rem;
-      font-size: 0.875rem;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
-    .trend-up {
-      color: var(--success);
-    }
-
-    /* Button Style für den CLV Analytics Button */
-    .clv-button {
-      display: inline-block;
-      margin: 1rem auto;
-      padding: 0.75rem 1.5rem;
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .clv-button:hover {
-      background-color: #365fc7;
-    }
-
-    /* Section Styles */
-    .section {
-      background-color: white;
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow);
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-
-    h2 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--neutral-900);
-    }
-
-    .section-action {
-      background-color: var(--primary-light);
-      color: var(--primary);
-      border: none;
-      border-radius: var(--radius-md);
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-
-    .section-action:hover {
-      background-color: #dce4ff;
-    }
-
-    /* Recommendations */
-    .recommendation {
-      background-color: var(--success-light);
-      border-left: 4px solid var(--success);
-      padding: 1rem 1.25rem;
-      margin-bottom: 1rem;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      animation: slideIn 0.3s ease-out;
-    }
-
-    .recommendation-icon {
-      color: var(--success);
-      flex-shrink: 0;
-      margin-top: 0.125rem;
-    }
-
-    .recommendation-content {
-      flex: 1;
-    }
-
-    .ai-recommendations {
-      background-color: var(--primary-light);
-      border-left: 4px solid var(--primary);
-      padding: 1rem 1.25rem;
-      border-radius: var(--radius-md);
-      animation: slideIn 0.3s ease-out;
-    }
-
-    .ai-header {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-      color: var(--primary);
-      font-weight: 600;
-    }
-
-    .ai-content {
-      white-space: pre-wrap;
-      line-height: 1.6;
-    }
-
-    /* Animations */
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .metrics-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .section-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-      }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="header-container">
-      <div class="logo">
-        <span class="logo-icon">⚡</span>
-        <span>ShoppulseAI</span>
+{% extends "layout.html" %}
+{% block content %}
+  <div class="header">
+    <h1 class="page-title">AI Recommendations</h1>
+    <div class="header-actions">
+      <div class="date-filter">
+        <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
+        Last 7 days
       </div>
-      <nav>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/recommendations" class="active">Empfehlungen</a>
-        <a href="/clv-analytics">CLV Analytics</a>
-        <a href="/settings">Einstellungen</a>
-      </nav>
+      <button class="export-btn">
+        <span class="export-icon"><i class="fas fa-download"></i></span>
+        Export
+      </button>
     </div>
-  </header>
-
-  <main>
-    <div class="page-header">
-      <h1>Smart Recommendations</h1>
-      <p class="subtitle">Datenbasierte Vorschläge zur Conversion-Optimierung</p>
+  </div>
+  
+  <!-- Summary Cards -->
+  <section class="summary-section">
+    <div class="section-header">
+      <h2 class="section-title">Performance Übersicht</h2>
     </div>
-
-    <!-- Metrics Grid -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-label">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 12h5l2 3h6l2-3h5"></path>
-          </svg>
-          Seitenaufrufe
-        </div>
-        <div class="metric-value">{{ total_pageviews }}</div>
-        <div class="metric-trend trend-up">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 15l-6-6-6 6"></path>
-          </svg>
-          12% vs. Vorwoche
-        </div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-label">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-          </svg>
-          Klicks
-        </div>
-        <div class="metric-value">{{ total_clicks }}</div>
-        <div class="metric-trend trend-up">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 15l-6-6-6 6"></path>
-          </svg>
-          8% vs. Vorwoche
-        </div>
-      </div>
-
-      <div class="metric-card">
-        <div class="metric-label">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 6v6l4 2"></path>
-          </svg>
-          Click-Through-Rate
-        </div>
-        <div class="metric-value">{{ click_rate }}%</div>
-        <div class="metric-trend trend-up">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 15l-6-6-6 6"></path>
-          </svg>
-          5% vs. Vorwoche
-        </div>
-      </div>
-    </div>
-
-    <!-- Neuer Button für CLV Analytics -->
-    <div style="text-align: center;">
-      <button class="clv-button" onclick="window.location.href='/clv-analytics'">Zu CLV Analytics</button>
-    </div>
-
-    <!-- Rule-based recommendations -->
-    <section class="section">
-      <div class="section-header">
-        <h2>Regelbasierte Empfehlungen</h2>
-        <button class="section-action">Alle implementieren</button>
-      </div>
-
-      {% if recommendations %}
-        {% for rec in recommendations %}
-          <div class="recommendation">
-            <div class="recommendation-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                <circle cx="12" cy="17" r="1"></circle>
-              </svg>
-            </div>
-            <div class="recommendation-content">{{ rec }}</div>
+    <div class="summary-container">
+      <!-- Summary Card: Page Views -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Page Views</span>
+          <div class="card-icon">
+            <i class="fas fa-eye"></i>
           </div>
-        {% endfor %}
+        </div>
+        <div class="card-value">{{ total_pageviews|default(0) }}</div>
+        <div class="card-trend {% if total_pageviews > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Seitenaufrufe
+        </div>
+      </div>
+  
+      <!-- Summary Card: Total Clicks -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Total Clicks</span>
+          <div class="card-icon">
+            <i class="fas fa-mouse-pointer"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ total_clicks|default(0) }}</div>
+        <div class="card-trend {% if total_clicks > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Klicks
+        </div>
+      </div>
+  
+      <!-- Summary Card: Click Rate -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Click Rate</span>
+          <div class="card-icon">
+            <i class="fas fa-percentage"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ click_rate|default(0) }}%</div>
+        <div class="card-trend {% if click_rate > 2 %}trend-up{% else %}trend-down{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Klickrate
+        </div>
+      </div>
+
+      <!-- Summary Card: Avg. Clicks per Page -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Durchschnittliche Klicks pro Seite</span>
+          <div class="card-icon">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ avg_clicks_per_page|default(0) }}</div>
+        <div class="card-trend {% if avg_clicks_per_page > 1 %}trend-up{% else %}trend-down{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Interaktionsrate pro Seite
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- AI-Powered Recommendations -->
+  <section class="ai-recommendations">
+    <div class="ai-header">
+      <div class="ai-icon">
+        <i class="fas fa-robot"></i>
+      </div>
+      <h2 class="ai-title">KI-Empfehlungen</h2>
+    </div>
+    <div class="ai-recommendations-list">
+      {% if gpt_text %}
+        <div class="ai-rec-item">
+          <div class="ai-rec-title">
+            <span class="ai-rec-icon"><i class="fas fa-lightbulb"></i></span>
+            KI-Analyse
+          </div>
+          <p class="ai-rec-text">
+            {{ gpt_text }}
+          </p>
+        </div>
       {% else %}
-        <div class="recommendation">
-          <div class="recommendation-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
+        <div class="ai-rec-item">
+          <div class="ai-rec-title">
+            <span class="ai-rec-icon"><i class="fas fa-lightbulb"></i></span>
+            Keine KI-Empfehlungen verfügbar
           </div>
-          <div class="recommendation-content">Alles sieht gut aus – keine speziellen Empfehlungen!</div>
+          <p class="ai-rec-text">
+            Sammle mehr Daten für bessere Insights. Die KI benötigt ausreichend Nutzerdaten, um sinnvolle Empfehlungen zu generieren.
+          </p>
         </div>
       {% endif %}
-    </section>
-
-    <!-- AI recommendations -->
-    <section class="section">
-      <div class="section-header">
-        <h2>KI-Analysen & Empfehlungen</h2>
-        <button class="section-action">Neu generieren</button>
+    </div>
+  </section>
+  
+  <!-- Category-specific Recommendations -->
+  <section class="summary-section">
+    <div class="section-header">
+      <h2 class="section-title">Kategorisierte Empfehlungen</h2>
+      <div class="table-actions">
+        <select class="table-filter" id="categoryFilter">
+          <option value="all">Alle Kategorien</option>
+          <option value="conversion">Conversion Rate</option>
+          <option value="ux">User Experience</option>
+          <option value="technical">Technical SEO</option>
+        </select>
       </div>
-
-      <div class="ai-recommendations">
-        <div class="ai-header">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 8V4H8"></path>
-            <rect width="16" height="12" x="4" y="8" rx="2"></rect>
-            <path d="M2 14h2"></path>
-            <path d="M20 14h2"></path>
-            <path d="M15 13v2"></path>
-            <path d="M9 13v2"></path>
-          </svg>
-          KI-Analyse
+    </div>
+    
+    <div class="recommendations-grid">
+      <!-- Conversion Recommendations -->
+      <div class="recommendation-category" data-category="conversion">
+        <div class="category-header">
+          <i class="fas fa-wallet"></i>
+          <h3>Conversion Rate</h3>
         </div>
-        <div class="ai-content">{{ gpt_text }}</div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.conversion %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine Conversion-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
       </div>
-    </section>
-  </main>
 
-</body>
-</html>
+      <!-- UX Recommendations -->
+      <div class="recommendation-category" data-category="ux">
+        <div class="category-header">
+          <i class="fas fa-magic"></i>
+          <h3>User Experience</h3>
+        </div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.ux %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine UX-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Technical Recommendations -->
+      <div class="recommendation-category" data-category="technical">
+        <div class="category-header">
+          <i class="fas fa-tools"></i>
+          <h3>Technical SEO</h3>
+        </div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.technical %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine Technical-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Implementation Status -->
+  <section class="table-container">
+    <div class="table-header">
+      <h3 class="table-title">Implementierungsstatus</h3>
+      <div class="table-actions">
+        <select class="table-filter" id="statusFilter">
+          <option value="all">Alle Status</option>
+          <option value="high">Hohe Priorität</option>
+          <option value="medium">Mittlere Priorität</option>
+          <option value="low">Niedrige Priorität</option>
+        </select>
+        <div class="search-box">
+          <span class="search-icon"><i class="fas fa-search"></i></span>
+          <input type="text" class="search-input" placeholder="Empfehlungen durchsuchen...">
+        </div>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Priorität</th>
+          <th>Empfehlung</th>
+          <th>Kategorie</th>
+          <th>Einfluss</th>
+          <th>Aufwand</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if recommendations %}
+          {% for rec in recommendations %}
+          <tr>
+            <td><span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span></td>
+            <td>{{ rec.title }}</td>
+            <td>{{ rec.category }}</td>
+            <td>{{ rec.impact }}</td>
+            <td>{{ rec.effort }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" style="text-align: center;">Keine Empfehlungen verfügbar</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    
+    <div class="pagination">
+      <div class="page-info">Showing 1 to {{ recommendations|length if recommendations else 0 }} of {{ recommendations|length if recommendations else 0 }} entries</div>
+      <div class="page-buttons">
+        <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Kategorie-Filter Funktionalität
+    document.getElementById('categoryFilter').addEventListener('change', function(e) {
+      const selectedCategory = e.target.value;
+      const categories = document.querySelectorAll('.recommendation-category');
+      
+      categories.forEach(category => {
+        if (selectedCategory === 'all' || category.dataset.category === selectedCategory) {
+          category.style.display = 'block';
+        } else {
+          category.style.display = 'none';
+        }
+      });
+    });
+
+    // Status-Filter Funktionalität
+    document.getElementById('statusFilter').addEventListener('change', function(e) {
+      const selectedStatus = e.target.value;
+      const rows = document.querySelectorAll('tbody tr');
+      
+      rows.forEach(row => {
+        const priorityBadge = row.querySelector('.priority-badge');
+        if (selectedStatus === 'all' || priorityBadge.classList.contains(`priority-${selectedStatus}`)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+  </script>
+{% endblock %}
