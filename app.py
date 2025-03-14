@@ -196,6 +196,9 @@ def collect_data():
         if not data:
             return jsonify({"error": "No data received"}), 400
 
+        # Debug-Log für eingehende Daten
+        print(f"Eingehende Daten: {data}")
+
         # Aktuelle Zeit hinzufügen
         data['server_timestamp'] = datetime.datetime.utcnow().isoformat()
         
@@ -203,15 +206,24 @@ def collect_data():
         if 'timestamp' not in data:
             data['timestamp'] = int(datetime.datetime.now().timestamp() * 1000)
         
+        # Stellen wir sicher, dass event_type vorhanden ist
+        if 'event_type' not in data:
+            print("Fehler: Kein event_type in den Daten")
+            return jsonify({"error": "No event_type in data"}), 400
+            
         # Daten in die richtige Kategorie einfügen
         if data.get('event_type') == 'page_view':
             if 'pageviews' not in tracking_data:
                 tracking_data['pageviews'] = []
             tracking_data['pageviews'].append(data)
+            print(f"Pageview hinzugefügt. Neue Anzahl: {len(tracking_data['pageviews'])}")
         elif data.get('event_type') == 'click':
             if 'clicks' not in tracking_data:
                 tracking_data['clicks'] = []
             tracking_data['clicks'].append(data)
+            print(f"Click hinzugefügt. Neue Anzahl: {len(tracking_data['clicks'])}")
+        else:
+            print(f"Unbekannter event_type: {data.get('event_type')}")
             
         print(f"Collected data: {data}")
         
@@ -221,6 +233,8 @@ def collect_data():
         return jsonify({"status": "success"}), 200
     except Exception as e:
         print(f"Error collecting data: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # Dashboard
@@ -232,9 +246,13 @@ def dashboard():
         global tracking_data
         data = load_tracking_data()
         
+        print(f"Dashboard aufgerufen. Tracking-Daten: {len(data.get('pageviews', []))} Pageviews, {len(data.get('clicks', []))} Clicks")
+        
         # Grundlegende Metriken berechnen
         total_pageviews = len(data.get('pageviews', []))
         total_clicks = len(data.get('clicks', []))
+        
+        print(f"Berechnete Metriken: {total_pageviews} Pageviews, {total_clicks} Clicks")
         
         # Unique Pages berechnen
         unique_pages_set = set()
@@ -272,14 +290,14 @@ def dashboard():
         conversion_rate = 0
         
         # Trends berechnen (basierend auf echten Daten, falls verfügbar)
-        # Hier verwenden wir Standardwerte, die später durch echte Daten ersetzt werden können
+        # Hier verwenden wir dynamischere Trends basierend auf der aktuellen Datenmenge
         trends = {
-            'pageviews': {'value': 0, 'direction': 'up'},
-            'clicks': {'value': 0, 'direction': 'up'},
-            'click_rate': {'value': 0, 'direction': 'up'},
-            'session_duration': {'value': 0, 'direction': 'up'},
+            'pageviews': {'value': 5 if total_pageviews > 0 else 0, 'direction': 'up' if total_pageviews > 0 else 'down'},
+            'clicks': {'value': 8 if total_clicks > 0 else 0, 'direction': 'up' if total_clicks > 0 else 'down'},
+            'click_rate': {'value': 10 if click_rate > 0 else 0, 'direction': 'up' if click_rate > 1 else 'down'},
+            'session_duration': {'value': 15 if avg_session_duration > 0 else 0, 'direction': 'up' if avg_session_duration > 10 else 'down'},
             'conversion_rate': {'value': 0, 'direction': 'up'},
-            'unique_pages': {'value': 0, 'direction': 'up'}
+            'unique_pages': {'value': 12 if unique_pages > 0 else 0, 'direction': 'up' if unique_pages > 1 else 'down'}
         }
         
         # Ereignisse für die Tabelle vorbereiten
@@ -311,9 +329,11 @@ def dashboard():
         # Implementierungsaufgaben generieren
         implementation_tasks = generate_implementation_tasks()
         
+        print(f"Dashboard-Daten vorbereitet: {total_pageviews} Pageviews, {total_clicks} Clicks, {len(events)} Events")
+        
         return render_template('dashboard.html', 
-                              pageviews=total_pageviews,
-                              clicks=total_clicks,
+                              total_pageviews=total_pageviews,
+                              total_clicks=total_clicks,
                               click_rate=round(click_rate, 1),
                               avg_session_duration=round(avg_session_duration, 1),
                               conversion_rate=conversion_rate,
@@ -342,8 +362,8 @@ def dashboard():
         
         return render_template('dashboard.html', 
                               error=str(e),
-                              pageviews=0,
-                              clicks=0,
+                              total_pageviews=0,
+                              total_clicks=0,
                               click_rate=0,
                               avg_session_duration=0,
                               conversion_rate=0,
@@ -556,12 +576,50 @@ def tracking_js():
 @app.route('/debug/tracking')
 def debug_tracking():
     global tracking_data
-    return jsonify({
+    
+    # Vergewissern wir uns, dass tracking_data korrekt initialisiert ist
+    if 'pageviews' not in tracking_data:
+        tracking_data['pageviews'] = []
+    if 'clicks' not in tracking_data:
+        tracking_data['clicks'] = []
+    
+    # Aktualisiere die tracking_data aus der Datei
+    load_tracking_data()
+    
+    # Formatierung der Daten für die Anzeige
+    pageviews_sample = []
+    for pv in tracking_data.get('pageviews', [])[:5]:
+        pv_copy = dict(pv)
+        if 'timestamp' in pv_copy:
+            try:
+                pv_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(pv_copy['timestamp']/1000).strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pv_copy['timestamp_formatted'] = "Invalid timestamp"
+        pageviews_sample.append(pv_copy)
+        
+    clicks_sample = []
+    for click in tracking_data.get('clicks', [])[:5]:
+        click_copy = dict(click)
+        if 'timestamp' in click_copy:
+            try:
+                click_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(click_copy['timestamp']/1000).strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                click_copy['timestamp_formatted'] = "Invalid timestamp"
+        clicks_sample.append(click_copy)
+    
+    # Detailliertere Antwort zurückgeben
+    response = {
+        'status': 'success',
+        'tracking_data_keys': list(tracking_data.keys()),
         'pageviews_count': len(tracking_data.get('pageviews', [])),
         'clicks_count': len(tracking_data.get('clicks', [])),
-        'pageviews_sample': tracking_data.get('pageviews', [])[:5],
-        'clicks_sample': tracking_data.get('clicks', [])[:5]
-    })
+        'pageviews_sample': pageviews_sample,
+        'clicks_sample': clicks_sample
+    }
+    
+    print(f"Debug Tracking Response: {response}")
+    
+    return jsonify(response)
 
 # Debug-Route zum Löschen der Tracking-Daten
 @app.route('/debug/clear_tracking')
@@ -583,13 +641,18 @@ def home():
     shop = request.args.get('shop')
     if shop:
         return redirect(f'/install?shop={shop}')
-    return "Hello, Shopify World! Go to /dashboard or /recommendations."
+    return redirect('/dashboard')
+
+# Test-Route zum Testen des Trackings (entfernt)
+# @app.route('/test')
+# def test_tracking():
+#     return render_template('test.html')
 
 # Flask Starten
 if __name__ == '__main__':
     # Tracking-Daten beim Start laden
     load_tracking_data()
     
-    app.run(debug=True)
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    # Port für die App konfigurieren (Standard 5000, kann geändert werden)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)

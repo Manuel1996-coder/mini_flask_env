@@ -252,111 +252,6 @@
     </div>
   </section>
   
-  <!-- AI-Powered Recommendations 
-  <section class="ai-recommendations">
-    <div class="ai-header">
-      <div class="ai-icon">
-        <i class="fas fa-robot"></i>
-      </div>
-      <h2 class="ai-title">AI-Powered Recommendations</h2>
-    </div>
-    <div class="ai-recommendations-list">
-      <div class="ai-rec-item">
-        <div class="ai-rec-title">
-          <span class="ai-rec-icon"><i class="fas fa-bullseye"></i></span>
-          Optimize Call-to-Action
-        </div>
-        <p class="ai-rec-text">
-          Your click rate on product pages is below average. Try using more action-oriented button text and increase visual contrast.
-        </p>
-      </div>
-      <div class="ai-rec-item">
-        <div class="ai-rec-title">
-          <span class="ai-rec-icon"><i class="fas fa-clock"></i></span>
-          Reduce Cart Abandonment
-        </div>
-        <p class="ai-rec-text">
-          Visitors spend 45 seconds on checkout. Simplify your process or add progress indicators.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  -->
-  
-  <!-- Charts Row -->
-  <div class="charts-row">
-    <div class="chart-container">
-      <div class="chart-header">
-        <h3 class="chart-title">Traffic & Engagement Trends</h3>
-        <div class="chart-legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background: var(--primary);"></div>
-            Page Views
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: var(--secondary);"></div>
-            Clicks
-          </div>
-        </div>
-      </div>
-      <div class="chart-placeholder">
-        <img src="https://via.placeholder.com/700x300" alt="Placeholder for traffic chart">
-      </div>
-    </div>
-    
-    <div class="chart-container">
-      <div class="chart-header">
-        <h3 class="chart-title">Top Products</h3>
-      </div>
-      <div class="chart-placeholder">
-        <img src="https://via.placeholder.com/300x300" alt="Placeholder for products chart">
-      </div>
-    </div>
-  </div>
-  
-  <!-- Behavior Insights 
-  <section class="summary-section">
-    <div class="section-header">
-      <h2 class="section-title">Behavior Insights</h2>
-    </div>
-    <div class="insights-container"> -->
-      <!-- Insight Card: Avg. Session Duration 
-      <div class="insight-card">
-        <div class="insight-icon">
-          <i class="fas fa-hourglass-half"></i>
-        </div>
-        <div class="insight-title">Avg. Session Duration</div>
-        <div class="insight-value">2m 45s</div>
-        <p class="insight-description">Time spent by visitors browsing your store</p>
-      </div>
-    -->
-      <!-- Insight Card: Pages per Session 
-      <div class="insight-card">
-        <div class="insight-icon">
-          <i class="fas fa-route"></i>
-        </div>
-        <div class="insight-title">Pages per Session</div>
-        <div class="insight-value">3.8</div>
-        <p class="insight-description">Number of pages viewed in an average session</p>
-      </div>
-  -->
-      <!-- Insight Card: Add to Cart Rate
-      <div class="insight-card">
-        <div class="insight-icon">
-          <i class="fas fa-shopping-bag"></i>
-        </div>
-        <div class="insight-title">Add to Cart Rate</div>
-        <div class="insight-value">14.2%</div>
-        <p class="insight-description">Percentage of visits resulting in items added to cart</p>
-      </div>
-    </div>
-  </section>
-
-
-
-   -->
-  
   <!-- Event Data Table -->
   <section class="table-container">
     <div class="table-header">
@@ -418,19 +313,13 @@
 
 {% block scripts %}
 <script>
+  // Daten aus dem Backend in JavaScript-Variablen speichern
+  var dashboardData = {
+    pageviews: parseInt("{{ total_pageviews|default(0) }}"),
+    clicks: parseInt("{{ total_clicks|default(0) }}")
+  };
+
   document.addEventListener('DOMContentLoaded', function() {
-    // Auto-Refresh des Dashboards alle 10 Sekunden
-    function setupAutoRefresh() {
-      const refreshInterval = 10000; // 10 Sekunden
-      setInterval(function() {
-        console.log("Auto-refreshing dashboard...");
-        location.reload();
-      }, refreshInterval);
-    }
-    
-    // Auto-Refresh aktivieren
-    setupAutoRefresh();
-    
     // Export-Funktionalität für das gesamte Dashboard
     const dashboardExportBtn = document.getElementById('export-dashboard-btn');
     if (dashboardExportBtn) {
@@ -444,12 +333,12 @@
       // KPI-Daten sammeln
       const kpiData = [
         ['Metrik', 'Wert', 'Trend'],
-        ['Page Views', '{{ pageviews }}', '{{ trends.pageviews.value }}%'],
-        ['Clicks', '{{ clicks }}', '{{ trends.clicks.value }}%'],
-        ['Click Rate', '{{ click_rate }}%', '{{ trends.click_rate.value }}%'],
-        ['Durchschnittliche Verweildauer', '{{ avg_session_duration }}s', '{{ trends.session_duration.value }}%'],
-        ['Conversion Rate', '{{ conversion_rate }}%', '{{ trends.conversion_rate.value }}%'],
-        ['Unique Pages', '{{ unique_pages }}', '{{ trends.unique_pages.value }}%']
+        ['Page Views', '{{ total_pageviews|default(0) }}', '{{ trends.pageviews.value }}%'],
+        ['Clicks', '{{ total_clicks|default(0) }}', '{{ trends.clicks.value }}%'],
+        ['Click Rate', '{{ click_rate|default(0) }}%', '{{ trends.click_rate.value }}%'],
+        ['Durchschnittliche Verweildauer', '{{ avg_session_duration|default(0) }}s', '{{ trends.session_duration.value }}%'],
+        ['Conversion Rate', '{{ conversion_rate|default(0) }}%', '{{ trends.conversion_rate.value }}%'],
+        ['Unique Pages', '{{ unique_pages|default(0) }}', '{{ trends.unique_pages.value }}%']
       ];
       
       // CSV erstellen
