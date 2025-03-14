@@ -18,9 +18,22 @@
     
     const sessionId = getSessionId();
     
+    // Bestimme die Basis-URL basierend auf der aktuellen Umgebung
+    function getBaseUrl() {
+        // Wenn wir lokal sind, verwende die lokale URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return window.location.origin;
+        }
+        // Ansonsten verwende die Railway-URL
+        return 'https://miniflaskenv-production.up.railway.app';
+    }
+    
+    const baseUrl = getBaseUrl();
+    console.log("Using base URL for tracking:", baseUrl);
+    
     // Send pageview event
     function trackPageview() {
-      fetch('https://miniflaskenv-production.up.railway.app/collect', {
+      fetch(baseUrl + '/collect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,7 +55,7 @@
     // Send click event
     function setupClickTracking() {
       document.addEventListener('click', function(evt) {
-        fetch('https://miniflaskenv-production.up.railway.app/collect', {
+        fetch(baseUrl + '/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

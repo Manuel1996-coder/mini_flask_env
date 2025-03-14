@@ -419,6 +419,18 @@
 {% block scripts %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Auto-Refresh des Dashboards alle 10 Sekunden
+    function setupAutoRefresh() {
+      const refreshInterval = 10000; // 10 Sekunden
+      setInterval(function() {
+        console.log("Auto-refreshing dashboard...");
+        location.reload();
+      }, refreshInterval);
+    }
+    
+    // Auto-Refresh aktivieren
+    setupAutoRefresh();
+    
     // Export-Funktionalität für das gesamte Dashboard
     const dashboardExportBtn = document.getElementById('export-dashboard-btn');
     if (dashboardExportBtn) {

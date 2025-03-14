@@ -12,10 +12,13 @@ import uuid
 # Environment-Variablen laden
 load_dotenv()
 
+# Pfad zur Tracking-Datendatei
+TRACKING_DATA_FILE = 'tracking_data.json'
+
 # Flask App konfigurieren
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
-CORS(app, resources={r"/collect": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Shopify API Keys aus der .env Datei
 SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
@@ -32,9 +35,28 @@ tracking_data = {
     'clicks': []
 }
 
-def load_tracking_data():
-    """Lädt die Tracking-Daten aus dem globalen Dictionary."""
+def save_tracking_data():
+    """Speichert die Tracking-Daten in einer JSON-Datei."""
     global tracking_data
+    try:
+        with open(TRACKING_DATA_FILE, 'w') as f:
+            json.dump(tracking_data, f)
+        print(f"Tracking-Daten in {TRACKING_DATA_FILE} gespeichert.")
+    except Exception as e:
+        print(f"Fehler beim Speichern der Tracking-Daten: {e}")
+
+def load_tracking_data():
+    """Lädt die Tracking-Daten aus einer JSON-Datei oder dem globalen Dictionary."""
+    global tracking_data
+    
+    # Versuche, die Daten aus der Datei zu laden
+    try:
+        if os.path.exists(TRACKING_DATA_FILE):
+            with open(TRACKING_DATA_FILE, 'r') as f:
+                tracking_data = json.load(f)
+                print(f"Tracking-Daten aus {TRACKING_DATA_FILE} geladen.")
+    except Exception as e:
+        print(f"Fehler beim Laden der Tracking-Daten: {e}")
     
     # Wenn keine Daten vorhanden sind, initialisiere leere Listen
     if 'pageviews' not in tracking_data:
@@ -192,6 +214,10 @@ def collect_data():
             tracking_data['clicks'].append(data)
             
         print(f"Collected data: {data}")
+        
+        # Tracking-Daten speichern
+        save_tracking_data()
+        
         return jsonify({"status": "success"}), 200
     except Exception as e:
         print(f"Error collecting data: {e}")
@@ -203,15 +229,16 @@ def dashboard():
     """Dashboard-Seite mit Analysen und Empfehlungen."""
     try:
         # Daten aus dem globalen Dictionary laden
-        tracking_data = load_tracking_data()
+        global tracking_data
+        data = load_tracking_data()
         
         # Grundlegende Metriken berechnen
-        total_pageviews = len(tracking_data.get('pageviews', []))
-        total_clicks = len(tracking_data.get('clicks', []))
+        total_pageviews = len(data.get('pageviews', []))
+        total_clicks = len(data.get('clicks', []))
         
         # Unique Pages berechnen
         unique_pages_set = set()
-        for pv in tracking_data.get('pageviews', []):
+        for pv in data.get('pageviews', []):
             if 'page' in pv and pv['page']:
                 unique_pages_set.add(pv['page'])
         unique_pages = len(unique_pages_set)
@@ -222,7 +249,7 @@ def dashboard():
         
         # Durchschnittliche Sitzungsdauer berechnen
         session_durations = {}
-        for pageview in tracking_data.get('pageviews', []):
+        for pageview in data.get('pageviews', []):
             session_id = pageview.get('session_id', '')
             timestamp = pageview.get('timestamp', 0)
             
@@ -259,7 +286,7 @@ def dashboard():
         events = []
         
         # Pageviews hinzufügen
-        for pv in tracking_data.get('pageviews', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
+        for pv in data.get('pageviews', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
             events.append({
                 'event_type': 'page_view',
                 'page_url': pv.get('page', ''),
@@ -267,7 +294,7 @@ def dashboard():
             })
         
         # Clicks hinzufügen
-        for click in tracking_data.get('clicks', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
+        for click in data.get('clicks', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
             events.append({
                 'event_type': 'click',
                 'page_url': click.get('page', ''),
@@ -525,6 +552,31 @@ def customers_create():
 def tracking_js():
     return app.send_static_file('tracking.js')
 
+# Debug-Route zum Anzeigen der Tracking-Daten
+@app.route('/debug/tracking')
+def debug_tracking():
+    global tracking_data
+    return jsonify({
+        'pageviews_count': len(tracking_data.get('pageviews', [])),
+        'clicks_count': len(tracking_data.get('clicks', [])),
+        'pageviews_sample': tracking_data.get('pageviews', [])[:5],
+        'clicks_sample': tracking_data.get('clicks', [])[:5]
+    })
+
+# Debug-Route zum Löschen der Tracking-Daten
+@app.route('/debug/clear_tracking')
+def clear_tracking():
+    global tracking_data
+    tracking_data = {
+        'pageviews': [],
+        'clicks': []
+    }
+    save_tracking_data()
+    return jsonify({
+        'status': 'success',
+        'message': 'Tracking-Daten wurden gelöscht.'
+    })
+
 # Home Route
 @app.route('/')
 def home():
@@ -535,6 +587,9 @@ def home():
 
 # Flask Starten
 if __name__ == '__main__':
+    # Tracking-Daten beim Start laden
+    load_tracking_data()
+    
     app.run(debug=True)
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
