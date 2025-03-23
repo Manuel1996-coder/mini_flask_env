@@ -1,5 +1,5 @@
 (function() {
-    console.log("WIZARD AI TRACKING initialized");
+    console.log("WIZARD AI TRACKING initialized - Debug Version");
     
     // Generiere eine eindeutige Session-ID
     function generateSessionId() {
@@ -12,12 +12,24 @@
         if (!sessionId) {
             sessionId = generateSessionId();
             localStorage.setItem('wizard_ai_session_id', sessionId);
+            console.log("🆕 Neue Session ID generiert:", sessionId);
         }
         return sessionId;
     }
     
     const sessionId = getSessionId();
-    console.log("Session ID:", sessionId);
+    console.log("🔑 Session ID:", sessionId);
+    
+    // Shopify-Shop prüfen
+    if (typeof Shopify === 'undefined' || !Shopify.shop) {
+        console.error("❌ FEHLER: Shopify-Objekt nicht gefunden. Tracking wird nicht funktionieren!");
+        console.log("🔍 Window-Objekte:", Object.keys(window).filter(key => key.includes('shop')));
+        // Manuelles Fallback - nur für Debug-Zwecke
+        window.Shopify = window.Shopify || { shop: 'test-shop.example.com' };
+        console.log("⚠️ Fallback-Shop gesetzt:", window.Shopify.shop);
+    } else {
+        console.log("✅ Shopify Shop erkannt:", Shopify.shop);
+    }
     
     // Bestimme die Basis-URL basierend auf der aktuellen Umgebung
     function getBaseUrl() {
@@ -30,7 +42,7 @@
     }
     
     const baseUrl = getBaseUrl();
-    console.log("Using base URL for tracking:", baseUrl);
+    console.log("🌐 Using base URL for tracking:", baseUrl);
     
     // Send pageview event
     function trackPageview() {
@@ -43,7 +55,7 @@
         shop_domain: Shopify.shop
       };
       
-      console.log("Sending pageview data:", data);
+      console.log("📊 Sending pageview data:", data);
       
       fetch(baseUrl + '/collect', {
         method: 'POST',
@@ -53,18 +65,22 @@
       })
       .then(response => {
         if (response.ok) {
-          console.log("Pageview tracked successfully");
+          console.log("✅ Pageview tracked successfully");
           return response.json();
         } else {
-          console.error("Pageview tracking failed:", response.status);
+          console.error("❌ Pageview tracking failed:", response.status);
+          // Zusätzliches Debugging
+          response.text().then(text => {
+            console.error("Response Text:", text);
+          });
           throw new Error("Pageview tracking failed: " + response.status);
         }
       })
       .then(data => {
-        console.log("Server response:", data);
+        console.log("🔄 Server response:", data);
       })
       .catch(err => {
-        console.error('Pageview tracking failed:', err);
+        console.error('❌ Pageview tracking failed:', err);
       });
     }
     
@@ -81,7 +97,7 @@
           shop_domain: Shopify.shop
         };
         
-        console.log("Sending click data:", data);
+        console.log("👆 Sending click data:", data);
         
         fetch(baseUrl + '/collect', {
           method: 'POST',
@@ -91,24 +107,30 @@
         })
         .then(response => {
           if (response.ok) {
-            console.log("Click tracked successfully");
+            console.log("✅ Click tracked successfully");
             return response.json();
           } else {
-            console.error("Click tracking failed:", response.status);
+            console.error("❌ Click tracking failed:", response.status);
+            // Zusätzliches Debugging
+            response.text().then(text => {
+              console.error("Response Text:", text);
+            });
             throw new Error("Click tracking failed: " + response.status);
           }
         })
         .then(data => {
-          console.log("Server response:", data);
+          console.log("🔄 Server response:", data);
         })
         .catch(err => {
-          console.error('Click tracking failed:', err);
+          console.error('❌ Click tracking failed:', err);
         });
       });
     }
     
     // Füge manuelles Tracking für Testzwecke hinzu
     window.manualTrack = function(eventType) {
+      console.log("🧪 Manual tracking requested:", eventType);
+      
       if (eventType === 'pageview') {
         trackPageview();
       } else if (eventType === 'click') {
@@ -122,7 +144,7 @@
           shop_domain: Shopify.shop
         };
         
-        console.log("Sending manual click data:", data);
+        console.log("🔧 Sending manual click data:", data);
         
         fetch(baseUrl + '/collect', {
           method: 'POST',
@@ -132,30 +154,63 @@
         })
         .then(response => {
           if (response.ok) {
-            console.log("Manual click tracked successfully");
+            console.log("✅ Manual click tracked successfully");
             return response.json();
           } else {
-            console.error("Manual click tracking failed:", response.status);
+            console.error("❌ Manual click tracking failed:", response.status);
+            // Zusätzliches Debugging
+            response.text().then(text => {
+              console.error("Response Text:", text);
+            });
             throw new Error("Manual click tracking failed: " + response.status);
           }
         })
         .then(data => {
-          console.log("Server response:", data);
+          console.log("🔄 Server response:", data);
         })
         .catch(err => {
-          console.error('Manual click tracking failed:', err);
+          console.error('❌ Manual click tracking failed:', err);
         });
       }
     };
     
+    // Testet den Status der Verbindung zum Server
+    function testServerConnection() {
+      console.log("🔄 Testing server connection...");
+      fetch(baseUrl + '/ping', { mode: 'cors' })
+        .then(response => {
+          if (response.ok) {
+            console.log("✅ Server is reachable");
+            return response.text();
+          } else {
+            console.warn("⚠️ Server responded with status:", response.status);
+            throw new Error("Server responded with status: " + response.status);
+          }
+        })
+        .then(data => {
+          console.log("📡 Server response:", data);
+        })
+        .catch(err => {
+          console.error("❌ Cannot reach server:", err);
+          console.log("⚙️ Will try to continue tracking anyway");
+        });
+    }
+    
+    // Testen der Verbindung
+    testServerConnection();
+    
     // Wait for DOM to be fully loaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
+        console.log("📄 DOM fully loaded, initializing tracking");
         trackPageview();
         setupClickTracking();
       });
     } else {
+      console.log("📄 DOM already loaded, initializing tracking");
       trackPageview();
       setupClickTracking();
     }
+    
+    console.log("✅ WIZARD AI TRACKING setup complete");
   })();

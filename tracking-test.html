@@ -1,0 +1,30 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Tracking Test</title>
+        <script>
+            // Definiere ein Dummy-Shopify-Objekt, falls es nicht existiert
+            window.Shopify = window.Shopify || { shop: 'test-shop.example.com' };
+        </script>
+        <script src="/static/js/tracking.js"></script>
+    </head>
+    <body>
+        <h1>Tracking Test Seite</h1>
+        <p>Diese Seite ist zum Testen des Tracking-Scripts. Öffne die Browser-Konsole, um die Tracking-Logs zu sehen.</p>
+        
+        <button id="pageviewBtn">Manuellen Pageview senden</button>
+        <button id="clickBtn">Manuellen Click senden</button>
+        
+        <script>
+            document.getElementById('pageviewBtn').addEventListener('click', function() {
+                window.manualTrack('pageview');
+            });
+            
+            document.getElementById('clickBtn').addEventListener('click', function() {
+                window.manualTrack('click');
+            });
+        </script>
+    </body>
+    </html>
+    

@@ -338,60 +338,92 @@ def auth_callback():
     return redirect('/dashboard')
 
 # Tracking
-@app.route('/collect', methods=['POST'])
-def collect_data():
-    """Sammelt Tracking-Daten von der Website."""
-    global tracking_data
+@app.route('/collect', methods=['POST', 'OPTIONS'])
+def collect():
+    """Sammelt Tracking-Daten von Shopify-Shops."""
+    
+    # CORS für OPTIONS-Anfragen
+    if request.method == 'OPTIONS':
+        response = Response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
     
     try:
+        # Debugging: Anfragedaten protokollieren
+        print(f"🔍 Tracking-Anfrage erhalten: {request.method}")
+        print(f"🔍 Content-Type: {request.headers.get('Content-Type')}")
+        print(f"🔍 Daten: {request.data}")
+        
         data = request.json
+        
         if not data:
-            return jsonify({"error": "No data received"}), 400
-
-        # Debug-Log für eingehende Daten
-        print(f"Eingehende Daten: {data}")
+            print("⚠️ Keine JSON-Daten in der Anfrage gefunden")
+            return jsonify({"error": "No JSON data provided"}), 400
         
-        # Shop-Domain aus den Daten extrahieren
-        shop_domain = data.get('shop_domain')
-        if not shop_domain:
-            return jsonify({"error": "No shop_domain in data"}), 400
+        print(f"📊 Erhaltene Tracking-Daten: {data}")
         
-        # Daten für diesen Shop abrufen
+        # Erforderliche Felder überprüfen
+        required_fields = ['event_type', 'page_url', 'page', 'timestamp', 'session_id', 'shop_domain']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            print(f"⚠️ Fehlende Felder in Tracking-Daten: {missing_fields}")
+            return jsonify({
+                "error": "Missing required fields",
+                "missing_fields": missing_fields
+            }), 400
+            
+        # Tracking-Typ validieren
+        event_type = data['event_type']
+        if event_type not in ['page_view', 'click']:
+            print(f"⚠️ Ungültiger Event-Typ: {event_type}")
+            return jsonify({"error": "Invalid event_type"}), 400
+            
+        # Shop-Domain validieren und Daten für diesen Shop abrufen
+        shop_domain = data['shop_domain']
+        
+        # Debugging: Shopify-Shop ausgeben
+        print(f"🏪 Shop Domain: {shop_domain}")
+        
+        # Daten für diesen Shop abrufen oder initialisieren
         shop_data = get_shop_data(shop_domain)
-
-        # Aktuelle Zeit hinzufügen
-        data['server_timestamp'] = datetime.datetime.utcnow().isoformat()
         
-        # Wenn timestamp nicht vorhanden ist, aktuelle Zeit in Millisekunden verwenden
-        if 'timestamp' not in data:
-            data['timestamp'] = int(datetime.datetime.now().timestamp() * 1000)
-        
-        # Stellen wir sicher, dass event_type vorhanden ist
-        if 'event_type' not in data:
-            print("Fehler: Kein event_type in den Daten")
-            return jsonify({"error": "No event_type in data"}), 400
-            
-        # Daten in die richtige Kategorie einfügen
-        if data.get('event_type') == 'page_view':
+        # Event entsprechend dem Typ speichern
+        if event_type == 'page_view':
             shop_data['pageviews'].append(data)
-            print(f"Pageview für Shop {shop_domain} hinzugefügt. Neue Anzahl: {len(shop_data['pageviews'])}")
-        elif data.get('event_type') == 'click':
+            print(f"👁️ Pageview für {shop_domain} erfasst: {data['page']}")
+        elif event_type == 'click':
             shop_data['clicks'].append(data)
-            print(f"Click für Shop {shop_domain} hinzugefügt. Neue Anzahl: {len(shop_data['clicks'])}")
-        else:
-            print(f"Unbekannter event_type: {data.get('event_type')}")
+            print(f"👆 Click für {shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
             
-        print(f"Collected data for shop {shop_domain}: {data}")
-        
-        # Tracking-Daten speichern
+        # Daten speichern
         save_tracking_data()
         
-        return jsonify({"status": "success"}), 200
+        # Erfolgsantwort senden
+        response = jsonify({"status": "success", "message": f"{event_type} tracked successfully"})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
+        
     except Exception as e:
-        print(f"Error collecting data: {e}")
+        print(f"❌ Fehler beim Verarbeiten der Tracking-Daten: {str(e)}")
+        print("Exception Trace:")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        
+        # Fehlerantwort senden
+        response = jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+        
+        if hasattr(response, 'headers'):
+            response.headers.add('Access-Control-Allow-Origin', '*')
+        else:
+            response[0].headers.add('Access-Control-Allow-Origin', '*')
+            
+        return response
 
 # Dashboard
 @app.route('/dashboard')
@@ -1745,6 +1777,54 @@ def set_language(language):
     response.set_cookie('language', language, max_age=60*60*24*365)  # 1 Jahr gültig
     
     return response
+
+@app.route('/ping', methods=['GET', 'OPTIONS'])
+def ping():
+    """Ein einfacher Ping-Endpunkt zur Überprüfung der Serververfügbarkeit für das Tracking-Script."""
+    if request.method == 'OPTIONS':
+        response = Response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response
+    
+    response = Response("pong")
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
+@app.route('/tracking-test')
+def tracking_test():
+    """Eine einfache Test-Seite um das Tracking zu testen."""
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Tracking Test</title>
+        <script>
+            // Definiere ein Dummy-Shopify-Objekt, falls es nicht existiert
+            window.Shopify = window.Shopify || { shop: 'test-shop.example.com' };
+        </script>
+        <script src="/static/js/tracking.js"></script>
+    </head>
+    <body>
+        <h1>Tracking Test Seite</h1>
+        <p>Diese Seite ist zum Testen des Tracking-Scripts. Öffne die Browser-Konsole, um die Tracking-Logs zu sehen.</p>
+        
+        <button id="pageviewBtn">Manuellen Pageview senden</button>
+        <button id="clickBtn">Manuellen Click senden</button>
+        
+        <script>
+            document.getElementById('pageviewBtn').addEventListener('click', function() {
+                window.manualTrack('pageview');
+            });
+            
+            document.getElementById('clickBtn').addEventListener('click', function() {
+                window.manualTrack('click');
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return html
 
 # Flask Starten
 if __name__ == "__main__":
