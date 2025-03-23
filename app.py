@@ -44,23 +44,36 @@ translations = {
 def load_translations():
     """Lädt die Übersetzungsdateien für alle unterstützten Sprachen."""
     global translations
+    
+    # Standardwerte für den Fall, dass keine Übersetzungsdateien geladen werden können
+    translations['en'] = {"app": {"name": "ShoppulseAI", "title": "Intelligent Growth Analysis for Shopify"}}
+    translations['de'] = {"app": {"name": "ShoppulseAI", "title": "Intelligente Wachstumsanalyse für Shopify"}}
+    
     try:
+        # Absolute Pfade für Railway und lokale Entwicklung
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        en_path = os.path.join(base_dir, 'translations', 'en.json')
+        de_path = os.path.join(base_dir, 'translations', 'de.json')
+        
         # Englische Übersetzung laden
-        with open('translations/en.json', 'r', encoding='utf-8') as f:
-            translations['en'] = json.load(f)
-        print("Englische Übersetzungen geladen.")
+        if os.path.exists(en_path):
+            with open(en_path, 'r', encoding='utf-8') as f:
+                translations['en'] = json.load(f)
+                print(f"Englische Übersetzungen geladen aus {en_path}.")
+        else:
+            print(f"Warnung: Englische Übersetzungsdatei nicht gefunden unter {en_path}. Verwende Standardwerte.")
         
         # Deutsche Übersetzung laden
-        with open('translations/de.json', 'r', encoding='utf-8') as f:
-            translations['de'] = json.load(f)
-        print("Deutsche Übersetzungen geladen.")
+        if os.path.exists(de_path):
+            with open(de_path, 'r', encoding='utf-8') as f:
+                translations['de'] = json.load(f)
+                print(f"Deutsche Übersetzungen geladen aus {de_path}.")
+        else:
+            print(f"Warnung: Deutsche Übersetzungsdatei nicht gefunden unter {de_path}. Verwende Standardwerte.")
+    
     except Exception as e:
         print(f"Fehler beim Laden der Übersetzungen: {e}")
-        # Standardwerte setzen, falls Laden fehlschlägt
-        if not translations['en']:
-            translations['en'] = {"app": {"name": "ShoppulseAI"}}
-        if not translations['de']:
-            translations['de'] = {"app": {"name": "ShoppulseAI"}}
+        print("Verwende Standardwerte für Übersetzungen.")
 
 def get_user_language():
     """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
