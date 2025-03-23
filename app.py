@@ -199,8 +199,16 @@ def load_tracking_data():
             with open(TRACKING_DATA_FILE, 'r') as f:
                 tracking_data = json.load(f)
                 print(f"Tracking-Daten aus {TRACKING_DATA_FILE} geladen.")
+                
+                # Stelle sicher, dass alle Shop-Einträge die korrekten Unterstrukturen haben
+                for shop_domain in tracking_data:
+                    if 'pageviews' not in tracking_data[shop_domain]:
+                        tracking_data[shop_domain]['pageviews'] = []
+                    if 'clicks' not in tracking_data[shop_domain]:
+                        tracking_data[shop_domain]['clicks'] = []
     except Exception as e:
         print(f"Fehler beim Laden der Tracking-Daten: {e}")
+        tracking_data = {}
     
     return tracking_data
 
@@ -215,6 +223,13 @@ def get_shop_data(shop_domain):
             'clicks': []
         }
         save_tracking_data()
+    
+    # Stelle sicher, dass die Schlüssel 'pageviews' und 'clicks' existieren
+    if 'pageviews' not in tracking_data[shop_domain]:
+        tracking_data[shop_domain]['pageviews'] = []
+    
+    if 'clicks' not in tracking_data[shop_domain]:
+        tracking_data[shop_domain]['clicks'] = []
     
     return tracking_data[shop_domain]
 
@@ -428,7 +443,7 @@ def collect():
 # Dashboard
 @app.route('/dashboard')
 def dashboard():
-    """Dashboard-Seite mit Analysen und Empfehlungen."""
+    """Hauptdashboard mit Analysen und Metriken."""
     try:
         # Shop aus der Session holen (temporär entfernt)
         # shop = session.get('shop')
@@ -437,6 +452,21 @@ def dashboard():
         
         # Demo-Shop setzen für Test-Zwecke
         shop = "test-shop.example.com"
+        
+        # Auch nach dem Test-Shop aus Tracking-Daten suchen
+        global tracking_data
+        
+        # Tracking-Daten aktualisieren durch Neuladen der Datei
+        tracking_data = load_tracking_data()
+        
+        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
+        all_shops = list(tracking_data.keys())
+        print(f"Verfügbare Shops im Tracking: {all_shops}")
+        
+        if all_shops and shop not in tracking_data:
+            # Wenn der Test-Shop keine Daten hat, aber andere Shops vorhanden sind
+            shop = all_shops[0]
+            print(f"Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
         
         # Überprüfen, ob ein gültiges Access-Token vorhanden ist (temporär entfernt)
         # access_token = session.get('access_token')
@@ -777,18 +807,20 @@ def tracking_js():
 def debug_tracking():
     global tracking_data
     
-    # Vergewissern wir uns, dass tracking_data korrekt initialisiert ist
-    if 'pageviews' not in tracking_data:
-        tracking_data['pageviews'] = []
-    if 'clicks' not in tracking_data:
-        tracking_data['clicks'] = []
-    
     # Aktualisiere die tracking_data aus der Datei
     load_tracking_data()
     
+    # Stelle sicher, dass alle Shop-Domains korrekt initialisiert sind
+    all_pageviews = []
+    all_clicks = []
+    
+    for shop_domain, shop_data in tracking_data.items():
+        all_pageviews.extend(shop_data.get('pageviews', []))
+        all_clicks.extend(shop_data.get('clicks', []))
+    
     # Formatierung der Daten für die Anzeige
     pageviews_sample = []
-    for pv in tracking_data.get('pageviews', [])[:5]:
+    for pv in all_pageviews[:5]:
         pv_copy = dict(pv)
         if 'timestamp' in pv_copy:
             try:
@@ -798,7 +830,7 @@ def debug_tracking():
         pageviews_sample.append(pv_copy)
         
     clicks_sample = []
-    for click in tracking_data.get('clicks', [])[:5]:
+    for click in all_clicks[:5]:
         click_copy = dict(click)
         if 'timestamp' in click_copy:
             try:
@@ -811,8 +843,8 @@ def debug_tracking():
     response = {
         'status': 'success',
         'tracking_data_keys': list(tracking_data.keys()),
-        'pageviews_count': len(tracking_data.get('pageviews', [])),
-        'clicks_count': len(tracking_data.get('clicks', [])),
+        'pageviews_count': len(all_pageviews),
+        'clicks_count': len(all_clicks),
         'pageviews_sample': pageviews_sample,
         'clicks_sample': clicks_sample
     }
@@ -1027,13 +1059,34 @@ def generate_growth_advisor_recommendations(shop_data):
 @app.route('/growth-advisor')
 def growth_advisor():
     try:
-        # Demo-Shop für Test-Zwecke
+        # Beispiel-Shop-Domain (in einer echten Anwendung würde dies aus der Session kommen)
+        # shop = session.get('shop')
+        # if not shop:
+        #     return redirect('/install')
+        
+        # Demo-Shop für Testzwecke
         shop = "test-shop.example.com"
         
-        # Daten für diesen Shop laden
+        # Tracking-Daten aktualisieren durch Neuladen
+        global tracking_data
+        tracking_data = load_tracking_data()
+        
+        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
+        all_shops = list(tracking_data.keys())
+        if all_shops and shop not in tracking_data:
+            shop = all_shops[0]
+            print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
+        
+        # Demo Access Token (in einer echten Anwendung würde dies aus der Session kommen)
+        # access_token = session.get('access_token')
+        # if not access_token:
+        #    return redirect('/install')
+        access_token = None
+        
+        # Shop-Daten abrufen
         shop_data = get_shop_data(shop)
         
-        # Empfehlungen generieren
+        # Empfehlungen generieren für diesen Shop
         advisor_recommendations = generate_growth_advisor_recommendations(shop_data)
         
         # Nach Priorität sortieren
@@ -1581,69 +1634,64 @@ def generate_ai_price_recommendations(product_type, current_price, competitor_da
 
 @app.route('/price-optimizer')
 def price_optimizer():
-    """Rendert die Price Optimizer Seite mit dynamischen Daten."""
+    """Zeigt den Price Optimizer mit Preisempfehlungen und Konkurrenzanalyse an."""
     try:
-        # Shop und Access Token aus der Session abrufen
-        shop = session.get('shop')
-        access_token = session.get('access_token')
+        # Shop aus der Session auslesen (temporär deaktiviert für Demo)
+        # shop = session.get('shop')
+        # if not shop:
+        #    return redirect('/install')  # Redirect to oauth flow if no shop
         
-        # Wenn kein Shop in der Session ist, aber einer als Parameter übergeben wurde
-        shop_param = request.args.get('shop')
-        if not shop and shop_param:
-            # Umleitung zur Installation
-            return redirect(f'/install?shop={shop_param}')
+        # Demo-Shop für Testzwecke
+        shop = "test-shop.example.com"
         
-        # Wenn kein Shop in der Session oder als Parameter, dann Demo-Shop verwenden
-        if not shop:
-            shop = "test-shop.example.com"
-            print(f"⚠️ Kein authentifizierter Shop gefunden, verwende Demo-Shop: {shop}")
-        else:
-            print(f"✅ Authentifizierter Shop gefunden: {shop}")
+        # Tracking-Daten aktualisieren durch Neuladen
+        global tracking_data
+        tracking_data = load_tracking_data()
         
-        # Produkte vom Shop abrufen (entweder echte über API oder Mock-Daten)
-        products = get_shop_products(shop, access_token)
+        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
+        all_shops = list(tracking_data.keys())
+        if all_shops and shop not in tracking_data:
+            shop = all_shops[0]
+            print(f"Price Optimizer: Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
         
-        # Standardmäßig das erste Produkt auswählen
-        selected_product = products[0]
-        product_type = selected_product.get('product_type', '')
-        product_id = selected_product.get('id', '')
+        # Access token aus der Session (temporär deaktiviert für Demo)
+        # access_token = session.get('access_token')
+        # if not access_token:
+        #    return redirect('/install')  # Redirect to oauth flow if no access token
+        access_token = None
         
-        # Varianten-Preis abrufen
-        variants = selected_product.get('variants', [])
-        if variants:
-            current_price = float(variants[0].get('price', 0))
-        else:
-            current_price = 0
+        # Produkt-ID aus dem GET-Parameter auslesen
+        product_id = request.args.get('product_id', '1001')  # Default zu erstem Produkt, wenn nicht angegeben
         
-        # Optional: Produktauswahl über Query-Parameter ermöglichen
-        product_id_param = request.args.get('product_id')
-        if product_id_param:
-            for product in products:
-                if str(product.get('id')) == product_id_param:
-                    selected_product = product
-                    product_type = selected_product.get('product_type', '')
-                    product_id = selected_product.get('id', '')
-                    variants = selected_product.get('variants', [])
-                    if variants:
-                        current_price = float(variants[0].get('price', 0))
-                    break
+        # Mock-Produkte für die Demo
+        products = get_mock_products()
+        
+        # Ausgewähltes Produkt finden
+        selected_product = None
+        for product in products:
+            if str(product['id']) == str(product_id):
+                selected_product = product
+                break
+        
+        if not selected_product:
+            selected_product = products[0]  # Erstes Produkt als Fallback
         
         # Wettbewerbsdaten abrufen
-        competitor_data = get_competitor_data(product_type, selected_product.get('title', ''))
+        competitor_data = get_competitor_data(selected_product.get('product_type', ''))
         
         # Preistrend-Daten abrufen mit echten Verkaufsdaten, wenn verfügbar
         trend_data = get_price_trend_data(
-            product_type, 
-            current_price, 
+            selected_product.get('product_type', ''), 
+            float(selected_product.get('variants', [{}])[0].get('price', 0)), 
             shop_domain=shop,
             access_token=access_token,
-            product_id=product_id
+            product_id=selected_product.get('id')
         )
         
         # KI-Preisempfehlungen generieren
         price_recommendations = generate_ai_price_recommendations(
-            product_type, 
-            current_price, 
+            selected_product.get('product_type', ''), 
+            float(selected_product.get('variants', [{}])[0].get('price', 0)), 
             competitor_data, 
             trend_data
         )
@@ -1681,6 +1729,35 @@ def price_optimizer():
 def inject_translations():
     """Inject translations into the template context based on user's language."""
     language = get_user_language()
+    # Stellen sicher, dass die Tracking-Daten korrekt initialisiert werden
+    if language == 'de':
+        # Stelle sicher, dass die deutsche Übersetzungsdatei existiert und geladen wird
+        try:
+            # Absolute Pfade für Railway und lokale Entwicklung
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            de_path = os.path.join(base_dir, 'translations', 'de.json')
+            
+            # Überprüfen, ob die Datei existiert
+            if os.path.exists(de_path):
+                with open(de_path, 'r', encoding='utf-8') as f:
+                    try:
+                        loaded_translations = json.load(f)
+                        if loaded_translations:
+                            translations['de'] = loaded_translations
+                            print(f"Deutsche Übersetzungen direkt aus {de_path} geladen.")
+                    except json.JSONDecodeError:
+                        print(f"Fehler beim Dekodieren der deutschen Übersetzungsdatei {de_path}")
+            else:
+                print(f"Deutsche Übersetzungsdatei nicht gefunden: {de_path}")
+                # Erstelle die Datei mit Standard-Übersetzungen
+                with open(de_path, 'w', encoding='utf-8') as f:
+                    json.dump(translations['de'], f, ensure_ascii=False, indent=2)
+                    print(f"Deutsche Standardübersetzungen in {de_path} gespeichert.")
+        except Exception as e:
+            print(f"Fehler beim direkten Laden der deutschen Übersetzungen: {e}")
+            import traceback
+            traceback.print_exc()
+    
     # Debugging-Ausgabe für Railway
     print(f"Injiziere Übersetzungen für Sprache: {language}")
     print(f"Verfügbare Übersetzungen: {list(translations.keys())}")
