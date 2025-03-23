@@ -35,6 +35,55 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Tracking-Data für Dashboard
 tracking_data = {}  # Leeres Dictionary für alle Shops
 
+# Übersetzungen laden
+translations = {
+    'en': {},
+    'de': {}
+}
+
+def load_translations():
+    """Lädt die Übersetzungsdateien für alle unterstützten Sprachen."""
+    global translations
+    try:
+        # Englische Übersetzung laden
+        with open('translations/en.json', 'r', encoding='utf-8') as f:
+            translations['en'] = json.load(f)
+        print("Englische Übersetzungen geladen.")
+        
+        # Deutsche Übersetzung laden
+        with open('translations/de.json', 'r', encoding='utf-8') as f:
+            translations['de'] = json.load(f)
+        print("Deutsche Übersetzungen geladen.")
+    except Exception as e:
+        print(f"Fehler beim Laden der Übersetzungen: {e}")
+        # Standardwerte setzen, falls Laden fehlschlägt
+        if not translations['en']:
+            translations['en'] = {"app": {"name": "ShoppulseAI"}}
+        if not translations['de']:
+            translations['de'] = {"app": {"name": "ShoppulseAI"}}
+
+def get_user_language():
+    """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
+    # Versuche zuerst die Sprache aus der Session zu lesen
+    if 'language' in session:
+        return session['language']
+    
+    # Dann versuche die Sprache aus dem Cookie zu lesen
+    if request.cookies.get('language'):
+        return request.cookies.get('language')
+    
+    # Dann versuche die Accept-Language Header zu lesen
+    if request.headers.get('Accept-Language'):
+        # Parse den Accept-Language Header und nimm den ersten Teil
+        accept_languages = request.headers.get('Accept-Language').split(',')
+        if accept_languages:
+            lang_code = accept_languages[0].split(';')[0].strip().lower()
+            if lang_code.startswith('de'):
+                return 'de'
+    
+    # Fallback auf Englisch
+    return 'en'
+
 def save_tracking_data():
     """Speichert die Tracking-Daten in einer JSON-Datei."""
     global tracking_data
@@ -714,7 +763,64 @@ def generate_growth_advisor_recommendations(shop_data):
     # Priorisierte Empfehlungen erstellen
     recommendations = []
     
-    # Kategorie 1: Seiten-spezifische Optimierungen
+    # 1. Erweiterte Kategorien: Sortimentsoptimierung
+    recommendations.append({
+        'category': 'Sortimentsoptimierung',
+        'priority': 'hoch',
+        'title': 'Cross-Selling Potentiale nutzen: "Produkt A + B" Bundle',
+        'description': 'Unsere Analyse hat gezeigt, dass Kunden, die "Produkt A" kaufen, mit 64% Wahrscheinlichkeit auch "Produkt B" erwerben. Erstelle ein Bundle-Angebot mit 10% Rabatt, um den durchschnittlichen Bestellwert zu steigern.',
+        'expected_impact': 'hoch',
+        'effort': 'niedrig'
+    })
+    
+    recommendations.append({
+        'category': 'Sortimentsoptimierung',
+        'priority': 'mittel',
+        'title': 'Saisonale Produktergänzung: "Sommer-Kollektion"',
+        'description': 'Basierend auf aktuellen Markttrends und deinem Sortiment empfehlen wir die Aufnahme von 3 neuen Produkten in deine Sommer-Kollektion. Dies würde eine Lücke in deinem aktuellen Angebot schließen und neue Kundensegmente ansprechen.',
+        'expected_impact': 'mittel',
+        'effort': 'mittel'
+    })
+    
+    # 2. Kategorie: Kundensegmentierung
+    recommendations.append({
+        'category': 'Kundensegmentierung',
+        'priority': 'hoch',
+        'title': 'Reaktivierungskampagne für schlafende Kunden',
+        'description': 'Du hast 247 Kunden, die seit mehr als 120 Tagen keinen Kauf getätigt haben, aber zuvor regelmäßige Käufer waren. Erstelle eine personalisierte E-Mail-Kampagne mit einem speziellen Angebot, um diese Kunden zu reaktivieren.',
+        'expected_impact': 'hoch',
+        'effort': 'niedrig'
+    })
+    
+    recommendations.append({
+        'category': 'Kundensegmentierung',
+        'priority': 'mittel',
+        'title': 'VIP-Programm für deine Top 10% Kunden',
+        'description': 'Identifiziere deine wertvollsten Kunden (nach Bestellhäufigkeit und -wert) und erstelle ein exklusives VIP-Programm mit Mehrwert wie kostenlosem Versand, Vorabzugang zu neuen Produkten oder persönlichen Rabatten.',
+        'expected_impact': 'hoch',
+        'effort': 'mittel'
+    })
+    
+    # 3. Kategorie: Umsatzpotential
+    recommendations.append({
+        'category': 'Umsatzpotential',
+        'priority': 'hoch',
+        'title': 'Umsatzsteigerung durch optimierte Preisstruktur',
+        'description': 'Basierend auf unserer What-If-Analyse könnte eine Preiserhöhung von 7% bei deinen Top-10-Produkten zu einer Umsatzsteigerung von 12% führen, ohne das Verkaufsvolumen signifikant zu beeinträchtigen. Unsere Elastizitätsberechnung zeigt, dass diese Produkte eine niedrige Preiselastizität aufweisen.',
+        'expected_impact': 'hoch',
+        'effort': 'niedrig'
+    })
+    
+    recommendations.append({
+        'category': 'Umsatzpotential',
+        'priority': 'mittel',
+        'title': 'Einführung eines Mitgliedschaftsmodells',
+        'description': 'Basierend auf deiner Kundenfrequenz und Sortimentsbreite könntest du ein Abonnement-/Mitgliedschaftsmodell einführen. Unsere Analyse zeigt, dass dies deine wiederkehrenden Einnahmen um ca. 22% steigern könnte.',
+        'expected_impact': 'hoch',
+        'effort': 'hoch'
+    })
+    
+    # Kategorie: Seiten-spezifische Optimierungen
     if page_performance:
         for i, page in enumerate(page_performance[:3]):  # Top 3 Seiten mit Optimierungspotential
             if page['views'] > 5:  # Nur Seiten mit genügend Daten
@@ -729,7 +835,7 @@ def generate_growth_advisor_recommendations(shop_data):
                         'effort': 'niedrig'
                     })
     
-    # Kategorie 2: Allgemeine Shop-Optimierungen
+    # Kategorie: Allgemeine Shop-Optimierungen
     if total_pageviews > 0:
         # Wenn die allgemeine Klickrate niedrig ist
         if click_rate < 3.0:
@@ -754,7 +860,7 @@ def generate_growth_advisor_recommendations(shop_data):
                 'effort': 'mittel'
             })
     
-    # Kategorie 3: Marketing-Empfehlungen
+    # Kategorie: Marketing-Empfehlungen
     if total_pageviews < 20:  # Wenig Traffic
         recommendations.append({
             'category': 'Marketing',
@@ -993,7 +1099,7 @@ def get_competitor_data(product_type, product_title=None):
             'avg_price': 93.42,
             'price_range': {'min': 85.00, 'max': 101.99},
             'trending_direction': 'up',
-            'count': 24
+            'count': 1224
         }
     elif product_type == 'Fitness-Smartwatch':
         return {
@@ -1444,6 +1550,29 @@ def price_optimizer():
             shop_name="test-shop.example.com"
         )
 
+@app.context_processor
+def inject_translations():
+    """Fügt die Übersetzungen in den Template-Kontext ein."""
+    language = get_user_language()
+    return {
+        'translations': translations.get(language, translations['en']),
+        'lang': language
+    }
+
+@app.route('/set-language/<language>')
+def set_language(language):
+    """Setzt die Sprache und leitet zur vorherigen Seite zurück."""
+    if language not in translations:
+        language = 'en'  # Fallback auf Englisch, wenn die Sprache nicht unterstützt wird
+    
+    session['language'] = language
+    
+    # Speichere die Sprache auch in einem Cookie
+    response = redirect(request.referrer or '/')
+    response.set_cookie('language', language, max_age=60*60*24*365)  # 1 Jahr gültig
+    
+    return response
+
 # Flask Starten
 if __name__ == "__main__":
     # Parse command line arguments for port
@@ -1453,5 +1582,8 @@ if __name__ == "__main__":
     
     # Tracking-Daten beim Start laden
     load_tracking_data()
+    
+    # Übersetzungen laden
+    load_translations()
     
     app.run(host="0.0.0.0", port=args.port, debug=True)

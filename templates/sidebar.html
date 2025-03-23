@@ -3,27 +3,27 @@
       <div class="brand-icon">
         <i class="fas fa-bolt"></i>
       </div>
-      <div class="brand-text">ShoppulseAI</div>
+      <div class="brand-text">{{ translations.app.name }}</div>
     </div>
     
-    <div class="menu-header">Analytics</div>
+    <div class="menu-header">{{ translations.navigation.analytics }}</div>
     <ul class="nav-links">
       <li class="nav-item">
         <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">
           <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
-          Dashboard
+          {{ translations.navigation.dashboard }}
         </a>
       </li>
       <li class="nav-item">
         <a href="{{ url_for('growth_advisor') }}" class="nav-link {% if request.path == '/growth-advisor' %}active{% endif %}">
           <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
-          Growth Advisor™
+          {{ translations.navigation.growth_advisor }}
         </a>
       </li>
       <li class="nav-item">
         <a href="{{ url_for('price_optimizer') }}" class="nav-link {% if request.path == '/price-optimizer' %}active{% endif %}">
           <span class="nav-icon"><i class="fas fa-tags"></i></span>
-          Price Optimizer™
+          {{ translations.navigation.price_optimizer }}
         </a>
       </li>
       <!--
@@ -43,12 +43,12 @@
       -->
     </ul>
     
-    <div class="menu-header">Configuration</div>
+    <div class="menu-header">{{ translations.navigation.configuration }}</div>
     <ul class="nav-links">
       <li class="nav-item">
         <a href="#" class="nav-link">
           <span class="nav-icon"><i class="fas fa-cog"></i></span>
-          Settings
+          {{ translations.navigation.settings }}
         </a>
       </li>
     </ul>

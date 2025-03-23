@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShoppulseAI - Layout</title>
+  <title>{{ translations.app.name }} - {{ translations.app.title }}</title>
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Chart.js -->
@@ -15,6 +15,10 @@
   <div class="app-container">
     {% include "sidebar.html" %}
     <main class="main-content">
+      <div class="language-selector">
+        <a href="{{ url_for('set_language', language='en') }}" class="lang-option {% if lang == 'en' %}active{% endif %}">EN</a>
+        <a href="{{ url_for('set_language', language='de') }}" class="lang-option {% if lang == 'de' %}active{% endif %}">DE</a>
+      </div>
       {% block content %}
       <!-- Der spezifische Seiteninhalt wird hier eingefügt -->
       {% endblock %}

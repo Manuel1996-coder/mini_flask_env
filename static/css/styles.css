@@ -1218,6 +1218,8 @@ tbody tr:hover {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border-left: 4px solid var(--gray-300);
   transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  position: relative;
 }
 
 .recommendation-card:hover {
@@ -1235,6 +1237,23 @@ tbody tr:hover {
 
 .recommendation-card.priority-low {
   border-left-color: var(--success);
+}
+
+.recommendation-card.checked::before {
+  content: "✓";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  background: var(--success);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 .recommendation-header {
@@ -1384,6 +1403,170 @@ tbody tr:hover {
   max-width: 500px;
 }
 
+/* Neue Growth Advisor-Stile */
+.filter-btn {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  border: 1px solid var(--gray-300);
+  background: white;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: var(--gray-100);
+}
+
+.filter-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.chart-content {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-footer {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  padding: 0 1.5rem 1.5rem;
+  text-align: center;
+}
+
+.chart-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chart-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-300);
+  background: white;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.chart-action-btn:hover {
+  background: var(--gray-100);
+}
+
+.what-if-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.what-if-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.what-if-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.what-if-group label {
+  font-weight: 500;
+  font-size: 1rem;
+  color: var(--dark);
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slider-container input[type="range"] {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  background: var(--gray-200);
+  border-radius: 3px;
+  outline: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.slider-value {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.what-if-results {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.result-card {
+  background: var(--gray-100);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.result-title {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  margin-bottom: 0.5rem;
+}
+
+.result-value {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 0.5rem;
+}
+
+.result-change {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.what-if-btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.what-if-btn:hover {
+  background: var(--primary-hover);
+}
+
 @media (max-width: 768px) {
   .recommendation-meta {
     flex-direction: column;
@@ -1398,4 +1581,73 @@ tbody tr:hover {
     width: 100%;
     justify-content: center;
   }
+
+  .what-if-container {
+    grid-template-columns: 1fr;
+  }
+
+  .what-if-results {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 500px) {
+  .kpi-period {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-btn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+}
+
+/* Füge Stile für den Sprachumschalter hinzu */
+.language-selector {
+  position: fixed;
+  top: 1rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 50;
+  background: white;
+  padding: 0.25rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--gray-200);
+}
+
+@media (max-width: 768px) {
+  .language-selector {
+    position: fixed;
+    bottom: 1rem;
+    top: auto;
+    right: 1rem;
+  }
+}
+
+.lang-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  background-color: var(--gray-100);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.lang-option:hover {
+  background-color: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.lang-option.active {
+  background-color: var(--primary);
+  color: white;
 }

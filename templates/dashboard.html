@@ -1,15 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
   <div class="header">
-    <h1 class="page-title">Analytics Dashboard</h1>
+    <h1 class="page-title">{{ translations.dashboard.title|default('Analytics Dashboard') }}</h1>
     <div class="header-actions">
       <div class="date-filter">
         <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
-        Letzte 7 Tage
+        {{ translations.dashboard.last_seven_days|default('Letzte 7 Tage') }}
       </div>
       <button class="export-btn" id="export-dashboard-btn">
         <span class="export-icon"><i class="fas fa-download"></i></span>
-        Export
+        {{ translations.buttons.export|default('Export') }}
       </button>
     </div>
   </div>
@@ -17,10 +17,10 @@
   <!-- Performance KPIs -->
   <section class="kpi-section">
     <div class="kpi-header">
-      <h2 class="kpi-title">Performance-KPIs 📊</h2>
+      <h2 class="kpi-title">{{ translations.dashboard.performance_kpis|default('Performance-KPIs') }} 📊</h2>
       <div class="kpi-period">
         <i class="fas fa-calendar"></i>
-        <span>Letzte 7 Tage</span>
+        <span>{{ translations.dashboard.last_seven_days|default('Letzte 7 Tage') }}</span>
       </div>
     </div>
     
@@ -31,12 +31,12 @@
           <i class="fas fa-eye"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Page Views</div>
+          <div class="kpi-label">{{ translations.dashboard.pageviews }}</div>
           <div class="kpi-value">{{ total_pageviews|default(0) }}</div>
           <div class="kpi-trend {% if trends.pageviews.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.pageviews.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.pageviews.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -47,12 +47,12 @@
           <i class="fas fa-mouse-pointer"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Clicks</div>
+          <div class="kpi-label">{{ translations.dashboard.clicks }}</div>
           <div class="kpi-value">{{ total_clicks|default(0) }}</div>
           <div class="kpi-trend {% if trends.clicks.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.clicks.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.clicks.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -63,12 +63,12 @@
           <i class="fas fa-chart-line"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Click Rate</div>
+          <div class="kpi-label">{{ translations.dashboard.click_rate }}</div>
           <div class="kpi-value">{{ click_rate|default(0) }}%</div>
           <div class="kpi-trend {% if trends.click_rate.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.click_rate.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.click_rate.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -79,12 +79,12 @@
           <i class="fas fa-clock"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Durchschnittliche Verweildauer</div>
+          <div class="kpi-label">{{ translations.dashboard.avg_session_duration }}</div>
           <div class="kpi-value">{{ avg_session_duration|default(0) }}s</div>
           <div class="kpi-trend {% if trends.session_duration.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.session_duration.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.session_duration.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -95,12 +95,12 @@
           <i class="fas fa-bullseye"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Conversion Rate</div>
+          <div class="kpi-label">{{ translations.dashboard.conversion_rate }}</div>
           <div class="kpi-value">{{ conversion_rate|default(0) }}%</div>
           <div class="kpi-trend {% if trends.conversion_rate.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.conversion_rate.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.conversion_rate.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -111,12 +111,12 @@
           <i class="fas fa-file-alt"></i>
         </div>
         <div class="kpi-content">
-          <div class="kpi-label">Unique Pages</div>
+          <div class="kpi-label">{{ translations.dashboard.unique_pages }}</div>
           <div class="kpi-value">{{ unique_pages|default(0) }}</div>
           <div class="kpi-trend {% if trends.unique_pages.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
             <i class="fas fa-{% if trends.unique_pages.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
             <span>{{ trends.unique_pages.value }}%</span>
-            <span class="trend-label">vs. Vorwoche</span>
+            <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
       </div>
@@ -129,7 +129,7 @@
       <div class="ai-quick-icon">
         <i class="fas fa-lightbulb"></i>
       </div>
-      <h2 class="ai-quick-title">Intelligente Handlungsempfehlungen</h2>
+      <h2 class="ai-quick-title">{{ translations.dashboard.ai_quick_actions|default('Intelligente Handlungsempfehlungen') }}</h2>
     </div>
     <div class="ai-quick-list">
       {% if ai_quick_tips %}
@@ -145,7 +145,7 @@
       {% else %}
         <div class="ai-quick-empty">
           <i class="fas fa-chart-line"></i>
-          <p>Sammle mehr Daten für personalisierte Handlungsempfehlungen.</p>
+          <p>{{ translations.dashboard.no_tips_yet|default('Sammle mehr Daten für personalisierte Handlungsempfehlungen.') }}</p>
         </div>
       {% endif %}
     </div>
@@ -155,15 +155,15 @@
   <section class="implementation-table-section">
     <div class="implementation-header">
       <div class="implementation-title-wrapper">
-        <h2 class="implementation-title">Priorisierte Umsetzungstabelle ✅</h2>
-        <p class="implementation-subtitle">Klar priorisierte To-Dos für sofortige Umsetzung</p>
+        <h2 class="implementation-title">{{ translations.dashboard.implementation_items }} ✅</h2>
+        <p class="implementation-subtitle">{{ translations.dashboard.implementation_subtitle|default('Klar priorisierte To-Dos für sofortige Umsetzung') }}</p>
       </div>
       <div class="implementation-actions">
         <button class="implementation-filter-btn">
-          <i class="fas fa-filter"></i> Filter
+          <i class="fas fa-filter"></i> {{ translations.buttons.filter|default('Filter') }}
         </button>
         <button class="implementation-export-btn">
-          <i class="fas fa-download"></i> Export
+          <i class="fas fa-download"></i> {{ translations.buttons.export }}
         </button>
       </div>
     </div>
@@ -172,10 +172,10 @@
       <table class="implementation-table">
         <thead>
           <tr>
-            <th class="priority-col">Priorität</th>
-            <th class="recommendation-col">Empfehlung</th>
-            <th class="effort-col">Aufwand</th>
-            <th class="impact-col">Impact</th>
+            <th class="priority-col">{{ translations.growth_advisor.priority }}</th>
+            <th class="recommendation-col">{{ translations.dashboard.recommendation|default('Empfehlung') }}</th>
+            <th class="effort-col">{{ translations.growth_advisor.effort }}</th>
+            <th class="impact-col">{{ translations.growth_advisor.impact }}</th>
           </tr>
         </thead>
         <tbody>
@@ -184,7 +184,7 @@
               <tr>
                 <td class="priority-col">
                   <div class="priority-badge priority-{{ task.priority }}">
-                    {% if task.priority == 'high' %}Hoch{% elif task.priority == 'medium' %}Mittel{% else %}Niedrig{% endif %}
+                    {% if task.priority == 'high' %}{{ translations.growth_advisor.high }}{% elif task.priority == 'medium' %}{{ translations.growth_advisor.medium }}{% else %}{{ translations.growth_advisor.low }}{% endif %}
                   </div>
                 </td>
                 <td class="recommendation-col">
@@ -211,7 +211,7 @@
                     {% endfor %}
                   </div>
                   <div class="effort-label">
-                    {% if task.effort == 'high' %}Hoch{% elif task.effort == 'medium' %}Mittel{% else %}Niedrig{% endif %}
+                    {% if task.effort == 'high' %}{{ translations.growth_advisor.high }}{% elif task.effort == 'medium' %}{{ translations.growth_advisor.medium }}{% else %}{{ translations.growth_advisor.low }}{% endif %}
                   </div>
                 </td>
                 <td class="impact-col">
@@ -232,7 +232,7 @@
                     {% endfor %}
                   </div>
                   <div class="impact-label">
-                    {% if task.impact == 'high' %}Hoch{% elif task.impact == 'medium' %}Mittel{% else %}Niedrig{% endif %}
+                    {% if task.impact == 'high' %}{{ translations.growth_advisor.high }}{% elif task.impact == 'medium' %}{{ translations.growth_advisor.medium }}{% else %}{{ translations.growth_advisor.low }}{% endif %}
                   </div>
                 </td>
               </tr>
@@ -242,7 +242,7 @@
               <td colspan="4">
                 <div class="empty-table-message">
                   <i class="fas fa-clipboard-list"></i>
-                  <p>Keine Umsetzungsaufgaben verfügbar. Sammle mehr Daten für personalisierte Empfehlungen.</p>
+                  <p>{{ translations.dashboard.no_implementation_items|default('Keine Umsetzungsaufgaben verfügbar. Sammle mehr Daten für personalisierte Empfehlungen.') }}</p>
                 </div>
               </td>
             </tr>
