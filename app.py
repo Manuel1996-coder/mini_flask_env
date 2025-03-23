@@ -1565,10 +1565,29 @@ def price_optimizer():
 
 @app.context_processor
 def inject_translations():
-    """Fügt die Übersetzungen in den Template-Kontext ein."""
+    """Inject translations into the template context based on user's language."""
     language = get_user_language()
+    # Debugging-Ausgabe für Railway
+    print(f"Injiziere Übersetzungen für Sprache: {language}")
+    print(f"Verfügbare Übersetzungen: {list(translations.keys())}")
+    print(f"Struktur der Übersetzungen für {language}: {str(translations[language].keys())[:100]}...")
+    
+    # Stellen Sie sicher, dass mindestens grundlegende App-Informationen vorhanden sind
+    if 'app' not in translations[language]:
+        print(f"WARNUNG: 'app' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['app'] = {
+            "name": "ShoppulseAI",
+            "title": "Intelligent Growth Analysis for Shopify" if language == 'en' else "Intelligente Wachstumsanalyse für Shopify"
+        }
+    
+    if not translations[language].get('dashboard', {}).get('title'):
+        print(f"WARNUNG: Dashboard-Titel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        if 'dashboard' not in translations[language]:
+            translations[language]['dashboard'] = {}
+        translations[language]['dashboard']['title'] = 'Analytics Dashboard'
+    
     return {
-        'translations': translations.get(language, translations['en']),
+        'translations': translations[language],
         'lang': language
     }
 
