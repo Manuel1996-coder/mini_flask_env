@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="header">
+        <h1 class="page-title">Growth Advisor™</h1>
+        <div class="header-actions">
+            <div class="date-filter">
+                <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
+                Letzte Aktualisierung: {{ last_updated }}
+            </div>
+            <button class="export-btn" id="export-advisor-btn">
+                <span class="export-icon"><i class="fas fa-download"></i></span>
+                Export
+            </button>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <section class="kpi-section">
+        <div class="kpi-header">
+            <h2 class="kpi-title">Priorisierte Handlungsempfehlungen 💡</h2>
+            <div class="kpi-period">
+                <span>Shop: {{ shop_name }}</span>
+            </div>
+        </div>
+
+        <div class="advisor-content">
+            {% if recommendations %}
+                <div class="recommendations-intro mb-4">
+                    <p>Unser KI-System hat deine Shop-Performance analysiert und folgende individuelle Handlungsempfehlungen generiert:</p>
+                </div>
+                
+                {% for rec in recommendations %}
+                <div class="recommendation-card mb-4 {% if rec.priority == 'hoch' %}priority-high{% elif rec.priority == 'mittel' %}priority-medium{% else %}priority-low{% endif %}">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ rec.title }}</h3>
+                        <span class="priority-badge {% if rec.priority == 'hoch' %}high{% elif rec.priority == 'mittel' %}medium{% else %}low{% endif %}">{{ rec.priority|capitalize }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ rec.description }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> Impact: {{ rec.expected_impact|capitalize }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> Aufwand: {{ rec.effort|capitalize }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ rec.category }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="actions-row">
+                    <button class="primary-btn refresh-btn">
+                        <i class="fas fa-sync-alt"></i> Empfehlungen aktualisieren
+                    </button>
+                    <button class="secondary-btn implement-btn">
+                        <i class="fas fa-check"></i> Als umgesetzt markieren
+                    </button>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3 class="empty-title">Noch nicht genug Daten</h3>
+                    <p class="empty-message">Wir benötigen mehr Daten, um personalisierte Empfehlungen zu generieren.</p>
+                    <p class="empty-submessage">Stelle sicher, dass das Tracking-Script auf allen Seiten deines Shops installiert ist.</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %} 

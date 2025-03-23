@@ -14,25 +14,34 @@
           Dashboard
         </a>
       </li>
-        <!--
+      <li class="nav-item">
+        <a href="{{ url_for('growth_advisor') }}" class="nav-link {% if request.path == '/growth-advisor' %}active{% endif %}">
+          <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
+          Growth Advisor™
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('price_optimizer') }}" class="nav-link {% if request.path == '/price-optimizer' %}active{% endif %}">
+          <span class="nav-icon"><i class="fas fa-tags"></i></span>
+          Price Optimizer™
+        </a>
+      </li>
+      <!--
       <li class="nav-item">
         <a href="/recommendations" class="nav-link {% if request.path == '/recommendations' %}active{% endif %}">
           <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
           Recommendations
         </a>
       </li>
-
-   
-     
+      
       <li class="nav-item">
         <a href="/clv-analytics" class="nav-link {% if request.path == '/clv-analytics' %}active{% endif %}">
           <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
           CLV Analytics
         </a>
       </li>
-    
       -->
-    
+    </ul>
     
     <div class="menu-header">Configuration</div>
     <ul class="nav-links">

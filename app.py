@@ -8,6 +8,9 @@ from urllib.parse import quote
 from flask_cors import CORS
 import json
 import uuid
+import random  # Für Simulationszwecke
+import numpy as np  # Für statistische Berechnungen
+import argparse
 
 # Environment-Variablen laden
 load_dotenv()
@@ -251,15 +254,18 @@ def collect_data():
 def dashboard():
     """Dashboard-Seite mit Analysen und Empfehlungen."""
     try:
-        # Shop aus der Session holen
-        shop = session.get('shop')
-        if not shop:
-            return redirect('/install')  # Umleitung zur Installation, wenn kein Shop in der Session
+        # Shop aus der Session holen (temporär entfernt)
+        # shop = session.get('shop')
+        # if not shop:
+        #     return redirect('/install')  # Umleitung zur Installation, wenn kein Shop in der Session
         
-        # Überprüfen, ob ein gültiges Access-Token vorhanden ist
-        access_token = session.get('access_token')
-        if not access_token:
-            return redirect('/install')  # Umleitung zur Installation, wenn kein Token vorhanden
+        # Demo-Shop setzen für Test-Zwecke
+        shop = "test-shop.example.com"
+        
+        # Überprüfen, ob ein gültiges Access-Token vorhanden ist (temporär entfernt)
+        # access_token = session.get('access_token')
+        # if not access_token:
+        #     return redirect('/install')  # Umleitung zur Installation, wenn kein Token vorhanden
         
         # Daten für diesen Shop laden
         shop_data = get_shop_data(shop)
@@ -653,9 +659,7 @@ def clear_tracking():
 # Home Route
 @app.route('/')
 def home():
-    shop = request.args.get('shop')
-    if shop:
-        return redirect(f'/install?shop={shop}')
+    # Direkt zum Dashboard weiterleiten
     return redirect('/dashboard')
 
 # Test-Route zum Testen des Trackings (entfernt)
@@ -663,11 +667,791 @@ def home():
 # def test_tracking():
 #     return render_template('test.html')
 
+def generate_growth_advisor_recommendations(shop_data):
+    """
+    Generiert KI-basierte, priorisierte Handlungsempfehlungen basierend auf Shop-Daten.
+    """
+    # Daten extrahieren und analysieren
+    pageviews = shop_data.get('pageviews', [])
+    clicks = shop_data.get('clicks', [])
+    
+    # Grundlegende Metriken berechnen
+    total_pageviews = len(pageviews)
+    total_clicks = len(clicks)
+    click_rate = (total_clicks / total_pageviews * 100) if total_pageviews > 0 else 0
+    
+    # Unique Pages und deren Performance
+    page_views_map = {}
+    page_clicks_map = {}
+    
+    # Seitenaufrufe zählen
+    for pv in pageviews:
+        page = pv.get('page', '')
+        if page:
+            page_views_map[page] = page_views_map.get(page, 0) + 1
+            
+    # Klicks pro Seite zählen
+    for click in clicks:
+        page = click.get('page', '')
+        if page:
+            page_clicks_map[page] = page_clicks_map.get(page, 0) + 1
+    
+    # Performance-Analyse pro Seite
+    page_performance = []
+    for page, views in page_views_map.items():
+        clicks_on_page = page_clicks_map.get(page, 0)
+        page_click_rate = (clicks_on_page / views * 100) if views > 0 else 0
+        page_performance.append({
+            'page': page,
+            'views': views,
+            'clicks': clicks_on_page,
+            'click_rate': page_click_rate
+        })
+    
+    # Nach Relevanz sortieren (hohe Besucherzahlen, niedrige Klickrate zuerst)
+    page_performance.sort(key=lambda x: (x['views'] * (100 - x['click_rate'])), reverse=True)
+    
+    # Priorisierte Empfehlungen erstellen
+    recommendations = []
+    
+    # Kategorie 1: Seiten-spezifische Optimierungen
+    if page_performance:
+        for i, page in enumerate(page_performance[:3]):  # Top 3 Seiten mit Optimierungspotential
+            if page['views'] > 5:  # Nur Seiten mit genügend Daten
+                if page['click_rate'] < 2.0:
+                    priority = "hoch" if i == 0 else "mittel"
+                    recommendations.append({
+                        'category': 'Seiten-Optimierung',
+                        'priority': priority,
+                        'title': f"CTA auf '{page['page']}' verbessern",
+                        'description': f"Diese Seite hat {page['views']} Aufrufe aber nur eine Klickrate von {round(page['click_rate'], 1)}%. Verbessere die Sichtbarkeit und Attraktivität der Call-to-Actions.",
+                        'expected_impact': 'hoch' if page['views'] > 20 else 'mittel',
+                        'effort': 'niedrig'
+                    })
+    
+    # Kategorie 2: Allgemeine Shop-Optimierungen
+    if total_pageviews > 0:
+        # Wenn die allgemeine Klickrate niedrig ist
+        if click_rate < 3.0:
+            recommendations.append({
+                'category': 'Shop-Optimierung',
+                'priority': 'hoch',
+                'title': 'Gesamte Shop-Navigation verbessern',
+                'description': f'Die durchschnittliche Klickrate von {round(click_rate, 1)}% ist unterdurchschnittlich. Überarbeite die Navigation und Produktpräsentation.',
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
+            })
+            
+        # Mobile Optimierung, falls viele Zugriffe aber niedrige Conversion
+        mobile_views = sum(1 for pv in pageviews if pv.get('device_type') == 'mobile')
+        if mobile_views > total_pageviews * 0.4:  # Wenn >40% mobile Traffic
+            recommendations.append({
+                'category': 'Mobile Optimierung',
+                'priority': 'hoch',
+                'title': 'Mobile Darstellung optimieren',
+                'description': f'{round(mobile_views/total_pageviews*100, 1)}% deiner Besucher nutzen mobile Geräte. Überprüfe und verbessere die mobile Darstellung deines Shops.',
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
+            })
+    
+    # Kategorie 3: Marketing-Empfehlungen
+    if total_pageviews < 20:  # Wenig Traffic
+        recommendations.append({
+            'category': 'Marketing',
+            'priority': 'hoch',
+            'title': 'Traffic-Quellen erweitern',
+            'description': 'Dein Shop hat wenig Besucher. Starte eine gezielte Social-Media-Kampagne oder Google Ads, um mehr qualifizierten Traffic zu generieren.',
+            'expected_impact': 'hoch',
+            'effort': 'mittel'
+        })
+    
+    # Falls wir keine spezifischen Empfehlungen haben, füge generische hinzu
+    if not recommendations:
+        recommendations.append({
+            'category': 'Datensammlung',
+            'priority': 'hoch',
+            'title': 'Mehr Nutzerdaten sammeln',
+            'description': 'Sammle mehr Daten für präzisere Empfehlungen. Überprüfe die korrekte Installation des Tracking-Scripts auf allen Seiten.',
+            'expected_impact': 'mittel',
+            'effort': 'niedrig'
+        })
+    
+    # Zeitbasierte Empfehlungen (z.B. saisonale Aktionen)
+    current_month = datetime.datetime.now().month
+    if 10 <= current_month <= 12:  # Q4 (Weihnachtsgeschäft)
+        recommendations.append({
+            'category': 'Saisonales Marketing',
+            'priority': 'hoch',
+            'title': 'Weihnachtsangebote prominenter platzieren',
+            'description': 'Das Weihnachtsgeschäft steht vor der Tür. Erstelle spezielle Angebote und platziere sie auf der Startseite.',
+            'expected_impact': 'hoch',
+            'effort': 'niedrig'
+        })
+    
+    return recommendations
+
+# Growth Advisor Route
+@app.route('/growth-advisor')
+def growth_advisor():
+    try:
+        # Demo-Shop für Test-Zwecke
+        shop = "test-shop.example.com"
+        
+        # Daten für diesen Shop laden
+        shop_data = get_shop_data(shop)
+        
+        # Empfehlungen generieren
+        advisor_recommendations = generate_growth_advisor_recommendations(shop_data)
+        
+        # Nach Priorität sortieren
+        advisor_recommendations.sort(key=lambda x: 0 if x['priority'] == 'hoch' else (1 if x['priority'] == 'mittel' else 2))
+        
+        # Datum für Aktualisierung
+        last_updated = datetime.datetime.now().strftime("%d.%m.%Y, %H:%M")
+        
+        return render_template(
+            "growth_advisor.html",
+            recommendations=advisor_recommendations,
+            last_updated=last_updated,
+            shop_name=shop
+        )
+    except Exception as e:
+        print(f"Fehler beim Laden des Growth Advisors: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template(
+            "growth_advisor.html",
+            error=str(e),
+            recommendations=[],
+            last_updated=datetime.datetime.now().strftime("%d.%m.%Y, %H:%M"),
+            shop_name="test-shop.example.com"
+        )
+
+# Price Optimizer Funktionen
+def get_shop_products(shop_domain, access_token=None):
+    """
+    Ruft die Produkte eines Shopify-Shops ab.
+    Bei Testdaten wird ein Mock-Datensatz zurückgegeben.
+    """
+    try:
+        # Prüfen, ob wir ein Zugriffstoken haben
+        if shop_domain and access_token:
+            # Echten API-Aufruf an Shopify senden
+            url = f"https://{shop_domain}/admin/api/2023-07/products.json"
+            headers = {"X-Shopify-Access-Token": access_token}
+            
+            response = requests.get(url, headers=headers)
+            
+            # Prüfen, ob der Aufruf erfolgreich war
+            if response.status_code == 200:
+                print(f"✅ Produkte erfolgreich von Shopify abgerufen")
+                
+                # JSON-Antwort verarbeiten
+                products_data = response.json().get('products', [])
+                
+                # Wenn wir Produkte erhalten haben, diese zurückgeben
+                if products_data:
+                    return products_data
+                else:
+                    print("⚠️ Keine Produkte in der API-Antwort gefunden.")
+            else:
+                print(f"❌ Fehler beim Abrufen der Produkte: Status {response.status_code}")
+                print(f"Antwort: {response.text}")
+    except Exception as e:
+        print(f"❌ Fehler beim Abrufen der Produkte über die API: {e}")
+    
+    # Fallback auf Mock-Daten, wenn API-Aufruf fehlschlägt oder keine Daten zurückgibt
+    print("⚠️ Verwende Mock-Produkte für die Demo")
+    
+    # Für Demo-Zwecke erstellen wir Beispieldaten
+    mock_products = [
+        {
+            'id': 1001,
+            'title': 'SportBeat Pro X3',
+            'product_type': 'Sport-Kopfhörer',
+            'variants': [
+                {
+                    'id': 2001,
+                    'price': '89.00',
+                    'inventory_quantity': 28,
+                    'sku': 'SPBT-PRO-X3'
+                }
+            ],
+            'image': {'src': 'https://example.com/images/headphones-blue.jpg'},
+            'tags': 'sport, audio, bestseller',
+            'created_at': '2023-02-15T10:00:00Z',
+            'updated_at': '2023-03-10T14:30:00Z'
+        },
+        {
+            'id': 1002,
+            'title': 'FitPulse Smartwatch',
+            'product_type': 'Fitness-Smartwatch',
+            'variants': [
+                {
+                    'id': 2002,
+                    'price': '129.99',
+                    'inventory_quantity': 15,
+                    'sku': 'FPS-201-BLK'
+                }
+            ],
+            'image': {'src': 'https://example.com/images/smartwatch.jpg'},
+            'tags': 'fitness, tech, smartwatch',
+            'created_at': '2023-01-20T09:45:00Z',
+            'updated_at': '2023-03-05T11:20:00Z'
+        },
+        {
+            'id': 1003,
+            'title': 'UltraFlex Sportmatte',
+            'product_type': 'Yoga-Matte',
+            'variants': [
+                {
+                    'id': 2003,
+                    'price': '45.50',
+                    'inventory_quantity': 42,
+                    'sku': 'UFLEX-YM-200'
+                }
+            ],
+            'image': {'src': 'https://example.com/images/yoga-mat.jpg'},
+            'tags': 'yoga, fitness, wellness',
+            'created_at': '2023-02-01T15:30:00Z',
+            'updated_at': '2023-03-15T09:10:00Z'
+        },
+        {
+            'id': 1004,
+            'title': 'EnergyBoost Protein',
+            'product_type': 'Nahrungsergänzung',
+            'variants': [
+                {
+                    'id': 2004,
+                    'price': '34.95',
+                    'inventory_quantity': 65,
+                    'sku': 'EB-PROT-1000'
+                }
+            ],
+            'image': {'src': 'https://example.com/images/protein.jpg'},
+            'tags': 'nutrition, fitness, supplement',
+            'created_at': '2023-01-10T12:20:00Z',
+            'updated_at': '2023-03-02T16:45:00Z'
+        },
+        {
+            'id': 1005,
+            'title': 'AquaFlow Trinkflasche',
+            'product_type': 'Fitness-Zubehör',
+            'variants': [
+                {
+                    'id': 2005,
+                    'price': '19.99',
+                    'inventory_quantity': 102,
+                    'sku': 'AQUA-BTL-01'
+                }
+            ],
+            'image': {'src': 'https://example.com/images/bottle.jpg'},
+            'tags': 'hydration, fitness, eco',
+            'created_at': '2023-02-20T08:15:00Z',
+            'updated_at': '2023-03-18T10:30:00Z'
+        }
+    ]
+    
+    return mock_products
+
+def get_competitor_data(product_type, product_title=None):
+    """
+    Ruft Wettbewerbsdaten für einen bestimmten Produkttyp ab.
+    In einer realen Implementierung würde dies aus einer Marktdatenbank oder API kommen.
+    """
+    # In einer realen Anwendung würden wir hier eine API für Marktdaten abfragen
+    
+    # Für Demo-Zwecke erstellen wir realistische Beispieldaten
+    if product_type == 'Sport-Kopfhörer':
+        return {
+            'competitors': [
+                {'shop': 'TopSport24', 'price': 94.99, 'last_updated': '2 Tagen'},
+                {'shop': 'AudioGear', 'price': 91.50, 'last_updated': '7 Tagen'},
+                {'shop': 'SoundFitness', 'price': 85.00, 'last_updated': '1 Tag'},
+                {'shop': 'SportElektronik', 'price': 99.99, 'last_updated': 'Heute'},
+                {'shop': 'FitGadgets', 'price': 96.50, 'last_updated': '3 Tagen'},
+                {'shop': 'RunnersPro', 'price': 93.00, 'last_updated': '5 Tagen'},
+                {'shop': 'FitnessSound', 'price': 92.49, 'last_updated': '2 Tagen'},
+                {'shop': 'SportTech', 'price': 89.95, 'last_updated': '6 Tagen'},
+                {'shop': 'AudioSport', 'price': 97.90, 'last_updated': '4 Tagen'},
+                {'shop': 'ElectroFit', 'price': 90.00, 'last_updated': '1 Tag'},
+                {'shop': 'ActiveSound', 'price': 95.50, 'last_updated': '3 Tagen'},
+                {'shop': 'SportGear', 'price': 88.49, 'last_updated': '5 Tagen'},
+                {'shop': 'WirelessAudio', 'price': 101.99, 'last_updated': '1 Tag'},
+                {'shop': 'RunnerTech', 'price': 92.00, 'last_updated': '4 Tagen'},
+                {'shop': 'FitElectronics', 'price': 87.95, 'last_updated': '2 Tagen'},
+                {'shop': 'SportAudio', 'price': 94.50, 'last_updated': '6 Tagen'},
+                {'shop': 'TechFitness', 'price': 97.99, 'last_updated': '3 Tagen'},
+                {'shop': 'SoundRunner', 'price': 90.95, 'last_updated': '7 Tagen'},
+                {'shop': 'FitHeadphones', 'price': 93.99, 'last_updated': '2 Tagen'},
+                {'shop': 'SportBeats', 'price': 98.50, 'last_updated': '4 Tagen'},
+                {'shop': 'RunwithMusic', 'price': 89.99, 'last_updated': '5 Tagen'},
+                {'shop': 'ActiveBeats', 'price': 92.95, 'last_updated': '3 Tagen'},
+                {'shop': 'AudioActive', 'price': 96.00, 'last_updated': '1 Tag'},
+                {'shop': 'TechRun', 'price': 91.99, 'last_updated': '6 Tagen'}
+            ],
+            'avg_price': 93.42,
+            'price_range': {'min': 85.00, 'max': 101.99},
+            'trending_direction': 'up',
+            'count': 24
+        }
+    elif product_type == 'Fitness-Smartwatch':
+        return {
+            'competitors': [
+                {'shop': 'WatchFit', 'price': 134.99, 'last_updated': '3 Tagen'},
+                {'shop': 'SmartLife', 'price': 129.95, 'last_updated': '5 Tagen'},
+                {'shop': 'TechWear', 'price': 139.00, 'last_updated': '1 Tag'},
+                {'shop': 'FitnessGadgets', 'price': 125.50, 'last_updated': '4 Tagen'},
+                {'shop': 'SportTech', 'price': 132.95, 'last_updated': '2 Tagen'},
+                # Gekürzt für Übersichtlichkeit, in einer realen Anwendung mehr Daten
+            ],
+            'avg_price': 132.48,
+            'price_range': {'min': 125.50, 'max': 139.00},
+            'trending_direction': 'stable',
+            'count': 12
+        }
+    else:
+        # Generische Daten für andere Produkttypen
+        return {
+            'competitors': [
+                {'shop': 'Competitor1', 'price': float(random.randint(80, 120)), 'last_updated': '3 Tagen'},
+                {'shop': 'Competitor2', 'price': float(random.randint(80, 120)), 'last_updated': '1 Tag'},
+                {'shop': 'Competitor3', 'price': float(random.randint(80, 120)), 'last_updated': '5 Tagen'},
+                {'shop': 'Competitor4', 'price': float(random.randint(80, 120)), 'last_updated': '2 Tagen'},
+                {'shop': 'Competitor5', 'price': float(random.randint(80, 120)), 'last_updated': '7 Tagen'},
+            ],
+            'avg_price': 100.00,
+            'price_range': {'min': 80.00, 'max': 120.00},
+            'trending_direction': 'stable',
+            'count': 5
+        }
+
+def calculate_price_elasticity(shop_domain, access_token, product_id):
+    """
+    Berechnet die Preiselastizität eines Produkts basierend auf historischen Verkaufsdaten.
+    Verwendet die Shopify Orders API, um Bestellungen zu analysieren und Preis-Verkaufs-Paare zu erstellen.
+    """
+    try:
+        # Wenn kein Access Token verfügbar ist, können wir keine Daten abrufen
+        if not access_token:
+            print("⚠️ Kein Access Token für Elastizitätsberechnung vorhanden")
+            return None
+        
+        print(f"🔍 Berechne Preiselastizität für Produkt {product_id} in Shop {shop_domain}")
+        
+        # Historische Bestellungen der letzten 90 Tage abrufen
+        orders_url = f"https://{shop_domain}/admin/api/2023-07/orders.json?status=any&limit=250"
+        headers = {"X-Shopify-Access-Token": access_token}
+        
+        response = requests.get(orders_url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"❌ Fehler beim Abrufen der Bestellungen: Status {response.status_code}")
+            print(f"Antwort: {response.text}")
+            return None
+        
+        # Bestellungen aus der API-Antwort extrahieren
+        orders = response.json().get('orders', [])
+        print(f"✅ {len(orders)} Bestellungen gefunden")
+        
+        # Preis-Mengen-Paare für das Produkt sammeln
+        price_quantity_pairs = []
+        
+        for order in orders:
+            # Bestelldatum in Datetime-Objekt umwandeln
+            order_date_str = order.get('created_at', '')
+            if not order_date_str:
+                continue
+                
+            try:
+                # ISO-Format mit Z für UTC in Datetime umwandeln
+                order_date = datetime.datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
+                
+                # Nur Bestellungen der letzten 90 Tage betrachten
+                time_diff = datetime.datetime.now(datetime.timezone.utc) - order_date
+                if time_diff.days > 90:
+                    continue
+            except Exception as e:
+                print(f"⚠️ Fehler beim Parsen des Bestelldatums: {e}")
+                continue
+                
+            # Bestellpositionen durchgehen
+            for line_item in order.get('line_items', []):
+                # Prüfen, ob es sich um das gesuchte Produkt handelt
+                if str(line_item.get('product_id')) == str(product_id):
+                    price = float(line_item.get('price', 0))
+                    quantity = int(line_item.get('quantity', 1))
+                    
+                    # Nach Preis gruppieren (auf 2 Dezimalstellen gerundet)
+                    rounded_price = round(price, 2)
+                    
+                    # Wenn der Preis bereits in den Paaren vorhanden ist, Mengen addieren
+                    found = False
+                    for pair in price_quantity_pairs:
+                        if abs(pair['price'] - rounded_price) < 0.01:  # Fast gleicher Preis
+                            pair['sales'] += quantity
+                            found = True
+                            break
+                    
+                    # Wenn der Preis noch nicht vorhanden ist, neues Paar hinzufügen
+                    if not found:
+                        price_quantity_pairs.append({'price': rounded_price, 'sales': quantity})
+        
+        # Nach Preis aufsteigend sortieren
+        price_quantity_pairs.sort(key=lambda x: x['price'])
+        
+        # Preiselastizitätsdaten zurückgeben, wenn vorhanden
+        if price_quantity_pairs:
+            print(f"✅ {len(price_quantity_pairs)} Preis-Verkaufs-Paare generiert")
+            return price_quantity_pairs
+        else:
+            print("⚠️ Keine Verkaufsdaten für die Elastizitätsberechnung gefunden")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Fehler bei der Elastizitätsberechnung: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def get_price_trend_data(product_type, current_price, shop_domain=None, access_token=None, product_id=None):
+    """
+    Generiert historische Preisdaten und Empfehlungen für ein Produkt.
+    Nutzt echte Verkaufsdaten, wenn verfügbar, sonst simulierte Daten.
+    """
+    # Aktuelle Zeit für die Simulation
+    now = datetime.datetime.now()
+    
+    # Wenn wir Zugriff auf echte Verkaufsdaten haben, nutzen wir diese
+    elasticity_data = None
+    if shop_domain and access_token and product_id:
+        elasticity_data = calculate_price_elasticity(shop_domain, access_token, product_id)
+    
+    # Wenn keine echten Daten verfügbar sind, verwenden wir simulierte Daten
+    if not elasticity_data:
+        print("ℹ️ Verwende simulierte Elastizitätsdaten")
+        if product_type == 'Sport-Kopfhörer':
+            elasticity_data = [
+                {'price': 79, 'sales': 156},
+                {'price': 84, 'sales': 142},
+                {'price': 89, 'sales': 128},
+                {'price': 94, 'sales': 118},
+                {'price': 99, 'sales': 105},
+                {'price': 104, 'sales': 88}
+            ]
+        else:
+            # Generische elasticity_data für andere Produkttypen
+            base_price = float(current_price)
+            elasticity_data = [
+                {'price': round(base_price * 0.9, 2), 'sales': 120},
+                {'price': round(base_price, 2), 'sales': 100},
+                {'price': round(base_price * 1.1, 2), 'sales': 85}
+            ]
+    
+    # Für Sport-Kopfhörer spezifische Simulation oder andere Produkte
+    if product_type == 'Sport-Kopfhörer':
+        # Historische Preisentwicklung (30 Tage)
+        days = 30
+        dates = [(now - datetime.timedelta(days=i)).strftime('%d. %b') for i in range(days-1, -1, -1)]
+        
+        # Simulation von historischen Preisen für den Shop
+        starting_price = 85.0
+        shop_prices = [starting_price] * 5  # Erste 5 Tage konstant
+        shop_prices += [float(current_price)] * 25  # Rest der Zeit bei aktuellem Preis
+        
+        # Simulation von Marktdurchschnittspreisen (steigender Trend)
+        market_avg_start = 82.0
+        market_avg_end = 93.0
+        market_prices = []
+        for i in range(days):
+            progress = i / (days - 1)
+            market_price = market_avg_start + progress * (market_avg_end - market_avg_start)
+            # Etwas Noise hinzufügen
+            market_price += random.uniform(-1.0, 1.0)
+            market_prices.append(round(market_price, 2))
+        
+        # Optimaler Preis (basierend auf Algorithmus-Empfehlungen)
+        optimal_prices = []
+        for i in range(days):
+            if i < 10:
+                # Erste 10 Tage ähnlich dem Marktpreis
+                optimal_price = market_prices[i] + 3.0
+            else:
+                # Danach stärker ansteigend
+                optimal_price = market_prices[i] + 4.0 + (i - 10) * 0.2
+            optimal_prices.append(round(optimal_price, 2))
+        
+        # Zukünftige Preisempfehlung basierend auf Elastizitätsdaten
+        if len(elasticity_data) >= 3:
+            # Lineare Regression auf Elastizitätsdaten anwenden für bessere Empfehlungen
+            prices = np.array([pair['price'] for pair in elasticity_data])
+            sales = np.array([pair['sales'] for pair in elasticity_data])
+            revenues = prices * sales
+            
+            # Einfache Methode zur Bestimmung des optimalen Preises: Suche nach max Umsatz
+            max_revenue_index = np.argmax(revenues)
+            
+            # Falls der aktuelle Preis bereits optimal ist, leichte Erhöhung vorschlagen
+            if prices[max_revenue_index] <= current_price:
+                recommended_price = round(current_price * 1.09, 2)  # 9% Erhöhung als Default
+            else:
+                recommended_price = round(prices[max_revenue_index], 2)
+        else:
+            # Standardempfehlung, wenn nicht genug Datenpunkte
+            recommended_price = 97.0
+    else:
+        # Generischer Ansatz für andere Produkttypen
+        days = 30
+        dates = [(now - datetime.timedelta(days=i)).strftime('%d. %b') for i in range(days-1, -1, -1)]
+        
+        current_price_float = float(current_price)
+        market_avg = current_price_float * random.uniform(0.9, 1.1)
+        
+        # Generiere zufällige Preisdaten
+        shop_prices = [current_price_float] * days
+        market_prices = [market_avg + random.uniform(-5, 5) for _ in range(days)]
+        optimal_prices = [market_prices[i] * random.uniform(1.05, 1.15) for i in range(days)]
+        
+        # Empfohlener Preis basierend auf Elastizitätsdaten, falls vorhanden
+        if len(elasticity_data) >= 3:
+            prices = np.array([pair['price'] for pair in elasticity_data])
+            sales = np.array([pair['sales'] for pair in elasticity_data])
+            revenues = prices * sales
+            
+            max_revenue_index = np.argmax(revenues)
+            
+            if prices[max_revenue_index] <= current_price_float:
+                recommended_price = round(current_price_float * 1.1, 2)
+            else:
+                recommended_price = round(prices[max_revenue_index], 2)
+        else:
+            recommended_price = round(current_price_float * 1.1, 2)
+    
+    # Umsatzprognosen basierend auf Elastizitätsdaten
+    current_revenue = 0
+    recommended_revenue = 0
+    
+    # Finde den aktuellen Umsatz
+    for entry in elasticity_data:
+        if abs(entry['price'] - current_price) < 0.01:
+            current_revenue = entry['price'] * entry['sales']
+            break
+    
+    # Wenn kein exakter Treffer, lineares Interpolieren für den Umsatz
+    if current_revenue == 0 and len(elasticity_data) >= 2:
+        # Finde zwei Preispunkte, die den aktuellen Preis einschließen
+        for i in range(len(elasticity_data) - 1):
+            if elasticity_data[i]['price'] <= current_price <= elasticity_data[i+1]['price']:
+                price_diff = elasticity_data[i+1]['price'] - elasticity_data[i]['price']
+                sales_diff = elasticity_data[i+1]['sales'] - elasticity_data[i]['sales']
+                
+                # Verhältnis berechnen
+                price_ratio = (current_price - elasticity_data[i]['price']) / price_diff if price_diff > 0 else 0
+                
+                # Geschätzte Verkäufe berechnen
+                estimated_sales = elasticity_data[i]['sales'] + price_ratio * sales_diff
+                
+                current_revenue = current_price * estimated_sales
+                break
+    
+    # Wenn immer noch kein Wert gefunden (z.B. Preis außerhalb des Bereichs), erste oder letzte Werte verwenden
+    if current_revenue == 0 and elasticity_data:
+        if current_price < elasticity_data[0]['price']:
+            current_revenue = current_price * elasticity_data[0]['sales']
+        elif current_price > elasticity_data[-1]['price']:
+            current_revenue = current_price * elasticity_data[-1]['sales']
+    
+    # Gleiche Logik für den empfohlenen Preis
+    for entry in elasticity_data:
+        if abs(entry['price'] - recommended_price) < 0.01:
+            recommended_revenue = entry['price'] * entry['sales']
+            break
+    
+    if recommended_revenue == 0 and len(elasticity_data) >= 2:
+        for i in range(len(elasticity_data) - 1):
+            if elasticity_data[i]['price'] <= recommended_price <= elasticity_data[i+1]['price']:
+                price_diff = elasticity_data[i+1]['price'] - elasticity_data[i]['price']
+                sales_diff = elasticity_data[i+1]['sales'] - elasticity_data[i]['sales']
+                
+                price_ratio = (recommended_price - elasticity_data[i]['price']) / price_diff if price_diff > 0 else 0
+                estimated_sales = elasticity_data[i]['sales'] + price_ratio * sales_diff
+                
+                recommended_revenue = recommended_price * estimated_sales
+                break
+    
+    if recommended_revenue == 0 and elasticity_data:
+        if recommended_price < elasticity_data[0]['price']:
+            recommended_revenue = recommended_price * elasticity_data[0]['sales']
+        elif recommended_price > elasticity_data[-1]['price']:
+            recommended_revenue = recommended_price * elasticity_data[-1]['sales']
+    
+    # Prozentuale Umsatzsteigerung berechnen
+    if current_revenue > 0 and recommended_revenue > 0:
+        revenue_increase_pct = ((recommended_revenue - current_revenue) / current_revenue) * 100
+    else:
+        # Fallback, wenn wir keine sinnvolle Berechnung durchführen können
+        revenue_increase_pct = 15.0
+    
+    return {
+        'dates': dates,
+        'shop_prices': shop_prices,
+        'market_prices': market_prices,
+        'optimal_prices': optimal_prices,
+        'recommended_price': recommended_price,
+        'current_price': current_price,
+        'elasticity_data': elasticity_data,
+        'revenue_increase_pct': round(revenue_increase_pct, 1)
+    }
+
+def generate_ai_price_recommendations(product_type, current_price, competitor_data, trend_data):
+    """
+    Generiert KI-basierte Preisempfehlungen.
+    """
+    recommendations = []
+    
+    if product_type == 'Sport-Kopfhörer':
+        # Hauptempfehlung zur Preiserhöhung
+        recommendations.append({
+            'title': f'Erhöhen Sie Ihren Preis auf €{trend_data["recommended_price"]}',
+            'description': f'Basierend auf der aktuellen Nachfrage und Wettbewerbspreisen ist eine Preiserhöhung optimal. Unsere Analyse zeigt, dass dies zu einer Umsatzsteigerung von ~{trend_data["revenue_increase_pct"]}% führen könnte ohne die Verkaufszahlen signifikant zu beeinflussen.'
+        })
+        
+        # Saisonale Preisanpassung
+        recommendations.append({
+            'title': 'Dynamic Pricing für Stoßzeiten',
+            'description': f'Implementieren Sie höhere Preise am Wochenende (€{round(trend_data["recommended_price"] + 2, 0)}), wenn die Nachfrage am höchsten ist. Unsere Daten zeigen, dass Kunden dann weniger preissensitiv sind.'
+        })
+        
+        # Bundle-Angebot
+        recommendations.append({
+            'title': 'Bundle-Angebot erstellen',
+            'description': f'Erstellen Sie ein Bundle mit Sportkopfhörern und Tragetasche für €{round(trend_data["recommended_price"] * 1.3, 0)}. Dies erhöht den durchschnittlichen Bestellwert und schafft einen wahrgenommenen Wertvorteil.'
+        })
+    else:
+        # Generische Empfehlungen für andere Produkttypen
+        recommendations.append({
+            'title': f'Optimieren Sie Ihren Preis auf €{trend_data["recommended_price"]}',
+            'description': f'Basierend auf Marktdaten und Preiselastizität empfehlen wir eine Anpassung auf €{trend_data["recommended_price"]}. Dies könnte zu einer Umsatzsteigerung von ~{trend_data["revenue_increase_pct"]}% führen.'
+        })
+        
+        recommendations.append({
+            'title': 'A/B-Test mit verschiedenen Preispunkten',
+            'description': f'Testen Sie verschiedene Preispunkte, um den optimalen Wert zu finden. Wir empfehlen Tests mit €{round(float(current_price), 2)}, €{round(float(current_price) * 1.05, 2)} und €{round(float(current_price) * 1.1, 2)}.'
+        })
+        
+        recommendations.append({
+            'title': 'Rabattstrategie überdenken',
+            'description': 'Bieten Sie gezielte Rabatte für Bestandskunden an, anstatt den Basispreis zu senken. Dies erhält die Preiswahrnehmung und fördert gleichzeitig die Kundenbindung.'
+        })
+    
+    return recommendations
+
+@app.route('/price-optimizer')
+def price_optimizer():
+    """Rendert die Price Optimizer Seite mit dynamischen Daten."""
+    try:
+        # Shop und Access Token aus der Session abrufen
+        shop = session.get('shop')
+        access_token = session.get('access_token')
+        
+        # Wenn kein Shop in der Session ist, aber einer als Parameter übergeben wurde
+        shop_param = request.args.get('shop')
+        if not shop and shop_param:
+            # Umleitung zur Installation
+            return redirect(f'/install?shop={shop_param}')
+        
+        # Wenn kein Shop in der Session oder als Parameter, dann Demo-Shop verwenden
+        if not shop:
+            shop = "test-shop.example.com"
+            print(f"⚠️ Kein authentifizierter Shop gefunden, verwende Demo-Shop: {shop}")
+        else:
+            print(f"✅ Authentifizierter Shop gefunden: {shop}")
+        
+        # Produkte vom Shop abrufen (entweder echte über API oder Mock-Daten)
+        products = get_shop_products(shop, access_token)
+        
+        # Standardmäßig das erste Produkt auswählen
+        selected_product = products[0]
+        product_type = selected_product.get('product_type', '')
+        product_id = selected_product.get('id', '')
+        
+        # Varianten-Preis abrufen
+        variants = selected_product.get('variants', [])
+        if variants:
+            current_price = float(variants[0].get('price', 0))
+        else:
+            current_price = 0
+        
+        # Optional: Produktauswahl über Query-Parameter ermöglichen
+        product_id_param = request.args.get('product_id')
+        if product_id_param:
+            for product in products:
+                if str(product.get('id')) == product_id_param:
+                    selected_product = product
+                    product_type = selected_product.get('product_type', '')
+                    product_id = selected_product.get('id', '')
+                    variants = selected_product.get('variants', [])
+                    if variants:
+                        current_price = float(variants[0].get('price', 0))
+                    break
+        
+        # Wettbewerbsdaten abrufen
+        competitor_data = get_competitor_data(product_type, selected_product.get('title', ''))
+        
+        # Preistrend-Daten abrufen mit echten Verkaufsdaten, wenn verfügbar
+        trend_data = get_price_trend_data(
+            product_type, 
+            current_price, 
+            shop_domain=shop,
+            access_token=access_token,
+            product_id=product_id
+        )
+        
+        # KI-Preisempfehlungen generieren
+        price_recommendations = generate_ai_price_recommendations(
+            product_type, 
+            current_price, 
+            competitor_data, 
+            trend_data
+        )
+        
+        # Datum der letzten Aktualisierung
+        last_updated = datetime.datetime.now().strftime("%d.%m.%Y, %H:%M")
+        
+        return render_template(
+            "price_optimizer.html",
+            products=products,
+            selected_product=selected_product,
+            competitor_data=competitor_data,
+            trend_data=trend_data,
+            price_recommendations=price_recommendations,
+            last_updated=last_updated,
+            shop_name=shop
+        )
+    except Exception as e:
+        print(f"Fehler beim Laden des Price Optimizers: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template(
+            "price_optimizer.html",
+            error=str(e),
+            products=[],
+            selected_product=None,
+            competitor_data={},
+            trend_data={},
+            price_recommendations=[],
+            last_updated=datetime.datetime.now().strftime("%d.%m.%Y, %H:%M"),
+            shop_name="test-shop.example.com"
+        )
+
 # Flask Starten
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Parse command line arguments for port
+    parser = argparse.ArgumentParser(description='Start the Flask application server.')
+    parser.add_argument('--port', type=int, default=5002, help='Port number to run the server on (default: 5002)')
+    args = parser.parse_args()
+    
     # Tracking-Daten beim Start laden
     load_tracking_data()
     
-    # Port für die App konfigurieren (Standard 5000, kann geändert werden)
-    port = int(os.environ.get('PORT', 5001))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=args.port, debug=True)

@@ -1,0 +1,424 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="header">
+  <h1 class="page-title">Price Optimizer™ {% if shop_name %}<span style="font-size: 0.65em; font-weight: normal; color: var(--gray-600);">für {{ shop_name }}</span>{% endif %}</h1>
+  <div class="header-actions">
+    {% if products %}
+    <div class="date-filter">
+      <span class="date-filter-icon"><i class="fas fa-box"></i></span>
+      <select id="product-selector" onchange="window.location.href = '{{ url_for('price_optimizer') }}?product_id=' + this.value;">
+        {% for product in products %}
+        <option value="{{ product.id }}" {% if selected_product and selected_product.id == product.id %}selected{% endif %}>
+          {{ product.title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="export-btn">
+      <span class="export-icon"><i class="fas fa-file-export"></i></span>
+      Exportieren
+    </button>
+  </div>
+</div>
+
+{% if error %}
+<div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 1rem; margin-bottom: 1rem; border-radius: var(--radius);">
+  <p style="color: #b91c1c; margin: 0;"><strong>Fehler:</strong> {{ error }}</p>
+  <p style="color: #b91c1c; margin-top: 0.5rem; margin-bottom: 0;">Bitte versuche es später noch einmal oder kontaktiere den Support.</p>
+</div>
+{% endif %}
+
+{% if selected_product %}
+<!-- Preis-KI-Dashboard -->
+<section class="kpi-section">
+  <div class="kpi-header">
+    <h2 class="kpi-title">Preis-Intelligenz Dashboard</h2>
+    <div class="kpi-period">
+      <i class="fas fa-sync-alt"></i> Zuletzt aktualisiert: {{ last_updated }}
+    </div>
+  </div>
+  
+  <div class="kpi-grid">
+    <div class="kpi-card primary">
+      <div class="kpi-icon">
+        <i class="fas fa-chart-line"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">Aktuelle Preistrends</div>
+        <div class="kpi-value">Live</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>{{ selected_product.product_type }} im Fokus</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card secondary">
+      <div class="kpi-icon">
+        <i class="fas fa-tags"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">Empfohlene Preisanpassung</div>
+        <div class="kpi-value">€{{ trend_data.current_price }} → €{{ trend_data.recommended_price }}</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>+{{ ((trend_data.recommended_price / trend_data.current_price) * 100 - 100) | round(1) }}% Erhöhung empfohlen</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card success">
+      <div class="kpi-icon">
+        <i class="fas fa-money-bill-wave"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">Prognostizierte Umsatzsteigerung</div>
+        <div class="kpi-value">+{{ trend_data.revenue_increase_pct }}%</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>Durch KI-optimierte Preissetzung</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card info">
+      <div class="kpi-icon">
+        <i class="fas fa-store"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">Wettbewerbsanalyse</div>
+        <div class="kpi-value">{{ competitor_data.count }} Shops</div>
+        <div class="kpi-trend">
+          <i class="fas fa-check-circle"></i> 
+          <span>Vollständig analysiert</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Detaillierte Preisanalyse -->
+<section class="charts-row">
+  <div class="chart-container">
+    <div class="chart-header">
+      <h3 class="chart-title">Preisentwicklung: {{ selected_product.product_type }}</h3>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background: #4f46e5;"></div>
+          Ihr Preis
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #f97316;"></div>
+          Marktdurchschnitt
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #10b981;"></div>
+          Optimaler Preis
+        </div>
+      </div>
+    </div>
+    <div id="price-trend-chart" style="width: 100%; height: 300px;">
+      <!-- Canvas wird per JavaScript eingefügt -->
+    </div>
+  </div>
+  
+  <div class="chart-container">
+    <div class="chart-header">
+      <h3 class="chart-title">Preis-Elastizität</h3>
+    </div>
+    <div id="price-elasticity-chart" style="width: 100%; height: 300px;">
+      <!-- Canvas wird per JavaScript eingefügt -->
+    </div>
+  </div>
+</section>
+
+<!-- Konkurrenzpreise -->
+<div class="table-container">
+  <div class="table-header">
+    <h3 class="table-title">Wettbewerbspreise: {{ selected_product.product_type }}</h3>
+    <div class="table-actions">
+      <div class="search-box">
+        <span class="search-icon"><i class="fas fa-search"></i></span>
+        <input type="text" class="search-input" placeholder="Suchen...">
+      </div>
+    </div>
+  </div>
+  
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Shop</th>
+          <th>Produkt</th>
+          <th>Preis</th>
+          <th>Differenz</th>
+          <th>Letzte Änderung</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Ihr Shop</strong></td>
+          <td>{{ selected_product.title }}</td>
+          <td><strong>€{{ trend_data.current_price }}</strong></td>
+          <td>-</td>
+          <td>{{ selected_product.updated_at | default("Unbekannt") }}</td>
+        </tr>
+        {% for competitor in competitor_data.competitors[:4] %}
+        <tr>
+          <td>{{ competitor.shop }}</td>
+          <td>{{ selected_product.title }}</td>
+          <td>€{{ competitor.price }}</td>
+          <td class="{% if competitor.price > trend_data.current_price %}trend-up{% else %}trend-down{% endif %}">
+            {% if competitor.price > trend_data.current_price %}+{% endif %}€{{ (competitor.price - trend_data.current_price) | round(2) }}
+          </td>
+          <td>Vor {{ competitor.last_updated }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="pagination">
+    <div class="page-info">Zeige 5 von {{ competitor_data.count }} Shops</div>
+    <div class="page-buttons">
+      <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+      <button class="page-btn active">1</button>
+      <button class="page-btn">2</button>
+      <button class="page-btn">3</button>
+      <button class="page-btn">4</button>
+      <button class="page-btn">5</button>
+      <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- KI-Preisempfehlungen -->
+<section class="ai-quick-actions">
+  <div class="ai-quick-header">
+    <div class="ai-quick-icon">
+      <i class="fas fa-robot"></i>
+    </div>
+    <h3 class="ai-quick-title">KI-Preisempfehlungen</h3>
+  </div>
+  
+  <div class="ai-quick-list">
+    {% for recommendation in price_recommendations %}
+    <div class="ai-quick-item">
+      <div class="ai-quick-bullet">{{ loop.index }}</div>
+      <div class="ai-quick-content">
+        <div class="ai-quick-tip-title">{{ recommendation.title }}</div>
+        <div class="ai-quick-tip-text">{{ recommendation.description }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% else %}
+<!-- Keine Produkte gefunden -->
+<section class="advisor-content">
+  <div class="empty-state">
+    <div class="empty-icon">
+      <i class="fas fa-tags"></i>
+    </div>
+    <h2 class="empty-title">Keine Produkte gefunden</h2>
+    <p class="empty-message">Es konnten keine Produkte in deinem Shop gefunden werden oder der Shop ist nicht mit unserer App verbunden.</p>
+    <p class="empty-submessage">Bitte stelle sicher, dass du die App korrekt installiert hast und dass dein Shop Produkte enthält.</p>
+    
+    <div class="actions-row" style="margin-top: 2rem;">
+      <a href="/install" class="primary-btn">
+        <i class="fas fa-plug"></i> App installieren
+      </a>
+      <button class="secondary-btn" onclick="location.reload()">
+        <i class="fas fa-sync"></i> Neu laden
+      </button>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Datenhaltung für JavaScript -->
+{% if selected_product and trend_data %}
+<div id="chart-data" 
+    data-dates="{{ trend_data.dates | tojson }}"
+    data-shop-prices="{{ trend_data.shop_prices | tojson }}"
+    data-market-prices="{{ trend_data.market_prices | tojson }}"
+    data-optimal-prices="{{ trend_data.optimal_prices | tojson }}"
+    data-elasticity="{{ trend_data.elasticity_data | tojson }}"
+    style="display:none">
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Hilfsfunktion zum aktuellen Datum
+function formatDate(dateString) {
+  if (!dateString) return "Unbekannt";
+  
+  const dateParts = dateString.split('T')[0].split('-');
+  const formattedDate = dateParts[2] + '.' + dateParts[1] + '.' + dateParts[0];
+  
+  const today = new Date();
+  const todayFormatted = today.getFullYear() + '-' + 
+                         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(today.getDate()).padStart(2, '0');
+  
+  return (dateString.split('T')[0] === todayFormatted) ? "Heute" : formattedDate;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Suche für die Wettbewerberstabelle
+  const searchInput = document.querySelector('.search-input');
+  if (searchInput) {
+    searchInput.addEventListener('keyup', function(e) {
+      const searchQuery = e.target.value.toLowerCase();
+      const tableRows = document.querySelectorAll('table tbody tr');
+      
+      tableRows.forEach(function(row, index) {
+        // Ersten Eintrag (eigener Shop) immer anzeigen
+        if (index === 0) return;
+        
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchQuery) ? '' : 'none';
+      });
+    });
+  }
+  
+  // Chart-Daten laden und Charts erstellen
+  const chartDataElement = document.getElementById('chart-data');
+  if (chartDataElement) {
+    // Daten aus dem DOM-Element extrahieren
+    const chartData = {
+      dates: JSON.parse(chartDataElement.getAttribute('data-dates')),
+      shopPrices: JSON.parse(chartDataElement.getAttribute('data-shop-prices')),
+      marketPrices: JSON.parse(chartDataElement.getAttribute('data-market-prices')),
+      optimalPrices: JSON.parse(chartDataElement.getAttribute('data-optimal-prices')),
+      elasticityData: JSON.parse(chartDataElement.getAttribute('data-elasticity'))
+    };
+    
+    // Preistrend-Chart erstellen
+    const priceTrendCtx = document.createElement('canvas');
+    document.getElementById('price-trend-chart').appendChild(priceTrendCtx);
+    
+    new Chart(priceTrendCtx, {
+      type: 'line',
+      data: {
+        labels: chartData.dates,
+        datasets: [
+          {
+            label: 'Ihr Preis',
+            data: chartData.shopPrices,
+            borderColor: '#4f46e5',
+            tension: 0.3,
+            borderWidth: 3
+          },
+          {
+            label: 'Marktdurchschnitt',
+            data: chartData.marketPrices,
+            borderColor: '#f97316',
+            tension: 0.3,
+            borderWidth: 3
+          },
+          {
+            label: 'Optimaler Preis',
+            data: chartData.optimalPrices,
+            borderColor: '#10b981',
+            tension: 0.3,
+            borderWidth: 3,
+            borderDash: [5, 5]
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': €' + context.raw;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: function(value) {
+                return '€' + value;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    // Preiselastizität-Chart
+    const elasticityCtx = document.createElement('canvas');
+    document.getElementById('price-elasticity-chart').appendChild(elasticityCtx);
+    
+    // Elastizitätsdaten vorbereiten
+    const elasticityPoints = chartData.elasticityData.map(item => ({
+      x: item.price,
+      y: item.sales
+    }));
+    
+    new Chart(elasticityCtx, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Verkaufsmenge/Preis',
+          data: elasticityPoints,
+          backgroundColor: 'rgba(79, 70, 229, 0.7)',
+          borderColor: '#4f46e5',
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `Preis: €${context.parsed.x} | Verkäufe: ${context.parsed.y}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Preis (€)'
+            },
+            min: Math.min(...elasticityPoints.map(p => p.x)) - 5,
+            max: Math.max(...elasticityPoints.map(p => p.x)) + 5,
+            ticks: {
+              callback: function(value) {
+                return '€' + value;
+              }
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Verkaufsmenge (Stück)'
+            },
+            min: Math.min(...elasticityPoints.map(p => p.y)) - 10,
+            max: Math.max(...elasticityPoints.map(p => p.y)) + 10
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %} 
