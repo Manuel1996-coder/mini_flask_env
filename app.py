@@ -213,23 +213,39 @@ def load_tracking_data():
     return tracking_data
 
 def get_shop_data(shop_domain):
-    """Holt die Tracking-Daten für einen bestimmten Shop."""
+    """Holt oder erstellt die Tracking-Daten für einen bestimmten Shop."""
     global tracking_data
+    
+    # Validiere shop_domain
+    if not shop_domain or not isinstance(shop_domain, str):
+        print(f"⚠️ Ungültige Shop-Domain: {shop_domain}")
+        shop_domain = "unknown-shop.example.com"
+    
+    # Standardformat für die Shop-Domain
+    if shop_domain.endswith(';'):
+        shop_domain = shop_domain[:-1]
+        print(f"🔧 Shop-Domain bereinigt: {shop_domain}")
     
     # Wenn der Shop noch nicht im Dictionary existiert, initialisiere ihn
     if shop_domain not in tracking_data:
+        print(f"🆕 Initialisiere neuen Shop: {shop_domain}")
         tracking_data[shop_domain] = {
             'pageviews': [],
-            'clicks': []
+            'clicks': [],
+            'created_at': datetime.datetime.now().isoformat(),
+            'last_updated': datetime.datetime.now().isoformat()
         }
         save_tracking_data()
     
-    # Stelle sicher, dass die Schlüssel 'pageviews' und 'clicks' existieren
+    # Stelle sicher, dass die Schlüssel existieren
     if 'pageviews' not in tracking_data[shop_domain]:
         tracking_data[shop_domain]['pageviews'] = []
     
     if 'clicks' not in tracking_data[shop_domain]:
         tracking_data[shop_domain]['clicks'] = []
+    
+    # Datum für 'last_updated' aktualisieren
+    tracking_data[shop_domain]['last_updated'] = datetime.datetime.now().isoformat()
     
     return tracking_data[shop_domain]
 
@@ -399,19 +415,46 @@ def collect():
         # Shop-Domain validieren und Daten für diesen Shop abrufen
         shop_domain = data['shop_domain']
         
+        # Domain bereinigen - Semikolon entfernen, falls vorhanden
+        if shop_domain.endswith(';'):
+            shop_domain = shop_domain[:-1]
+            data['shop_domain'] = shop_domain
+            print(f"🔧 Shop-Domain bereinigt: {shop_domain}")
+        
         # Debugging: Shopify-Shop ausgeben
         print(f"🏪 Shop Domain: {shop_domain}")
         
+        # Bei test-store-for-shop-pulse.myshopify.com auf test-shop.example.com umleiten
+        # Dies dient dazu, alle Tracking-Daten für Test-Zwecke im selben Shop zu sammeln
+        use_shop_domain = shop_domain
+        if "test-store-for-shop-pulse.myshopify.com" == shop_domain:
+            use_shop_domain = "test-shop.example.com"
+            print(f"📊 Verwende Standard-Test-Shop: {use_shop_domain} statt {shop_domain}")
+        
         # Daten für diesen Shop abrufen oder initialisieren
-        shop_data = get_shop_data(shop_domain)
+        shop_data = get_shop_data(use_shop_domain)
         
         # Event entsprechend dem Typ speichern
         if event_type == 'page_view':
+            # Sicherstellen, dass timestamp ein Integer ist
+            if isinstance(data['timestamp'], str):
+                try:
+                    data['timestamp'] = int(data['timestamp'])
+                except:
+                    pass
+            
             shop_data['pageviews'].append(data)
-            print(f"👁️ Pageview für {shop_domain} erfasst: {data['page']}")
+            print(f"👁️ Pageview für {use_shop_domain} erfasst: {data['page']}")
         elif event_type == 'click':
+            # Sicherstellen, dass timestamp ein Integer ist
+            if isinstance(data['timestamp'], str):
+                try:
+                    data['timestamp'] = int(data['timestamp'])
+                except:
+                    pass
+                    
             shop_data['clicks'].append(data)
-            print(f"👆 Click für {shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
+            print(f"👆 Click für {use_shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
             
         # Daten speichern
         save_tracking_data()
@@ -805,38 +848,57 @@ def tracking_js():
 # Debug-Route zum Anzeigen der Tracking-Daten
 @app.route('/debug/tracking')
 def debug_tracking():
+    """Zeigt Details zu den erfassten Tracking-Daten an."""
     global tracking_data
     
     # Aktualisiere die tracking_data aus der Datei
-    load_tracking_data()
+    tracking_data = load_tracking_data()
     
     # Stelle sicher, dass alle Shop-Domains korrekt initialisiert sind
     all_pageviews = []
     all_clicks = []
+    shops_summary = {}
     
+    # Für jeden Shop Daten sammeln
     for shop_domain, shop_data in tracking_data.items():
-        all_pageviews.extend(shop_data.get('pageviews', []))
-        all_clicks.extend(shop_data.get('clicks', []))
+        pageviews = shop_data.get('pageviews', [])
+        clicks = shop_data.get('clicks', [])
+        
+        # Zusammenfassung pro Shop erstellen
+        shops_summary[shop_domain] = {
+            'pageviews_count': len(pageviews),
+            'clicks_count': len(clicks),
+            'most_recent_pageview': max([pv.get('timestamp', 0) for pv in pageviews]) if pageviews else None,
+            'most_recent_click': max([click.get('timestamp', 0) for click in clicks]) if clicks else None
+        }
+        
+        # Zu Gesamt-Arrays hinzufügen
+        all_pageviews.extend(pageviews)
+        all_clicks.extend(clicks)
+    
+    # Nach Zeitstempel sortieren (neueste zuerst)
+    all_pageviews.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+    all_clicks.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
     
     # Formatierung der Daten für die Anzeige
     pageviews_sample = []
-    for pv in all_pageviews[:5]:
+    for pv in all_pageviews[:5]:  # Limitiere auf 5 Einträge
         pv_copy = dict(pv)
         if 'timestamp' in pv_copy:
             try:
-                pv_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(pv_copy['timestamp']/1000).strftime('%Y-%m-%d %H:%M:%S')
+                pv_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(int(pv_copy['timestamp'])/1000).strftime('%Y-%m-%d %H:%M:%S')
             except:
-                pv_copy['timestamp_formatted'] = "Invalid timestamp"
+                pv_copy['timestamp_formatted'] = "Ungültiger Zeitstempel"
         pageviews_sample.append(pv_copy)
         
     clicks_sample = []
-    for click in all_clicks[:5]:
+    for click in all_clicks[:5]:  # Limitiere auf 5 Einträge
         click_copy = dict(click)
         if 'timestamp' in click_copy:
             try:
-                click_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(click_copy['timestamp']/1000).strftime('%Y-%m-%d %H:%M:%S')
+                click_copy['timestamp_formatted'] = datetime.datetime.fromtimestamp(int(click_copy['timestamp'])/1000).strftime('%Y-%m-%d %H:%M:%S')
             except:
-                click_copy['timestamp_formatted'] = "Invalid timestamp"
+                click_copy['timestamp_formatted'] = "Ungültiger Zeitstempel"
         clicks_sample.append(click_copy)
     
     # Detailliertere Antwort zurückgeben
@@ -846,7 +908,9 @@ def debug_tracking():
         'pageviews_count': len(all_pageviews),
         'clicks_count': len(all_clicks),
         'pageviews_sample': pageviews_sample,
-        'clicks_sample': clicks_sample
+        'clicks_sample': clicks_sample,
+        'shops_summary': shops_summary,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
     
     print(f"Debug Tracking Response: {response}")
