@@ -45,9 +45,73 @@ def load_translations():
     """Lädt die Übersetzungsdateien für alle unterstützten Sprachen."""
     global translations
     
-    # Standardwerte für den Fall, dass keine Übersetzungsdateien geladen werden können
-    translations['en'] = {"app": {"name": "ShoppulseAI", "title": "Intelligent Growth Analysis for Shopify"}}
-    translations['de'] = {"app": {"name": "ShoppulseAI", "title": "Intelligente Wachstumsanalyse für Shopify"}}
+    # Standardwerte initialisieren
+    translations = {
+        'en': {
+            "app": {"name": "ShoppulseAI", "title": "Intelligent Growth Analysis for Shopify"},
+            "navigation": {
+                "dashboard": "Dashboard",
+                "growth_advisor": "Growth Advisor™",
+                "price_optimizer": "Price Optimizer™",
+                "settings": "Settings",
+                "analytics": "Analytics",
+                "configuration": "Configuration"
+            },
+            "dashboard": {"title": "Analytics Dashboard"},
+            "price_optimizer": {"title": "Price Optimizer™"},
+            "growth_advisor": {"title": "Growth Advisor™"},
+            "errors": {
+                "general": "An error occurred.",
+                "data_load": "Error loading data.",
+                "not_connected": "Shop not connected.",
+                "no_products": "No products found."
+            },
+            "language": {
+                "select": "Select Language",
+                "en": "English",
+                "de": "German"
+            },
+            "buttons": {
+                "save": "Save",
+                "cancel": "Cancel",
+                "apply": "Apply",
+                "reload": "Reload",
+                "export": "Export"
+            }
+        },
+        'de': {
+            "app": {"name": "ShoppulseAI", "title": "Intelligente Wachstumsanalyse für Shopify"},
+            "navigation": {
+                "dashboard": "Dashboard",
+                "growth_advisor": "Growth Advisor™",
+                "price_optimizer": "Price Optimizer™",
+                "settings": "Einstellungen",
+                "analytics": "Analytics",
+                "configuration": "Konfiguration"
+            },
+            "dashboard": {"title": "Analytics Dashboard"},
+            "price_optimizer": {"title": "Price Optimizer™"},
+            "growth_advisor": {"title": "Growth Advisor™"},
+            "errors": {
+                "general": "Ein Fehler ist aufgetreten.",
+                "data_load": "Fehler beim Laden der Daten.",
+                "not_connected": "Shop nicht verbunden.",
+                "no_products": "Keine Produkte gefunden."
+            },
+            "language": {
+                "select": "Sprache auswählen",
+                "en": "Englisch",
+                "de": "Deutsch"
+            },
+            "buttons": {
+                "save": "Speichern",
+                "cancel": "Abbrechen",
+                "apply": "Anwenden",
+                "reload": "Neu laden",
+                "export": "Exportieren"
+            }
+        }
+    }
     
     try:
         # Absolute Pfade für Railway und lokale Entwicklung
@@ -55,25 +119,43 @@ def load_translations():
         en_path = os.path.join(base_dir, 'translations', 'en.json')
         de_path = os.path.join(base_dir, 'translations', 'de.json')
         
+        # Verzeichnis erstellen, falls es nicht existiert
+        translations_dir = os.path.join(base_dir, 'translations')
+        if not os.path.exists(translations_dir):
+            os.makedirs(translations_dir)
+            print(f"Verzeichnis für Übersetzungen erstellt: {translations_dir}")
+        
         # Englische Übersetzung laden
         if os.path.exists(en_path):
             with open(en_path, 'r', encoding='utf-8') as f:
-                translations['en'] = json.load(f)
+                loaded_translations = json.load(f)
+                translations['en'].update(loaded_translations)
                 print(f"Englische Übersetzungen geladen aus {en_path}.")
         else:
             print(f"Warnung: Englische Übersetzungsdatei nicht gefunden unter {en_path}. Verwende Standardwerte.")
+            # Speichere die Standardwerte in der Datei
+            with open(en_path, 'w', encoding='utf-8') as f:
+                json.dump(translations['en'], f, ensure_ascii=False, indent=2)
+                print(f"Englische Standardübersetzungen in {en_path} gespeichert.")
         
         # Deutsche Übersetzung laden
         if os.path.exists(de_path):
             with open(de_path, 'r', encoding='utf-8') as f:
-                translations['de'] = json.load(f)
+                loaded_translations = json.load(f)
+                translations['de'].update(loaded_translations)
                 print(f"Deutsche Übersetzungen geladen aus {de_path}.")
         else:
             print(f"Warnung: Deutsche Übersetzungsdatei nicht gefunden unter {de_path}. Verwende Standardwerte.")
+            # Speichere die Standardwerte in der Datei
+            with open(de_path, 'w', encoding='utf-8') as f:
+                json.dump(translations['de'], f, ensure_ascii=False, indent=2)
+                print(f"Deutsche Standardübersetzungen in {de_path} gespeichert.")
     
     except Exception as e:
         print(f"Fehler beim Laden der Übersetzungen: {e}")
         print("Verwende Standardwerte für Übersetzungen.")
+        import traceback
+        traceback.print_exc()
 
 def get_user_language():
     """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
@@ -1580,11 +1662,70 @@ def inject_translations():
             "title": "Intelligent Growth Analysis for Shopify" if language == 'en' else "Intelligente Wachstumsanalyse für Shopify"
         }
     
-    if not translations[language].get('dashboard', {}).get('title'):
+    if 'dashboard' not in translations[language]:
+        print(f"WARNUNG: 'dashboard' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['dashboard'] = {
+            "title": "Analytics Dashboard"
+        }
+    elif not translations[language].get('dashboard', {}).get('title'):
         print(f"WARNUNG: Dashboard-Titel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
-        if 'dashboard' not in translations[language]:
-            translations[language]['dashboard'] = {}
         translations[language]['dashboard']['title'] = 'Analytics Dashboard'
+    
+    # Sicherstellen, dass der navigation-Schlüssel existiert
+    if 'navigation' not in translations[language]:
+        print(f"WARNUNG: 'navigation' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['navigation'] = {
+            "dashboard": "Dashboard",
+            "growth_advisor": "Growth Advisor™",
+            "price_optimizer": "Price Optimizer™",
+            "settings": "Settings" if language == 'en' else "Einstellungen",
+            "analytics": "Analytics",
+            "configuration": "Configuration" if language == 'en' else "Konfiguration"
+        }
+    
+    # Sicherstellen, dass die price_optimizer-Schlüssel existieren
+    if 'price_optimizer' not in translations[language]:
+        print(f"WARNUNG: 'price_optimizer' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['price_optimizer'] = {
+            "title": "Price Optimizer™"
+        }
+    
+    # Sicherstellen, dass die growth_advisor-Schlüssel existieren
+    if 'growth_advisor' not in translations[language]:
+        print(f"WARNUNG: 'growth_advisor' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['growth_advisor'] = {
+            "title": "Growth Advisor™"
+        }
+    
+    # Sicherstellen, dass die errors-Schlüssel existieren
+    if 'errors' not in translations[language]:
+        print(f"WARNUNG: 'errors' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['errors'] = {
+            "general": "An error occurred." if language == 'en' else "Ein Fehler ist aufgetreten.",
+            "data_load": "Error loading data." if language == 'en' else "Fehler beim Laden der Daten.",
+            "not_connected": "Shop not connected." if language == 'en' else "Shop nicht verbunden.",
+            "no_products": "No products found." if language == 'en' else "Keine Produkte gefunden."
+        }
+    
+    # Sicherstellen, dass die language-Schlüssel existieren
+    if 'language' not in translations[language]:
+        print(f"WARNUNG: 'language' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['language'] = {
+            "select": "Select Language" if language == 'en' else "Sprache auswählen",
+            "en": "English" if language == 'en' else "Englisch",
+            "de": "German" if language == 'en' else "Deutsch"
+        }
+    
+    # Sicherstellen, dass die buttons-Schlüssel existieren
+    if 'buttons' not in translations[language]:
+        print(f"WARNUNG: 'buttons' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['buttons'] = {
+            "save": "Save" if language == 'en' else "Speichern",
+            "cancel": "Cancel" if language == 'en' else "Abbrechen",
+            "apply": "Apply" if language == 'en' else "Anwenden",
+            "reload": "Reload" if language == 'en' else "Neu laden",
+            "export": "Export" if language == 'en' else "Exportieren"
+        }
     
     return {
         'translations': translations[language],
