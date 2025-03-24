@@ -424,15 +424,8 @@ def collect():
         # Debugging: Shopify-Shop ausgeben
         print(f"🏪 Shop Domain: {shop_domain}")
         
-        # Bei test-store-for-shop-pulse.myshopify.com auf test-shop.example.com umleiten
-        # Dies dient dazu, alle Tracking-Daten für Test-Zwecke im selben Shop zu sammeln
-        use_shop_domain = shop_domain
-        if "test-store-for-shop-pulse.myshopify.com" == shop_domain:
-            use_shop_domain = "test-shop.example.com"
-            print(f"📊 Verwende Standard-Test-Shop: {use_shop_domain} statt {shop_domain}")
-        
         # Daten für diesen Shop abrufen oder initialisieren
-        shop_data = get_shop_data(use_shop_domain)
+        shop_data = get_shop_data(shop_domain)
         
         # Event entsprechend dem Typ speichern
         if event_type == 'page_view':
@@ -444,7 +437,7 @@ def collect():
                     pass
             
             shop_data['pageviews'].append(data)
-            print(f"👁️ Pageview für {use_shop_domain} erfasst: {data['page']}")
+            print(f"👁️ Pageview für {shop_domain} erfasst: {data['page']}")
         elif event_type == 'click':
             # Sicherstellen, dass timestamp ein Integer ist
             if isinstance(data['timestamp'], str):
@@ -454,7 +447,7 @@ def collect():
                     pass
                     
             shop_data['clicks'].append(data)
-            print(f"👆 Click für {use_shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
+            print(f"👆 Click für {shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
             
         # Daten speichern
         save_tracking_data()
@@ -488,208 +481,213 @@ def collect():
 def dashboard():
     """Hauptdashboard mit Analysen und Metriken."""
     try:
-        # Shop aus der Session holen (temporär entfernt)
-        # shop = session.get('shop')
-        # if not shop:
-        #     return redirect('/install')  # Umleitung zur Installation, wenn kein Shop in der Session
+        # Shop aus der Session holen
+        shop = session.get('shop')
+        if not shop:
+            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
+            global tracking_data
+            tracking_data = load_tracking_data()
+            all_shops = list(tracking_data.keys())
+            
+            if all_shops:
+                shop = all_shops[0]
+                print(f"Dashboard: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
+            else:
+                shop = "test-shop.example.com"
+                print(f"Dashboard: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
-        # Demo-Shop setzen für Test-Zwecke
-        shop = "test-shop.example.com"
+        print(f"Dashboard: Verwende Shop: {shop}")
+        print(f"Dashboard: Tracking-Daten-Keys: {list(tracking_data.keys())}")
         
-        # Auch nach dem Test-Shop aus Tracking-Daten suchen
-        global tracking_data
+        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
+        access_token = session.get('access_token')
         
-        # Tracking-Daten aktualisieren durch Neuladen der Datei
+        # Tracking-Daten aktualisieren durch Neuladen
         tracking_data = load_tracking_data()
         
-        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
-        all_shops = list(tracking_data.keys())
-        print(f"Verfügbare Shops im Tracking: {all_shops}")
-        
-        if all_shops and shop not in tracking_data:
-            # Wenn der Test-Shop keine Daten hat, aber andere Shops vorhanden sind
-            shop = all_shops[0]
-            print(f"Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
-        
-        # Überprüfen, ob ein gültiges Access-Token vorhanden ist (temporär entfernt)
-        # access_token = session.get('access_token')
-        # if not access_token:
-        #     return redirect('/install')  # Umleitung zur Installation, wenn kein Token vorhanden
-        
-        # Daten für diesen Shop laden
+        # Daten für diesen Shop abrufen
         shop_data = get_shop_data(shop)
+        print(f"Dashboard: Shop-Daten für {shop} geladen. Keys: {list(shop_data.keys())}")
         
-        print(f"Dashboard für Shop {shop} aufgerufen. Tracking-Daten: {len(shop_data.get('pageviews', []))} Pageviews, {len(shop_data.get('clicks', []))} Clicks")
+        # Zähle die Pageviews und Klicks
+        pageviews_count = len(shop_data.get('pageviews', []))
+        clicks_count = len(shop_data.get('clicks', []))
+        print(f"Dashboard: Pageviews: {pageviews_count}, Clicks: {clicks_count}")
         
-        # Grundlegende Metriken berechnen
-        total_pageviews = len(shop_data.get('pageviews', []))
-        total_clicks = len(shop_data.get('clicks', []))
+        # Berechne die Klickrate (CTR)
+        if pageviews_count > 0:
+            click_rate = (clicks_count / pageviews_count) * 100
+        else:
+            click_rate = 0
+        print(f"Dashboard: Klickrate: {click_rate:.2f}%")
         
-        print(f"Berechnete Metriken: {total_pageviews} Pageviews, {total_clicks} Clicks")
-        
-        # Unique Pages berechnen
-        unique_pages_set = set()
+        # Sortiere Events nach Zeitstempel (neueste zuerst)
+        all_events = []
         for pv in shop_data.get('pageviews', []):
-            if 'page' in pv and pv['page']:
-                unique_pages_set.add(pv['page'])
-        unique_pages = len(unique_pages_set)
+            pv_copy = dict(pv)
+            pv_copy['event_type_display'] = 'page_view'
+            all_events.append(pv_copy)
         
-        # Erweiterte Metriken berechnen
-        click_rate = (total_clicks / total_pageviews * 100) if total_pageviews > 0 else 0
-        avg_clicks_per_page = total_clicks / unique_pages if unique_pages > 0 else 0
+        for click in shop_data.get('clicks', []):
+            click_copy = dict(click)
+            click_copy['event_type_display'] = 'click'
+            all_events.append(click_copy)
         
-        # Durchschnittliche Sitzungsdauer berechnen
-        session_durations = {}
-        for pageview in shop_data.get('pageviews', []):
-            session_id = pageview.get('session_id', '')
-            timestamp = pageview.get('timestamp', 0)
-            
-            if not session_id or not timestamp:
-                continue
-                
-            if session_id not in session_durations:
-                session_durations[session_id] = {'min': timestamp, 'max': timestamp}
-            else:
-                if timestamp < session_durations[session_id]['min']:
-                    session_durations[session_id]['min'] = timestamp
-                if timestamp > session_durations[session_id]['max']:
-                    session_durations[session_id]['max'] = timestamp
+        # Sortiere nach Zeitstempel (neueste zuerst)
+        all_events.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+        print(f"Dashboard: {len(all_events)} Events gesammelt")
         
-        total_duration = sum([(s['max'] - s['min'])/1000 for s in session_durations.values()]) if session_durations else 0
-        avg_session_duration = total_duration / len(session_durations) if session_durations else 0
+        # Begrenze auf die neuesten 20 Events
+        recent_events = all_events[:20]
         
-        # Konversionsrate (basierend auf echten Daten berechnen, falls verfügbar)
-        # Hier verwenden wir einen Beispielwert, der später durch echte Daten ersetzt werden kann
-        conversion_rate = 0
+        # Formatiere Zeitstempel für die Anzeige
+        for event in recent_events:
+            if 'timestamp' in event:
+                try:
+                    event['timestamp_formatted'] = datetime.datetime.fromtimestamp(
+                        int(event['timestamp'])/1000
+                    ).strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    event['timestamp_formatted'] = "Ungültiger Zeitstempel"
         
-        # Trends berechnen (basierend auf echten Daten, falls verfügbar)
-        # Hier verwenden wir dynamischere Trends basierend auf der aktuellen Datenmenge
-        trends = {
-            'pageviews': {'value': 5 if total_pageviews > 0 else 0, 'direction': 'up' if total_pageviews > 0 else 'down'},
-            'clicks': {'value': 8 if total_clicks > 0 else 0, 'direction': 'up' if total_clicks > 0 else 'down'},
-            'click_rate': {'value': 10 if click_rate > 0 else 0, 'direction': 'up' if click_rate > 1 else 'down'},
-            'session_duration': {'value': 15 if avg_session_duration > 0 else 0, 'direction': 'up' if avg_session_duration > 10 else 'down'},
-            'conversion_rate': {'value': 0, 'direction': 'up'},
-            'unique_pages': {'value': 12 if unique_pages > 0 else 0, 'direction': 'up' if unique_pages > 1 else 'down'}
-        }
+        print("Dashboard: Generiere KI-Tipps...")
+        # AI-Empfehlungen basierend auf den Daten generieren
+        ai_tips = []
+        try:
+            for tip in generate_ai_tips(shop_data):
+                # Formatiere die Tipps für die Anzeige im Template
+                formatted_tip = {
+                    "title": tip.get("title", ""),
+                    "description": tip.get("text", "")  # Map 'text' to 'description' for template compatibility
+                }
+                ai_tips.append(formatted_tip)
+            print(f"Dashboard: {len(ai_tips)} KI-Tipps generiert")
+        except Exception as e:
+            print(f"Fehler beim Generieren der KI-Tipps: {e}")
+            import traceback
+            traceback.print_exc()
         
-        # Ereignisse für die Tabelle vorbereiten
-        events = []
-        
-        # Pageviews hinzufügen
-        for pv in shop_data.get('pageviews', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
-            events.append({
-                'event_type': 'page_view',
-                'page_url': pv.get('page', ''),
-                'timestamp': datetime.datetime.fromtimestamp(pv.get('timestamp', 0)/1000).strftime('%Y-%m-%d %H:%M:%S') if pv.get('timestamp') else ''
-            })
-        
-        # Clicks hinzufügen
-        for click in shop_data.get('clicks', [])[:10]:  # Begrenzen auf die neuesten 10 Einträge
-            events.append({
-                'event_type': 'click',
-                'page_url': click.get('page', ''),
-                'clicked_tag': click.get('clicked_tag', ''),
-                'timestamp': datetime.datetime.fromtimestamp(click.get('timestamp', 0)/1000).strftime('%Y-%m-%d %H:%M:%S') if click.get('timestamp') else ''
-            })
-        
-        # Nach Zeitstempel sortieren (neueste zuerst)
-        events.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
-        
-        # AI-Empfehlungen generieren
-        ai_quick_tips = generate_quick_tips(click_rate, avg_session_duration, unique_pages)
-        
+        print("Dashboard: Generiere Implementierungsaufgaben...")
         # Implementierungsaufgaben generieren
-        implementation_tasks = generate_implementation_tasks()
+        implementation_tasks = []
+        try:
+            implementation_tasks = generate_implementation_tasks()
+            print(f"Dashboard: {len(implementation_tasks)} Implementierungsaufgaben generiert")
+        except Exception as e:
+            print(f"Fehler beim Generieren der Implementierungsaufgaben: {e}")
+            import traceback
+            traceback.print_exc()
         
-        print(f"Dashboard-Daten vorbereitet: {total_pageviews} Pageviews, {total_clicks} Clicks, {len(events)} Events")
+        # Anzahl der eindeutigen Seiten berechnen
+        unique_pages = len(set([pv.get('page', '') for pv in shop_data.get('pageviews', [])]))
         
-        return render_template('dashboard.html', 
-                              total_pageviews=total_pageviews,
-                              total_clicks=total_clicks,
-                              click_rate=round(click_rate, 1),
-                              avg_session_duration=round(avg_session_duration, 1),
-                              conversion_rate=conversion_rate,
-                              unique_pages=unique_pages,
-                              trends=trends,
-                              ai_quick_tips=ai_quick_tips,
-                              implementation_tasks=implementation_tasks,
-                              events=events)
+        print("Dashboard: Rendere Template...")
+        # Rendere die Dashboard-Vorlage mit den Daten
+        return render_template(
+            "dashboard.html",
+            total_pageviews=pageviews_count,  # Variable von pageviews_count zu total_pageviews geändert
+            total_clicks=clicks_count,        # Variable von clicks_count zu total_clicks geändert
+            click_rate=click_rate,
+            events=recent_events,             # Variable von recent_events zu events geändert
+            ai_quick_tips=ai_tips,            # Variable von ai_tips zu ai_quick_tips geändert
+            implementation_tasks=implementation_tasks,
+            shop_name=shop,
+            # Template-Fehler vermeiden, indem wir Trends definieren
+            trends={
+                'pageviews': {'direction': 'up', 'value': '5'},
+                'clicks': {'direction': 'up', 'value': '8'},
+                'click_rate': {'direction': 'up', 'value': '10'},
+                'session_duration': {'direction': 'down', 'value': '0'},
+                'conversion_rate': {'direction': 'up', 'value': '0'},
+                'unique_pages': {'direction': 'up', 'value': '12'}
+            },
+            avg_session_duration=0,
+            conversion_rate=0,
+            unique_pages=unique_pages
+        )
     except Exception as e:
         print(f"Fehler beim Laden des Dashboards: {e}")
-        # Standardwerte für den Fehlerfall
-        default_trends = {
-            'pageviews': {'value': 0, 'direction': 'up'},
-            'clicks': {'value': 0, 'direction': 'up'},
-            'click_rate': {'value': 0, 'direction': 'up'},
-            'session_duration': {'value': 0, 'direction': 'up'},
-            'conversion_rate': {'value': 0, 'direction': 'up'},
-            'unique_pages': {'value': 0, 'direction': 'up'}
-        }
-        
-        # Leere Empfehlungen
-        default_ai_quick_tips = []
-        
-        # Leere Implementierungsaufgaben
-        default_implementation_tasks = []
-        
-        return render_template('dashboard.html', 
-                              error=str(e),
-                              total_pageviews=0,
-                              total_clicks=0,
-                              click_rate=0,
-                              avg_session_duration=0,
-                              conversion_rate=0,
-                              unique_pages=0,
-                              trends=default_trends,
-                              ai_quick_tips=default_ai_quick_tips,
-                              implementation_tasks=default_implementation_tasks,
-                              events=[])
+        import traceback
+        traceback.print_exc()
+        return render_template(
+            "dashboard.html",
+            error=str(e),
+            total_pageviews=0,
+            total_clicks=0,
+            click_rate=0,
+            events=[],
+            ai_quick_tips=[],
+            implementation_tasks=[],
+            shop_name="Nicht verbunden"
+        )
 
-def generate_quick_tips(click_rate, avg_duration, unique_pages):
-    """Generiert AI-basierte Handlungsempfehlungen basierend auf den Metriken."""
-    tips = []
-    
-    # Empfehlung basierend auf der Klickrate
-    if click_rate < 2.0:
-        tips.append({
-            "title": "Call-to-Action Optimierung",
-            "description": "Die Klickrate ist niedrig. Verbessern Sie die Sichtbarkeit und Klarheit Ihrer CTAs durch kontrastreichere Farben und präzisere Handlungsaufforderungen."
-        })
-    elif click_rate < 5.0:
-        tips.append({
-            "title": "A/B-Tests für Buttons durchführen",
-            "description": "Testen Sie verschiedene Button-Designs und Texte, um die optimale Kombination für höhere Klickraten zu finden."
-        })
-    
-    # Empfehlung basierend auf der Verweildauer
-    if avg_duration < 30:
-        tips.append({
+def generate_ai_tips(shop_data):
+    """Generiert KI-basierte Tipps basierend auf Tracking-Daten."""
+    # Default-Tipps, wenn nicht genügend Daten vorhanden sind
+    default_tips = [
+        {
             "title": "Content-Qualität verbessern",
-            "description": "Die durchschnittliche Verweildauer ist kurz. Erweitern Sie Ihre Inhalte mit relevanten Details und verbessern Sie die Lesbarkeit durch Zwischenüberschriften und Aufzählungen."
-        })
-    elif avg_duration < 60:
-        tips.append({
-            "title": "Interaktive Elemente einbauen",
-            "description": "Fügen Sie interaktive Elemente wie Videos oder Umfragen hinzu, um die Benutzer länger auf der Seite zu halten."
-        })
-    
-    # Empfehlung basierend auf der Anzahl der besuchten Seiten
-    if unique_pages < 5:
-        tips.append({
+            "text": "Die durchschnittliche Verweildauer ist kurz. Erweitern Sie Ihre Inhalte mit relevanten Details und verbessern Sie die Lesbarkeit durch Zwischenüberschriften und Aufzählungen."
+        },
+        {
             "title": "Interne Verlinkung optimieren",
-            "description": "Verbessern Sie die interne Verlinkung zwischen Ihren Seiten, um Besucher zu ermutigen, mehr Seiten zu erkunden."
+            "text": "Verbessern Sie die interne Verlinkung zwischen Ihren Seiten, um Besucher zu ermutigen, mehr Seiten zu erkunden."
+        }
+    ]
+    
+    # Prüfen, ob genügend Daten für fundierte Tipps vorhanden sind
+    pageviews = shop_data.get('pageviews', [])
+    clicks = shop_data.get('clicks', [])
+    
+    if len(pageviews) < 3 and len(clicks) < 2:
+        return default_tips
+    
+    # In einem echten Szenario würden hier komplexere Analysen durchgeführt
+    # Basierend auf Seitenaufrufen, Klicks, Verweildauer usw.
+    
+    custom_tips = []
+    
+    # Analysiere die am häufigsten besuchten Seiten
+    page_counts = {}
+    for pv in pageviews:
+        page = pv.get('page', '')
+        if page in page_counts:
+            page_counts[page] += 1
+        else:
+            page_counts[page] = 1
+    
+    # Sortiere Seiten nach Anzahl der Aufrufe (absteigend)
+    sorted_pages = sorted(page_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    # Generiere Tipps basierend auf den meistbesuchten Seiten
+    if sorted_pages:
+        most_visited_page = sorted_pages[0][0]
+        custom_tips.append({
+            "title": "Top-Seite optimieren",
+            "text": f"Ihre meistbesuchte Seite ({most_visited_page}) sollte besonders optimiert werden. Stellen Sie sicher, dass hier klare Call-to-Actions vorhanden sind."
         })
     
-    # Wenn keine Tipps generiert wurden, füge einen Standard-Tipp hinzu
-    if not tips:
-        tips.append({
-            "title": "Datensammlung ausbauen",
-            "description": "Sammeln Sie mehr Daten über das Nutzerverhalten, um präzisere Handlungsempfehlungen zu erhalten. Implementieren Sie erweiterte Tracking-Funktionen für detailliertere Einblicke."
-        })
+    # Berechne die Klickrate (CTR)
+    if pageviews:
+        ctr = (len(clicks) / len(pageviews)) * 100
+        if ctr < 20:
+            custom_tips.append({
+                "title": "Klickrate verbessern",
+                "text": f"Ihre Klickrate von {ctr:.1f}% ist niedrig. Verbessern Sie die Sichtbarkeit Ihrer interaktiven Elemente und Call-to-Actions."
+            })
+        elif ctr > 50:
+            custom_tips.append({
+                "title": "Nutzen Sie Ihre hohe Engagement-Rate",
+                "text": f"Mit einer Klickrate von {ctr:.1f}% zeigen Ihre Besucher großes Interesse. Verstärken Sie Conversion-Elemente, um dieses Engagement zu monetarisieren."
+            })
     
-    # Maximal 3 Tipps zurückgeben
-    return tips[:3]
+    # Falls wir genug benutzerdefinierte Tipps haben, verwenden wir diese
+    if len(custom_tips) >= 2:
+        return custom_tips
+    
+    # Andernfalls kombinieren wir mit Default-Tipps
+    combined_tips = custom_tips + [tip for tip in default_tips if tip not in custom_tips]
+    return combined_tips[:3]  # Begrenzen auf maximal 3 Tipps
 
 # GPT Empfehlungen
 def generate_gpt_recommendations(total_pageviews, total_clicks, click_rate):
@@ -1119,50 +1117,54 @@ def generate_growth_advisor_recommendations(shop_data):
     
     return recommendations
 
-# Growth Advisor Route
 @app.route('/growth-advisor')
 def growth_advisor():
+    """Zeigt den Growth Advisor mit Wachstumsanalysen und -empfehlungen an."""
     try:
-        # Beispiel-Shop-Domain (in einer echten Anwendung würde dies aus der Session kommen)
-        # shop = session.get('shop')
-        # if not shop:
-        #     return redirect('/install')
+        # Shop aus der Session holen
+        shop = session.get('shop')
+        if not shop:
+            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
+            global tracking_data
+            tracking_data = load_tracking_data()
+            all_shops = list(tracking_data.keys())
+            
+            if all_shops:
+                shop = all_shops[0]
+                print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
+            else:
+                shop = "test-shop.example.com"
+                print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
-        # Demo-Shop für Testzwecke
-        shop = "test-shop.example.com"
+        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
+        access_token = session.get('access_token')
         
         # Tracking-Daten aktualisieren durch Neuladen
-        global tracking_data
         tracking_data = load_tracking_data()
         
-        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
-        all_shops = list(tracking_data.keys())
-        if all_shops and shop not in tracking_data:
-            shop = all_shops[0]
-            print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
-        
-        # Demo Access Token (in einer echten Anwendung würde dies aus der Session kommen)
-        # access_token = session.get('access_token')
-        # if not access_token:
-        #    return redirect('/install')
-        access_token = None
-        
-        # Shop-Daten abrufen
+        # Daten für diesen Shop abrufen
         shop_data = get_shop_data(shop)
         
-        # Empfehlungen generieren für diesen Shop
-        advisor_recommendations = generate_growth_advisor_recommendations(shop_data)
+        # Anzahl der Seitenaufrufe und Klicks
+        pageviews_count = len(shop_data.get('pageviews', []))
+        clicks_count = len(shop_data.get('clicks', []))
         
-        # Nach Priorität sortieren
-        advisor_recommendations.sort(key=lambda x: 0 if x['priority'] == 'hoch' else (1 if x['priority'] == 'mittel' else 2))
+        # Generiere Wachstumsanalysen
+        growth_projections = generate_growth_projections(shop_data)
         
-        # Datum für Aktualisierung
-        last_updated = datetime.datetime.now().strftime("%d.%m.%Y, %H:%M")
+        # Generiere AI-Wachstumsempfehlungen
+        growth_recommendations = generate_growth_recommendations(shop_data)
+        
+        # Generiere Implementierungsaufgaben basierend auf Datenanalyse
+        implementation_tasks = generate_implementation_tasks()
         
         return render_template(
             "growth_advisor.html",
-            recommendations=advisor_recommendations,
-            last_updated=last_updated,
+            pageviews_count=pageviews_count,
+            clicks_count=clicks_count,
+            growth_projections=growth_projections,
+            growth_recommendations=growth_recommendations,
+            implementation_tasks=implementation_tasks,
             shop_name=shop
         )
     except Exception as e:
@@ -1172,137 +1174,57 @@ def growth_advisor():
         return render_template(
             "growth_advisor.html",
             error=str(e),
-            recommendations=[],
-            last_updated=datetime.datetime.now().strftime("%d.%m.%Y, %H:%M"),
-            shop_name="test-shop.example.com"
+            pageviews_count=0,
+            clicks_count=0,
+            growth_projections={},
+            growth_recommendations=[],
+            implementation_tasks=[],
+            shop_name="Nicht verbunden"
         )
 
-# Price Optimizer Funktionen
-def get_shop_products(shop_domain, access_token=None):
-    """
-    Ruft die Produkte eines Shopify-Shops ab.
-    Bei Testdaten wird ein Mock-Datensatz zurückgegeben.
-    """
+def get_shopify_products(shop_domain, access_token):
+    """Ruft Produkte aus der Shopify API ab."""
     try:
-        # Prüfen, ob wir ein Zugriffstoken haben
-        if shop_domain and access_token:
-            # Echten API-Aufruf an Shopify senden
-            url = f"https://{shop_domain}/admin/api/2023-07/products.json"
-            headers = {"X-Shopify-Access-Token": access_token}
-            
-            response = requests.get(url, headers=headers)
-            
-            # Prüfen, ob der Aufruf erfolgreich war
-            if response.status_code == 200:
-                print(f"✅ Produkte erfolgreich von Shopify abgerufen")
-                
-                # JSON-Antwort verarbeiten
-                products_data = response.json().get('products', [])
-                
-                # Wenn wir Produkte erhalten haben, diese zurückgeben
-                if products_data:
-                    return products_data
-                else:
-                    print("⚠️ Keine Produkte in der API-Antwort gefunden.")
-            else:
-                print(f"❌ Fehler beim Abrufen der Produkte: Status {response.status_code}")
-                print(f"Antwort: {response.text}")
-    except Exception as e:
-        print(f"❌ Fehler beim Abrufen der Produkte über die API: {e}")
-    
-    # Fallback auf Mock-Daten, wenn API-Aufruf fehlschlägt oder keine Daten zurückgibt
-    print("⚠️ Verwende Mock-Produkte für die Demo")
-    
-    # Für Demo-Zwecke erstellen wir Beispieldaten
-    mock_products = [
-        {
-            'id': 1001,
-            'title': 'SportBeat Pro X3',
-            'product_type': 'Sport-Kopfhörer',
-            'variants': [
-                {
-                    'id': 2001,
-                    'price': '89.00',
-                    'inventory_quantity': 28,
-                    'sku': 'SPBT-PRO-X3'
-                }
-            ],
-            'image': {'src': 'https://example.com/images/headphones-blue.jpg'},
-            'tags': 'sport, audio, bestseller',
-            'created_at': '2023-02-15T10:00:00Z',
-            'updated_at': '2023-03-10T14:30:00Z'
-        },
-        {
-            'id': 1002,
-            'title': 'FitPulse Smartwatch',
-            'product_type': 'Fitness-Smartwatch',
-            'variants': [
-                {
-                    'id': 2002,
-                    'price': '129.99',
-                    'inventory_quantity': 15,
-                    'sku': 'FPS-201-BLK'
-                }
-            ],
-            'image': {'src': 'https://example.com/images/smartwatch.jpg'},
-            'tags': 'fitness, tech, smartwatch',
-            'created_at': '2023-01-20T09:45:00Z',
-            'updated_at': '2023-03-05T11:20:00Z'
-        },
-        {
-            'id': 1003,
-            'title': 'UltraFlex Sportmatte',
-            'product_type': 'Yoga-Matte',
-            'variants': [
-                {
-                    'id': 2003,
-                    'price': '45.50',
-                    'inventory_quantity': 42,
-                    'sku': 'UFLEX-YM-200'
-                }
-            ],
-            'image': {'src': 'https://example.com/images/yoga-mat.jpg'},
-            'tags': 'yoga, fitness, wellness',
-            'created_at': '2023-02-01T15:30:00Z',
-            'updated_at': '2023-03-15T09:10:00Z'
-        },
-        {
-            'id': 1004,
-            'title': 'EnergyBoost Protein',
-            'product_type': 'Nahrungsergänzung',
-            'variants': [
-                {
-                    'id': 2004,
-                    'price': '34.95',
-                    'inventory_quantity': 65,
-                    'sku': 'EB-PROT-1000'
-                }
-            ],
-            'image': {'src': 'https://example.com/images/protein.jpg'},
-            'tags': 'nutrition, fitness, supplement',
-            'created_at': '2023-01-10T12:20:00Z',
-            'updated_at': '2023-03-02T16:45:00Z'
-        },
-        {
-            'id': 1005,
-            'title': 'AquaFlow Trinkflasche',
-            'product_type': 'Fitness-Zubehör',
-            'variants': [
-                {
-                    'id': 2005,
-                    'price': '19.99',
-                    'inventory_quantity': 102,
-                    'sku': 'AQUA-BTL-01'
-                }
-            ],
-            'image': {'src': 'https://example.com/images/bottle.jpg'},
-            'tags': 'hydration, fitness, eco',
-            'created_at': '2023-02-20T08:15:00Z',
-            'updated_at': '2023-03-18T10:30:00Z'
+        # URL für die Shopify API
+        url = f"https://{shop_domain}/admin/api/2023-04/products.json"
+        
+        # Header mit Access-Token für die Authentifizierung
+        headers = {
+            "X-Shopify-Access-Token": access_token,
+            "Content-Type": "application/json"
         }
-    ]
-    
-    return mock_products
+        
+        # API-Aufruf durchführen
+        response = requests.get(url, headers=headers)
+        
+        # Prüfen, ob der Aufruf erfolgreich war
+        if response.status_code == 200:
+            products_data = response.json().get('products', [])
+            
+            # Produkte für unsere Verwendung aufbereiten
+            formatted_products = []
+            for product in products_data:
+                formatted_product = {
+                    "id": product.get('id'),
+                    "title": product.get('title'),
+                    "product_type": product.get('product_type'),
+                    "variants": product.get('variants', []),
+                    "image": product.get('image', {}),
+                    "description": product.get('body_html', '')
+                }
+                formatted_products.append(formatted_product)
+            
+            print(f"✅ {len(formatted_products)} Produkte von Shopify für {shop_domain} geladen")
+            return formatted_products
+        else:
+            print(f"❌ Fehler beim Abrufen der Produkte: {response.status_code} - {response.text}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ Ausnahme beim Abrufen der Produkte: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
 
 def get_competitor_data(product_type, product_title=None):
     """
@@ -1696,49 +1618,138 @@ def generate_ai_price_recommendations(product_type, current_price, competitor_da
     
     return recommendations
 
+def get_mock_products():
+    """Gibt eine Liste von Mock-Produkten für Demonstrations- und Testzwecke zurück."""
+    return [
+        {
+            "id": "1001",
+            "title": "Sport-Kopfhörer Pro X3",
+            "product_type": "Sport-Kopfhörer",
+            "variants": [
+                {
+                    "id": "2001",
+                    "price": "89.99",
+                    "compare_at_price": "119.99",
+                    "inventory_quantity": 42
+                }
+            ],
+            "image": {"src": "https://via.placeholder.com/150/0A84FF/FFFFFF?text=Kopfhörer"},
+            "description": "Wasserdichte Sport-Kopfhörer mit aktiver Geräuschunterdrückung und 12 Stunden Akkulaufzeit."
+        },
+        {
+            "id": "1002",
+            "title": "Yoga-Matte Premium",
+            "product_type": "Fitness-Zubehör",
+            "variants": [
+                {
+                    "id": "2002",
+                    "price": "49.95",
+                    "compare_at_price": "69.95",
+                    "inventory_quantity": 78
+                }
+            ],
+            "image": {"src": "https://via.placeholder.com/150/30D158/FFFFFF?text=Yoga-Matte"},
+            "description": "Rutschfeste Premium-Yogamatte aus umweltfreundlichen Materialien, 6mm dick für optimalen Komfort."
+        },
+        {
+            "id": "1003",
+            "title": "Smartwatch Active",
+            "product_type": "Wearables",
+            "variants": [
+                {
+                    "id": "2003",
+                    "price": "149.00",
+                    "compare_at_price": "199.00",
+                    "inventory_quantity": 23
+                }
+            ],
+            "image": {"src": "https://via.placeholder.com/150/FF9F0A/FFFFFF?text=Smartwatch"},
+            "description": "Fitness-Smartwatch mit Herzfrequenzmessung, GPS und einer Akkulaufzeit von bis zu 7 Tagen."
+        },
+        {
+            "id": "1004",
+            "title": "Protein-Pulver Vanille",
+            "product_type": "Nahrungsergänzung",
+            "variants": [
+                {
+                    "id": "2004",
+                    "price": "34.99",
+                    "compare_at_price": "39.99",
+                    "inventory_quantity": 104
+                }
+            ],
+            "image": {"src": "https://via.placeholder.com/150/BF5AF2/FFFFFF?text=Protein"},
+            "description": "Hochwertiges Protein-Pulver mit Vanillegeschmack, 25g Protein pro Portion, 1kg Packung."
+        },
+        {
+            "id": "1005",
+            "title": "Heimtrainer Kompakt",
+            "product_type": "Fitnessgeräte",
+            "variants": [
+                {
+                    "id": "2005",
+                    "price": "299.00",
+                    "compare_at_price": "399.00",
+                    "inventory_quantity": 12
+                }
+            ],
+            "image": {"src": "https://via.placeholder.com/150/FF375F/FFFFFF?text=Heimtrainer"},
+            "description": "Kompakter Heimtrainer mit 8 Widerstandsstufen, faltbar für einfache Aufbewahrung."
+        }
+    ]
+
 @app.route('/price-optimizer')
 def price_optimizer():
     """Zeigt den Price Optimizer mit Preisempfehlungen und Konkurrenzanalyse an."""
     try:
-        # Shop aus der Session auslesen (temporär deaktiviert für Demo)
-        # shop = session.get('shop')
-        # if not shop:
-        #    return redirect('/install')  # Redirect to oauth flow if no shop
+        # Shop aus der Session auslesen
+        shop = session.get('shop')
+        if not shop:
+            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
+            global tracking_data
+            tracking_data = load_tracking_data()
+            all_shops = list(tracking_data.keys())
+            
+            if all_shops:
+                shop = all_shops[0]
+                print(f"Price Optimizer: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
+            else:
+                shop = "test-shop.example.com"
+                print(f"Price Optimizer: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
-        # Demo-Shop für Testzwecke
-        shop = "test-shop.example.com"
-        
-        # Tracking-Daten aktualisieren durch Neuladen
-        global tracking_data
-        tracking_data = load_tracking_data()
-        
-        # Alle Shops überprüfen und den ersten gefundenen verwenden, wenn test-shop keine Daten hat
-        all_shops = list(tracking_data.keys())
-        if all_shops and shop not in tracking_data:
-            shop = all_shops[0]
-            print(f"Price Optimizer: Verwende ersten verfügbaren Shop: {shop} statt test-shop.example.com")
-        
-        # Access token aus der Session (temporär deaktiviert für Demo)
-        # access_token = session.get('access_token')
-        # if not access_token:
-        #    return redirect('/install')  # Redirect to oauth flow if no access token
-        access_token = None
+        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
+        access_token = session.get('access_token')
         
         # Produkt-ID aus dem GET-Parameter auslesen
-        product_id = request.args.get('product_id', '1001')  # Default zu erstem Produkt, wenn nicht angegeben
+        product_id = request.args.get('product_id')
         
-        # Mock-Produkte für die Demo
-        products = get_mock_products()
+        # Lade echte Produkte aus der Shopify API, wenn access_token vorhanden
+        products = []
+        if access_token:
+            try:
+                products = get_shopify_products(shop, access_token)
+                if products:
+                    print(f"✅ Produkte aus Shopify API für {shop} geladen")
+            except Exception as e:
+                print(f"❌ Fehler beim Laden von Shopify-Produkten: {e}")
+                
+        # Fallback auf Mock-Produkte, wenn keine echten Produkte geladen werden konnten
+        if not products:
+            products = get_mock_products()
+            print(f"ℹ️ Verwende Mock-Produkte für Shop {shop}")
         
         # Ausgewähltes Produkt finden
         selected_product = None
-        for product in products:
-            if str(product['id']) == str(product_id):
-                selected_product = product
-                break
+        if product_id:
+            for product in products:
+                if str(product['id']) == str(product_id):
+                    selected_product = product
+                    break
         
-        if not selected_product:
-            selected_product = products[0]  # Erstes Produkt als Fallback
+        # Wenn kein Produkt ausgewählt oder gefunden wurde, verwende das erste Produkt als Fallback
+        if not selected_product and products:
+            selected_product = products[0]
+            product_id = selected_product.get('id')
         
         # Wettbewerbsdaten abrufen
         competitor_data = get_competitor_data(selected_product.get('product_type', ''))
@@ -1786,7 +1797,7 @@ def price_optimizer():
             trend_data={},
             price_recommendations=[],
             last_updated=datetime.datetime.now().strftime("%d.%m.%Y, %H:%M"),
-            shop_name="test-shop.example.com"
+            shop_name="Nicht verbunden"
         )
 
 @app.context_processor
