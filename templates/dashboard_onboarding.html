@@ -1,0 +1,109 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="onboarding-container">
+    <h1>{{ onboarding.welcome_message }}</h1>
+    
+    <!-- Fortschrittsanzeige -->
+    <div class="progress-steps">
+        {% for step in onboarding.steps %}
+        <div class="step">
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.description }}</p>
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ step.progress }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Beispiel-Dashboard -->
+    <div class="example-dashboard">
+        <h2>So wird Ihr Dashboard aussehen</h2>
+        <div class="dashboard-preview">
+            <div class="chart-container">
+                <canvas id="exampleChart"></canvas>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <h4>Conversion Rate (Beispiel)</h4>
+                    <p>{{ onboarding.example_data.conversion_rate }}</p>
+                </div>
+            </div>
+            <div class="popular-products">
+                <h4>Beliebte Produkte (Beispieldaten)</h4>
+                <ul>
+                    {% for product in onboarding.example_data.popular_products %}
+                    <li>{{ product.name }} - {{ product.views }} Aufrufe</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.onboarding-container {
+    padding: 2rem;
+}
+
+.progress-steps {
+    margin: 2rem 0;
+}
+
+.step {
+    margin-bottom: 1.5rem;
+}
+
+.progress-bar {
+    background: #eee;
+    height: 10px;
+    border-radius: 5px;
+    margin-top: 0.5rem;
+}
+
+.progress {
+    background: #4CAF50;
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+}
+
+.example-dashboard {
+    margin-top: 3rem;
+    padding: 2rem;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.dashboard-preview {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+</style>
+
+<script>
+// Beispiel-Chart initialisieren
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('exampleChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4', 'Tag 5'],
+            datasets: [{
+                label: 'Beispiel-Seitenaufrufe',
+                data: [10, 25, 45, 70, 100],
+                borderColor: '#4CAF50',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+});
+</script>
+{% endblock %} 

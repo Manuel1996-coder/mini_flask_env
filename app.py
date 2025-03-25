@@ -11,6 +11,10 @@ import uuid
 import random  # Für Simulationszwecke
 import numpy as np  # Für statistische Berechnungen
 import argparse
+import hmac
+import hashlib
+from functools import wraps
+import jwt
 
 # Environment-Variablen laden
 load_dotenv()
@@ -335,6 +339,37 @@ def auth_callback():
 
     print(f"Access Token: {access_token}")
 
+    # Registriere die erforderlichen Webhooks
+    webhooks = [
+        {
+            "topic": "app/uninstalled",
+            "address": f"https://{request.host}/webhook/app/uninstalled",
+            "format": "json"
+        },
+        {
+            "topic": "shop/update",
+            "address": f"https://{request.host}/webhook/shop/update",
+            "format": "json"
+        }
+    ]
+
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+
+    for webhook in webhooks:
+        webhook_response = requests.post(
+            f"https://{shop}/admin/api/2023-07/webhooks.json",
+            json={"webhook": webhook},
+            headers=headers
+        )
+        print(f"Webhook Registration Response for {webhook['topic']}: {webhook_response.status_code}")
+        if webhook_response.status_code == 201:
+            print(f"✅ Webhook {webhook['topic']} erfolgreich registriert")
+        else:
+            print(f"❌ Fehler bei der Registrierung von Webhook {webhook['topic']}: {webhook_response.text}")
+
     print(f"test test {access_token}")
 
     print(f"Response: {response.status_code}, {response.text}")
@@ -476,150 +511,115 @@ def collect():
             
         return response
 
-# Dashboard
-@app.route('/dashboard')
-def dashboard():
-    """Hauptdashboard mit Analysen und Metriken."""
-    try:
-        # Shop aus der Session holen
-        shop = session.get('shop')
-        if not shop:
-            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
-            global tracking_data
-            tracking_data = load_tracking_data()
-            all_shops = list(tracking_data.keys())
+def verify_session_token(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        session_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        
+        if not session_token:
+            return jsonify({'error': 'No session token provided'}), 401
             
-            if all_shops:
-                shop = all_shops[0]
-                print(f"Dashboard: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
-            else:
-                shop = "test-shop.example.com"
-                print(f"Dashboard: Keine Shops gefunden, verwende Default-Shop: {shop}")
-        
-        print(f"Dashboard: Verwende Shop: {shop}")
-        print(f"Dashboard: Tracking-Daten-Keys: {list(tracking_data.keys())}")
-        
-        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
-        access_token = session.get('access_token')
-        
-        # Tracking-Daten aktualisieren durch Neuladen
-        tracking_data = load_tracking_data()
-        
-        # Daten für diesen Shop abrufen
-        shop_data = get_shop_data(shop)
-        print(f"Dashboard: Shop-Daten für {shop} geladen. Keys: {list(shop_data.keys())}")
-        
-        # Zähle die Pageviews und Klicks
-        pageviews_count = len(shop_data.get('pageviews', []))
-        clicks_count = len(shop_data.get('clicks', []))
-        print(f"Dashboard: Pageviews: {pageviews_count}, Clicks: {clicks_count}")
-        
-        # Berechne die Klickrate (CTR)
-        if pageviews_count > 0:
-            click_rate = (clicks_count / pageviews_count) * 100
-        else:
-            click_rate = 0
-        print(f"Dashboard: Klickrate: {click_rate:.2f}%")
-        
-        # Sortiere Events nach Zeitstempel (neueste zuerst)
-        all_events = []
-        for pv in shop_data.get('pageviews', []):
-            pv_copy = dict(pv)
-            pv_copy['event_type_display'] = 'page_view'
-            all_events.append(pv_copy)
-        
-        for click in shop_data.get('clicks', []):
-            click_copy = dict(click)
-            click_copy['event_type_display'] = 'click'
-            all_events.append(click_copy)
-        
-        # Sortiere nach Zeitstempel (neueste zuerst)
-        all_events.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
-        print(f"Dashboard: {len(all_events)} Events gesammelt")
-        
-        # Begrenze auf die neuesten 20 Events
-        recent_events = all_events[:20]
-        
-        # Formatiere Zeitstempel für die Anzeige
-        for event in recent_events:
-            if 'timestamp' in event:
-                try:
-                    event['timestamp_formatted'] = datetime.datetime.fromtimestamp(
-                        int(event['timestamp'])/1000
-                    ).strftime('%Y-%m-%d %H:%M:%S')
-                except:
-                    event['timestamp_formatted'] = "Ungültiger Zeitstempel"
-        
-        print("Dashboard: Generiere KI-Tipps...")
-        # AI-Empfehlungen basierend auf den Daten generieren
-        ai_tips = []
         try:
-            for tip in generate_ai_tips(shop_data):
-                # Formatiere die Tipps für die Anzeige im Template
-                formatted_tip = {
-                    "title": tip.get("title", ""),
-                    "description": tip.get("text", "")  # Map 'text' to 'description' for template compatibility
-                }
-                ai_tips.append(formatted_tip)
-            print(f"Dashboard: {len(ai_tips)} KI-Tipps generiert")
-        except Exception as e:
-            print(f"Fehler beim Generieren der KI-Tipps: {e}")
-            import traceback
-            traceback.print_exc()
+            # Verifiziere das Session Token
+            decoded = jwt.decode(
+                session_token,
+                SHOPIFY_API_SECRET,
+                algorithms=['HS256'],
+                audience=SHOPIFY_API_KEY
+            )
+            
+            # Füge die dekodierten Daten dem Request-Objekt hinzu
+            request.shop_data = decoded
+            return f(*args, **kwargs)
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Session token expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Invalid session token'}), 401
+            
+    return decorated_function
+
+def has_sufficient_data(shop_data):
+    """Prüft, ob genügend Daten für aussagekräftige Analysen vorhanden sind"""
+    MIN_PAGEVIEWS = 100
+    MIN_DAYS = 3
+    
+    total_pageviews = shop_data.get('total_pageviews', 0)
+    first_tracking_date = shop_data.get('first_tracking_date')
+    
+    if not first_tracking_date:
+        return False
         
-        print("Dashboard: Generiere Implementierungsaufgaben...")
-        # Implementierungsaufgaben generieren
-        implementation_tasks = []
-        try:
-            implementation_tasks = generate_implementation_tasks()
-            print(f"Dashboard: {len(implementation_tasks)} Implementierungsaufgaben generiert")
-        except Exception as e:
-            print(f"Fehler beim Generieren der Implementierungsaufgaben: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        # Anzahl der eindeutigen Seiten berechnen
-        unique_pages = len(set([pv.get('page', '') for pv in shop_data.get('pageviews', [])]))
-        
-        print("Dashboard: Rendere Template...")
-        # Rendere die Dashboard-Vorlage mit den Daten
-        return render_template(
-            "dashboard.html",
-            total_pageviews=pageviews_count,  # Variable von pageviews_count zu total_pageviews geändert
-            total_clicks=clicks_count,        # Variable von clicks_count zu total_clicks geändert
-            click_rate=click_rate,
-            events=recent_events,             # Variable von recent_events zu events geändert
-            ai_quick_tips=ai_tips,            # Variable von ai_tips zu ai_quick_tips geändert
-            implementation_tasks=implementation_tasks,
-            shop_name=shop,
-            # Template-Fehler vermeiden, indem wir Trends definieren
-            trends={
-                'pageviews': {'direction': 'up', 'value': '5'},
-                'clicks': {'direction': 'up', 'value': '8'},
-                'click_rate': {'direction': 'up', 'value': '10'},
-                'session_duration': {'direction': 'down', 'value': '0'},
-                'conversion_rate': {'direction': 'up', 'value': '0'},
-                'unique_pages': {'direction': 'up', 'value': '12'}
+    days_active = (datetime.now() - datetime.fromisoformat(first_tracking_date)).days
+    return total_pageviews >= MIN_PAGEVIEWS and days_active >= MIN_DAYS
+
+def get_onboarding_content():
+    """Liefert Beispieldaten und Hilfestellungen für neue Shops"""
+    return {
+        'welcome_message': 'Willkommen bei Ihrer Shop-Optimierung!',
+        'steps': [
+            {
+                'title': 'Datensammlung läuft',
+                'description': 'Wir sammeln Daten über das Kundenverhalten in Ihrem Shop. Dies dauert etwa 3-5 Tage.',
+                'progress': 0
             },
-            avg_session_duration=0,
-            conversion_rate=0,
-            unique_pages=unique_pages
-        )
-    except Exception as e:
-        print(f"Fehler beim Laden des Dashboards: {e}")
-        import traceback
-        traceback.print_exc()
+            {
+                'title': 'Erste Insights',
+                'description': 'Nach 100 Seitenaufrufen können wir erste Trends erkennen.',
+                'progress': 0
+            },
+            {
+                'title': 'KI-Empfehlungen',
+                'description': 'Sobald genügend Daten vorliegen, erhalten Sie personalisierte KI-Empfehlungen.',
+                'progress': 0
+            }
+        ],
+        'example_data': {
+            'pageviews_chart': generate_example_chart_data(),
+            'conversion_rate': '2.5%',
+            'popular_products': [
+                {'name': 'Beispielprodukt 1', 'views': 50},
+                {'name': 'Beispielprodukt 2', 'views': 30},
+                {'name': 'Beispielprodukt 3', 'views': 20}
+            ]
+        }
+    }
+
+@app.route('/dashboard')
+@verify_session_token
+def dashboard():
+    try:
+        shop = get_current_shop()
+        shop_data = load_shop_data(shop)
+        
+        if not has_sufficient_data(shop_data):
+            # Zeige Onboarding-Ansicht für neue Shops
+            onboarding_content = get_onboarding_content()
+            
+            # Berechne Fortschritt
+            total_pageviews = shop_data.get('total_pageviews', 0)
+            onboarding_content['steps'][0]['progress'] = min(100, (total_pageviews / 100) * 100)
+            
+            first_tracking_date = shop_data.get('first_tracking_date')
+            if first_tracking_date:
+                days_active = (datetime.now() - datetime.fromisoformat(first_tracking_date)).days
+                onboarding_content['steps'][1]['progress'] = min(100, (days_active / 3) * 100)
+            
+            return render_template(
+                'dashboard_onboarding.html',
+                onboarding=onboarding_content,
+                shop_data=shop_data
+            )
+            
+        # Normale Dashboard-Ansicht für Shops mit genügend Daten
         return render_template(
-            "dashboard.html",
-            error=str(e),
-            total_pageviews=0,
-            total_clicks=0,
-            click_rate=0,
-            events=[],
-            ai_quick_tips=[],
-            implementation_tasks=[],
-            shop_name="Nicht verbunden"
+            'dashboard.html',
+            shop_data=shop_data
         )
+        
+    except Exception as e:
+        print(f"Fehler im Dashboard: {e}")
+        return render_template('error.html', error=str(e))
 
 def generate_ai_tips(shop_data):
     """Generiert KI-basierte Tipps basierend auf Tracking-Daten."""
@@ -1118,6 +1118,7 @@ def generate_growth_advisor_recommendations(shop_data):
     return recommendations
 
 @app.route('/growth-advisor')
+@verify_session_token
 def growth_advisor():
     """Zeigt den Growth Advisor mit Wachstumsanalysen und -empfehlungen an."""
     try:
@@ -1699,6 +1700,7 @@ def get_mock_products():
     ]
 
 @app.route('/price-optimizer')
+@verify_session_token
 def price_optimizer():
     """Zeigt den Price Optimizer mit Preisempfehlungen und Konkurrenzanalyse an."""
     try:
@@ -1992,3 +1994,89 @@ if __name__ == "__main__":
     load_translations()
     
     app.run(host="0.0.0.0", port=args.port, debug=True)
+
+# Webhook Handler aktualisieren
+@app.route('/webhook/app/uninstalled', methods=['POST'])
+def app_uninstalled_webhook():
+    """Handler für app/uninstalled Webhook"""
+    # Verifiziere den Webhook
+    try:
+        # Shopify sendet einen HMAC-Header
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 403
+
+        data = request.get_data()
+        # Verifiziere die HMAC-Signatur
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 403
+
+        # Verarbeite die App-Deinstallation
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        
+        if shop_domain:
+            # Hier können Sie Aufräumarbeiten durchführen
+            print(f"App wurde deinstalliert von Shop: {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"Fehler im app/uninstalled Webhook: {e}")
+        return 'Internal Server Error', 500
+
+@app.route('/webhook/shop/update', methods=['POST'])
+def shop_update_webhook():
+    """Handler für shop/update Webhook"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 403
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 403
+
+        # Verarbeite die Shop-Aktualisierung
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        
+        if shop_domain:
+            print(f"Shop wurde aktualisiert: {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"Fehler im shop/update Webhook: {e}")
+        return 'Internal Server Error', 500
+
+def generate_example_chart_data():
+    """Generiert Beispieldaten für das Onboarding-Dashboard."""
+    return {
+        'labels': ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4', 'Tag 5', 'Tag 6', 'Tag 7'],
+        'datasets': [
+            {
+                'label': 'Seitenaufrufe',
+                'data': [10, 25, 45, 70, 100, 85, 120],
+                'borderColor': '#4CAF50',
+                'tension': 0.1
+            },
+            {
+                'label': 'Unique Besucher',
+                'data': [8, 20, 35, 55, 80, 65, 95],
+                'borderColor': '#2196F3',
+                'tension': 0.1
+            }
+        ]
+    }
