@@ -311,19 +311,19 @@ def hmac_validation(params):
 
     # Parameter sortieren und HMAC entfernen
     sorted_params = dict(sorted(params.items()))
-    hmac = sorted_params.pop('hmac')
+    hmac_value = sorted_params.pop('hmac')
 
     # Query-String erstellen
     query_string = '&'.join([f"{key}={value}" for key, value in sorted_params.items()])
     
     # HMAC berechnen
-    calculated_hmac = hmac.new(
-        SHOPIFY_API_SECRET.encode('utf-8'),
-        query_string.encode('utf-8'),
-        hashlib.sha256
+    calculated_hmac = hashlib.hmac(
+        key=SHOPIFY_API_SECRET.encode('utf-8'),
+        msg=query_string.encode('utf-8'),
+        digestmod=hashlib.sha256
     ).hexdigest()
     
-    return hmac.compare_digest(calculated_hmac, hmac)
+    return hmac.compare_digest(calculated_hmac, hmac_value)
 
 @app.route('/')
 def index():
