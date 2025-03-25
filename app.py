@@ -317,10 +317,10 @@ def hmac_validation(params):
     query_string = '&'.join([f"{key}={value}" for key, value in sorted_params.items()])
     
     # HMAC berechnen
-    calculated_hmac = hashlib.hmac(
-        key=SHOPIFY_API_SECRET.encode('utf-8'),
-        msg=query_string.encode('utf-8'),
-        digestmod=hashlib.sha256
+    calculated_hmac = hmac.new(
+        SHOPIFY_API_SECRET.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
     ).hexdigest()
     
     return hmac.compare_digest(calculated_hmac, hmac_value)
