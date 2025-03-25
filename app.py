@@ -24,7 +24,8 @@ TRACKING_DATA_FILE = 'tracking_data.json'
 
 # Flask App konfigurieren
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")
+app.secret_key = os.environ.get('SECRET_KEY')
+app.config['SESSION_TYPE'] = 'filesystem'
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Shopify API Keys aus der .env Datei
@@ -294,7 +295,27 @@ def generate_implementation_tasks():
     ]
     return tasks
 
-# OAuth Setup
+def hmac_validation(params):
+    """Validiert den HMAC-Parameter von Shopify."""
+    if not params.get('hmac'):
+        return False
+
+    # Parameter sortieren und HMAC entfernen
+    sorted_params = dict(sorted(params.items()))
+    hmac = sorted_params.pop('hmac')
+
+    # Query-String erstellen
+    query_string = '&'.join([f"{key}={value}" for key, value in sorted_params.items()])
+    
+    # HMAC berechnen
+    calculated_hmac = hmac.new(
+        SHOPIFY_API_SECRET.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(calculated_hmac, hmac)
+
 @app.route('/install')
 def install():
     shop = request.args.get("shop")
@@ -312,204 +333,96 @@ def install():
 
 @app.route('/auth/callback')
 def auth_callback():
-    shop = request.args.get("shop")
-    code = request.args.get("code")
-    print(f"Shop: {shop}, Code: {code}")
-
-    if not shop or not code:
-        return "Missing parameters", 400
-
-    payload = {
-        "client_id": SHOPIFY_API_KEY,
-        "client_secret": SHOPIFY_API_SECRET,
-        "code": code
-    }
-
-    print(f"Sending payload: {payload}")
-
-    response = requests.post(f"https://{shop}/admin/oauth/access_token", json=payload)
-    print(f"Response: {response.status_code}, {response.text}")
-
-    if response.status_code != 200:
-        return f"Failed to authenticate with Shopify: {response.text}", 400
-
-    access_token = response.json().get("access_token")
-    session['shop'] = shop
-    session['access_token'] = access_token
-
-    print(f"Access Token: {access_token}")
-
-    # Registriere die erforderlichen Webhooks
-    webhooks = [
-        {
-            "topic": "app/uninstalled",
-            "address": f"https://{request.host}/webhook/app/uninstalled",
-            "format": "json"
-        },
-        {
-            "topic": "shop/update",
-            "address": f"https://{request.host}/webhook/shop/update",
-            "format": "json"
-        }
-    ]
-
-    headers = {
-        "X-Shopify-Access-Token": access_token,
-        "Content-Type": "application/json"
-    }
-
-    for webhook in webhooks:
-        webhook_response = requests.post(
-            f"https://{shop}/admin/api/2023-07/webhooks.json",
-            json={"webhook": webhook},
-            headers=headers
-        )
-        print(f"Webhook Registration Response for {webhook['topic']}: {webhook_response.status_code}")
-        if webhook_response.status_code == 201:
-            print(f"✅ Webhook {webhook['topic']} erfolgreich registriert")
-        else:
-            print(f"❌ Fehler bei der Registrierung von Webhook {webhook['topic']}: {webhook_response.text}")
-
-    print(f"test test {access_token}")
-
-    print(f"Response: {response.status_code}, {response.text}")
-
-    # Testaufruf zur Shopify-API für Verifizierung
-    shop_response = requests.get(
-        f"https://{shop}/admin/api/2023-07/shop.json",
-        headers={"X-Shopify-Access-Token": access_token}
-    )
-    print(f"Shopify API Response: {shop_response.status_code}, {shop_response.text}")
-
-    if shop_response.status_code == 200:
-        shop_data = shop_response.json()
-        print(f"✅ Erfolgreich mit {shop_data['shop']['name']} verbunden")
-
-    # Script-Tag in Shopify einfügen (Tracking)
-    print("=== Attempting to create script tag for tracking... ===")
-    script_tag_payload = {
-        "script_tag": {
-            "event": "onload",
-            "src": "https://miniflaskenv-production.up.railway.app/static/js/tracking.js"
-        }
-    }
-
-    script_response = requests.post(
-        f"https://{shop}/admin/api/2023-07/script_tags.json",
-        json=script_tag_payload,
-        headers={"X-Shopify-Access-Token": access_token}
-    )
-    print(f"Script Tag Response: {script_response.status_code}, {script_response.text}")
-
-    return redirect('/dashboard')
-
-# Tracking
-@app.route('/collect', methods=['POST', 'OPTIONS'])
-def collect():
-    """Sammelt Tracking-Daten von Shopify-Shops."""
-    
-    # CORS für OPTIONS-Anfragen
-    if request.method == 'OPTIONS':
-        response = Response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        return response
-    
+    """Callback für OAuth-Flow."""
     try:
-        # Debugging: Anfragedaten protokollieren
-        print(f"🔍 Tracking-Anfrage erhalten: {request.method}")
-        print(f"🔍 Content-Type: {request.headers.get('Content-Type')}")
-        print(f"🔍 Daten: {request.data}")
+        # HMAC validieren
+        if not hmac_validation(request.args):
+            print("❌ HMAC Validierung fehlgeschlagen")
+            return "Invalid HMAC", 400
+
+        shop = request.args.get('shop')
+        code = request.args.get('code')
         
-        data = request.json
+        if not shop or not code:
+            print("❌ Fehlende Parameter")
+            return "Missing parameters", 400
+
+        # Access Token anfordern
+        access_token_url = f"https://{shop}/admin/oauth/access_token"
+        access_token_payload = {
+            'client_id': SHOPIFY_API_KEY,
+            'client_secret': SHOPIFY_API_SECRET,
+            'code': code
+        }
         
-        if not data:
-            print("⚠️ Keine JSON-Daten in der Anfrage gefunden")
-            return jsonify({"error": "No JSON data provided"}), 400
+        response = requests.post(access_token_url, json=access_token_payload)
         
-        print(f"📊 Erhaltene Tracking-Daten: {data}")
+        if response.status_code != 200:
+            print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
+            return f"Failed to get access token: {response.text}", 400
+
+        # Token aus Response extrahieren
+        access_token = response.json().get('access_token')
         
-        # Erforderliche Felder überprüfen
-        required_fields = ['event_type', 'page_url', 'page', 'timestamp', 'session_id', 'shop_domain']
-        missing_fields = [field for field in required_fields if field not in data]
+        if not access_token:
+            print("❌ Kein Access Token in der Antwort")
+            return "No access token in response", 400
+
+        # Token in Session speichern
+        session['shop'] = shop
+        session['access_token'] = access_token
         
-        if missing_fields:
-            print(f"⚠️ Fehlende Felder in Tracking-Daten: {missing_fields}")
-            return jsonify({
-                "error": "Missing required fields",
-                "missing_fields": missing_fields
-            }), 400
-            
-        # Tracking-Typ validieren
-        event_type = data['event_type']
-        if event_type not in ['page_view', 'click']:
-            print(f"⚠️ Ungültiger Event-Typ: {event_type}")
-            return jsonify({"error": "Invalid event_type"}), 400
-            
-        # Shop-Domain validieren und Daten für diesen Shop abrufen
-        shop_domain = data['shop_domain']
+        print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
         
-        # Domain bereinigen - Semikolon entfernen, falls vorhanden
-        if shop_domain.endswith(';'):
-            shop_domain = shop_domain[:-1]
-            data['shop_domain'] = shop_domain
-            print(f"🔧 Shop-Domain bereinigt: {shop_domain}")
+        # Webhooks registrieren
+        register_webhooks(shop, access_token)
         
-        # Debugging: Shopify-Shop ausgeben
-        print(f"🏪 Shop Domain: {shop_domain}")
-        
-        # Daten für diesen Shop abrufen oder initialisieren
-        shop_data = get_shop_data(shop_domain)
-        
-        # Event entsprechend dem Typ speichern
-        if event_type == 'page_view':
-            # Sicherstellen, dass timestamp ein Integer ist
-            if isinstance(data['timestamp'], str):
-                try:
-                    data['timestamp'] = int(data['timestamp'])
-                except:
-                    pass
-            
-            shop_data['pageviews'].append(data)
-            print(f"👁️ Pageview für {shop_domain} erfasst: {data['page']}")
-        elif event_type == 'click':
-            # Sicherstellen, dass timestamp ein Integer ist
-            if isinstance(data['timestamp'], str):
-                try:
-                    data['timestamp'] = int(data['timestamp'])
-                except:
-                    pass
-                    
-            shop_data['clicks'].append(data)
-            print(f"👆 Click für {shop_domain} erfasst: {data['page']} - Element: {data.get('clicked_tag', 'unknown')}")
-            
-        # Daten speichern
-        save_tracking_data()
-        
-        # Erfolgsantwort senden
-        response = jsonify({"status": "success", "message": f"{event_type} tracked successfully"})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
+        # Zum Dashboard weiterleiten
+        return redirect('/dashboard')
         
     except Exception as e:
-        print(f"❌ Fehler beim Verarbeiten der Tracking-Daten: {str(e)}")
-        print("Exception Trace:")
+        print(f"❌ Fehler im Auth Callback: {e}")
         import traceback
         traceback.print_exc()
-        
-        # Fehlerantwort senden
-        response = jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-        
-        if hasattr(response, 'headers'):
-            response.headers.add('Access-Control-Allow-Origin', '*')
-        else:
-            response[0].headers.add('Access-Control-Allow-Origin', '*')
+        return f"Error in auth callback: {str(e)}", 500
+
+def register_webhooks(shop, access_token):
+    """Registriert die erforderlichen Webhooks."""
+    try:
+        webhooks = [
+            {
+                "topic": "app/uninstalled",
+                "address": f"https://{os.getenv('HOST')}/webhook/app/uninstalled",
+                "format": "json"
+            },
+            {
+                "topic": "shop/update",
+                "address": f"https://{os.getenv('HOST')}/webhook/shop/update",
+                "format": "json"
+            }
+        ]
+
+        headers = {
+            "X-Shopify-Access-Token": access_token,
+            "Content-Type": "application/json"
+        }
+
+        for webhook in webhooks:
+            response = requests.post(
+                f"https://{shop}/admin/api/2023-07/webhooks.json",
+                json={"webhook": webhook},
+                headers=headers
+            )
             
-        return response
+            if response.status_code == 201:
+                print(f"✅ Webhook {webhook['topic']} erfolgreich registriert")
+            else:
+                print(f"❌ Fehler bei der Registrierung von Webhook {webhook['topic']}: {response.text}")
+                
+    except Exception as e:
+        print(f"❌ Fehler bei der Webhook-Registrierung: {e}")
+        import traceback
+        traceback.print_exc()
 
 def verify_session_token(f):
     @wraps(f)
@@ -1979,6 +1892,16 @@ def tracking_test():
     </html>
     """
     return html
+
+@app.context_processor
+def inject_globals():
+    """Injiziert globale Variablen in alle Templates."""
+    return {
+        'config': {
+            'SHOPIFY_API_KEY': SHOPIFY_API_KEY,
+            'HOST': os.getenv('HOST')
+        }
+    }
 
 # Flask Starten
 if __name__ == "__main__":

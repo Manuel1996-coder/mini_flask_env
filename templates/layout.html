@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Shopify App Bridge -->
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
   <!-- Zentrales CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
@@ -26,7 +29,36 @@
   </div>
   
   {% block scripts %}
-  <!-- Hier werden spezifische Scripts eingefügt -->
+  <script>
+    var AppBridge = window['app-bridge'];
+    var createApp = AppBridge.default;
+    var getSessionToken = window['app-bridge-utils'].getSessionToken;
+
+    // App Bridge initialisieren
+    var app = createApp({
+      apiKey: '{{ config.SHOPIFY_API_KEY }}',
+      host: window.location.host,
+      forceRedirect: true
+    });
+
+    // Session Token abrufen und als Header setzen
+    async function setupSessionToken() {
+      try {
+        const sessionToken = await getSessionToken(app);
+        // Token für alle zukünftigen Requests als Header setzen
+        const authHeader = { Authorization: `Bearer ${sessionToken}` };
+        // Token in localStorage speichern
+        localStorage.setItem('sessionToken', sessionToken);
+        return sessionToken;
+      } catch (error) {
+        console.error('Fehler beim Abrufen des Session Tokens:', error);
+        return null;
+      }
+    }
+
+    // Session Token beim Laden der Seite abrufen
+    setupSessionToken();
+  </script>
   {% endblock %}
 </body>
 </html>
