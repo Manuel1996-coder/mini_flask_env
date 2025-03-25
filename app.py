@@ -27,8 +27,13 @@ TRACKING_DATA_FILE = 'tracking_data.json'
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(hours=1)
+app.config['SESSION_PERMANENT'] = True  # Session permanent machen
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=30)  # Session-Lebensdauer auf 30 Tage setzen
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'  # Expliziter Session-Speicherort
+app.config['SESSION_FILE_THRESHOLD'] = 500  # Maximale Anzahl von Session-Dateien
+
+# Stelle sicher, dass das Session-Verzeichnis existiert
+os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Session-Middleware initialisieren
 sess = Session()
@@ -408,11 +413,15 @@ def auth_callback():
             print("❌ Kein Access Token in der Antwort")
             return "No access token in response", 400
 
-        # Token in Session speichern
+        # Token in Session speichern und Session permanent machen
+        session.permanent = True
         session['shop'] = shop
         session['access_token'] = access_token
+        session['authenticated'] = True
+        session['auth_time'] = datetime.datetime.now().isoformat()
         
         print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
+        print(f"✅ Session-Daten gespeichert: {dict(session)}")
         
         # Webhooks registrieren
         register_webhooks(shop, access_token)
