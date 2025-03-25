@@ -15,6 +15,7 @@ import hmac
 import hashlib
 from functools import wraps
 import jwt
+from flask_session import Session
 
 # Environment-Variablen laden
 load_dotenv()
@@ -26,6 +27,13 @@ TRACKING_DATA_FILE = 'tracking_data.json'
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(hours=1)
+
+# Session-Middleware initialisieren
+sess = Session()
+sess.init_app(app)
+
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Shopify API Keys aus der .env Datei
@@ -33,6 +41,7 @@ SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
 SHOPIFY_API_SECRET = os.getenv("SHOPIFY_API_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 SCOPES = os.getenv("SCOPES")
+HOST = os.getenv("HOST", "miniflaskenv-production.up.railway.app")
 
 # OpenAI konfigurieren
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -316,20 +325,51 @@ def hmac_validation(params):
     
     return hmac.compare_digest(calculated_hmac, hmac)
 
+@app.route('/')
+def index():
+    """Root-Route mit Authentifizierungsprüfung."""
+    try:
+        # Prüfe ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Prüfe ob ein Access Token vorhanden ist
+        if 'access_token' not in session:
+            print("❌ Kein Access Token in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        print(f"✅ Shop authentifiziert: {session['shop']}")
+        return redirect('/dashboard')
+        
+    except Exception as e:
+        print(f"❌ Fehler in der Root-Route: {e}")
+        import traceback
+        traceback.print_exc()
+        return redirect('/install')
+
 @app.route('/install')
 def install():
-    shop = request.args.get("shop")
-    print(f"Shop: {shop}")
-    print(f"SHOPIFY_API_KEY: {SHOPIFY_API_KEY}")
-    print(f"SCOPES: {SCOPES}")
-    print(f"REDIRECT_URI: {REDIRECT_URI}")
-
-    if not shop:
-        return "Missing shop parameter", 400
-
-    install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={quote(SCOPES)}&redirect_uri={quote(REDIRECT_URI)}"
-    print(f"Install URL: {install_url}")
-    return redirect(install_url)
+    """Installation der App initiieren."""
+    try:
+        shop = request.args.get('shop')
+        if not shop:
+            return "Missing shop parameter", 400
+            
+        # Shopify OAuth URL erstellen
+        nonce = os.urandom(16).hex()
+        session['nonce'] = nonce
+        
+        install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={SCOPES}&redirect_uri={REDIRECT_URI}&state={nonce}"
+        
+        print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
+        return redirect(install_url)
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der Installation: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Installation error: {str(e)}", 500
 
 @app.route('/auth/callback')
 def auth_callback():
