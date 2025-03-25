@@ -47,8 +47,22 @@
         const sessionToken = await getSessionToken(app);
         // Token für alle zukünftigen Requests als Header setzen
         const authHeader = { Authorization: `Bearer ${sessionToken}` };
-        // Token in localStorage speichern
-        localStorage.setItem('sessionToken', sessionToken);
+        
+        // Token für alle AJAX-Requests setzen
+        $.ajaxSetup({
+          headers: authHeader
+        });
+        
+        // Token auch für Fetch-Requests setzen
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+          options.headers = {
+            ...options.headers,
+            ...authHeader
+          };
+          return originalFetch(url, options);
+        };
+        
         return sessionToken;
       } catch (error) {
         console.error('Fehler beim Abrufen des Session Tokens:', error);
@@ -57,8 +71,21 @@
     }
 
     // Session Token beim Laden der Seite abrufen
-    setupSessionToken();
+    document.addEventListener('DOMContentLoaded', function() {
+      setupSessionToken().then(token => {
+        if (!token) {
+          console.error('Konnte keinen Session Token abrufen');
+          // Optional: Redirect zur Installation
+          // window.location.href = '/install';
+        }
+      });
+    });
   </script>
+  
+  <!-- jQuery hinzufügen (wird für $.ajaxSetup benötigt) -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  
+  {% block additional_scripts %}{% endblock %}
   {% endblock %}
 </body>
 </html>

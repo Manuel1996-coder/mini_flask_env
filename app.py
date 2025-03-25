@@ -429,6 +429,24 @@ def auth_callback():
 def register_webhooks(shop, access_token):
     """Registriert die erforderlichen Webhooks."""
     try:
+        # Zuerst vorhandene Webhooks abrufen
+        headers = {
+            "X-Shopify-Access-Token": access_token,
+            "Content-Type": "application/json"
+        }
+        
+        existing_webhooks_response = requests.get(
+            f"https://{shop}/admin/api/2023-07/webhooks.json",
+            headers=headers
+        )
+        
+        if existing_webhooks_response.status_code != 200:
+            print(f"❌ Fehler beim Abrufen vorhandener Webhooks: {existing_webhooks_response.text}")
+            return
+            
+        existing_webhooks = existing_webhooks_response.json().get('webhooks', [])
+        existing_topics = {webhook['topic']: webhook['id'] for webhook in existing_webhooks}
+        
         webhooks = [
             {
                 "topic": "app/uninstalled",
@@ -442,12 +460,12 @@ def register_webhooks(shop, access_token):
             }
         ]
 
-        headers = {
-            "X-Shopify-Access-Token": access_token,
-            "Content-Type": "application/json"
-        }
-
         for webhook in webhooks:
+            topic = webhook['topic']
+            if topic in existing_topics:
+                print(f"ℹ️ Webhook für {topic} existiert bereits")
+                continue
+                
             response = requests.post(
                 f"https://{shop}/admin/api/2023-07/webhooks.json",
                 json={"webhook": webhook},
@@ -455,9 +473,9 @@ def register_webhooks(shop, access_token):
             )
             
             if response.status_code == 201:
-                print(f"✅ Webhook {webhook['topic']} erfolgreich registriert")
+                print(f"✅ Webhook {topic} erfolgreich registriert")
             else:
-                print(f"❌ Fehler bei der Registrierung von Webhook {webhook['topic']}: {response.text}")
+                print(f"❌ Fehler bei der Registrierung von Webhook {topic}: {response.text}")
                 
     except Exception as e:
         print(f"❌ Fehler bei der Webhook-Registrierung: {e}")
