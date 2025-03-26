@@ -447,6 +447,20 @@ def auth_callback():
         traceback.print_exc()
         return f"Error in auth callback: {str(e)}", 500
 
+def get_base_url():
+    """
+    Gibt die Basis-URL der Anwendung zurück, je nach Umgebung.
+    """
+    if os.getenv('RAILWAY_STATIC_URL'):
+        # Railway Produktionsumgebung
+        return os.getenv('RAILWAY_STATIC_URL', 'https://miniflaskenv-production.up.railway.app')
+    elif os.getenv('HOST'):
+        # Shopify App Umgebung
+        return f"https://{os.getenv('HOST')}"
+    else:
+        # Lokale Entwicklungsumgebung oder Fallback
+        return os.getenv('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+
 def register_webhooks(shop, access_token):
     """
     Registriert die erforderlichen Webhooks für den Shop.
