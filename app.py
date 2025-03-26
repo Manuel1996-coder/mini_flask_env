@@ -606,6 +606,12 @@ def dashboard():
         
         print(f"✅ Dashboard für Shop: {shop} wird geladen")
         
+        # Shopify API Key für App Bridge
+        shopify_api_key = SHOPIFY_API_KEY
+        
+        # Bestimme den Host-Parameter für embedded Apps
+        host = request.args.get('host', '')
+        
         if not has_sufficient_data(shop_data):
             # Zeige Onboarding-Ansicht für neue Shops
             onboarding_content = get_onboarding_content()
@@ -622,17 +628,25 @@ def dashboard():
             return render_template(
                 'dashboard_onboarding.html',
                 onboarding=onboarding_content,
-                shop_data=shop_data
+                shop_data=shop_data,
+                shop=shop,
+                shopify_api_key=shopify_api_key,
+                host=host
             )
             
         # Normale Dashboard-Ansicht für Shops mit genügend Daten
         return render_template(
             'dashboard.html',
-            shop_data=shop_data
+            shop_data=shop_data,
+            shop=shop,
+            shopify_api_key=shopify_api_key,
+            host=host
         )
         
     except Exception as e:
         print(f"Fehler im Dashboard: {e}")
+        import traceback
+        traceback.print_exc()
         return render_template('error.html', error=str(e))
 
 def generate_ai_tips(shop_data):

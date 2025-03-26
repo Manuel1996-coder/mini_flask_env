@@ -89,8 +89,8 @@
                 <div class="card-header bg-light">
                     <h4><i class="fas fa-magic me-2"></i>Vorschau: Ihr personalisiertes Dashboard</h4>
                 </div>
-                <div class="card-body text-center p-4">
-                    <img src="https://via.placeholder.com/600x300?text=Dashboard+Vorschau" class="img-fluid rounded mb-3" alt="Dashboard Vorschau">
+                <div class="card-body text-center p-4" id="dashboard-preview">
+                    <img src="{{ url_for('static', filename='img/dashboard-preview.png') }}" class="img-fluid rounded mb-3 shadow-sm" alt="Dashboard Vorschau" onerror="this.src='https://via.placeholder.com/600x300?text=Dashboard+Vorschau'">
                     <p>In Kürze sehen Sie hier Ihre echten Shop-Daten, Kunden-Insights und KI-generierte Optimierungsvorschläge.</p>
                 </div>
             </div>
@@ -187,7 +187,10 @@
     </div>
 </div>
 
-{% block additional_scripts %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Simulation einer Datensammlung mit animiertem Fortschrittsbalken
@@ -204,7 +207,51 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 5000);
         }
     });
+    
+    // Chart-Daten für die Vorschau
+    if (typeof Chart !== 'undefined') {
+        try {
+            // Sichere Methode, um die JSON-Daten für das Chart zu erhalten
+            var pageviewDataString = '{{ onboarding.example_data.pageviews_chart|tojson|safe }}';
+            var pageviewData = JSON.parse(pageviewDataString);
+            
+            // Canvas erstellen und hinzufügen
+            var canvas = document.createElement('canvas');
+            canvas.id = 'pageviewsChart';
+            canvas.style.height = '250px';
+            canvas.style.marginTop = '20px';
+            canvas.style.marginBottom = '10px';
+            
+            var container = document.getElementById('dashboard-preview');
+            if (container) {
+                container.appendChild(canvas);
+                
+                // Chart erstellen
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: pageviewData.labels,
+                        datasets: pageviewData.datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Seitenaufrufe & Besucher (Beispiel)'
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error('Fehler beim Erstellen des Charts:', e);
+        }
+    }
 });
 </script>
-{% endblock %}
 {% endblock %} 
