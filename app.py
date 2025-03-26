@@ -358,9 +358,19 @@ def install():
     """Installation der App initiieren."""
     try:
         shop = request.args.get('shop')
+        
+        # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben
+        if not shop and 'shop' in session:
+            shop = session['shop']
+            print(f"✅ Shop aus Session verwendet: {shop}")
+        
         if not shop:
-            return "Missing shop parameter", 400
-            
+            print("❌ Kein Shop-Parameter gefunden und kein Shop in Session")
+            return render_template(
+                'error.html',
+                error="Bitte geben Sie einen Shop-Parameter an oder installieren Sie die App über den Shopify App Store."
+            )
+
         # Shopify OAuth URL erstellen
         nonce = os.urandom(16).hex()
         session['nonce'] = nonce
@@ -369,12 +379,14 @@ def install():
         
         print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
         return redirect(install_url)
-        
     except Exception as e:
         print(f"❌ Fehler bei der Installation: {e}")
         import traceback
         traceback.print_exc()
-        return f"Installation error: {str(e)}", 500
+        return render_template(
+            'error.html',
+            error=f"Installationsfehler: {str(e)}"
+        )
 
 @app.route('/auth/callback')
 def auth_callback():
@@ -387,10 +399,10 @@ def auth_callback():
 
         shop = request.args.get('shop')
         code = request.args.get('code')
-        
-        if not shop or not code:
+
+    if not shop or not code:
             print("❌ Fehlende Parameter")
-            return "Missing parameters", 400
+        return "Missing parameters", 400
 
         # Access Token anfordern
         access_token_url = f"https://{shop}/admin/oauth/access_token"
@@ -401,8 +413,8 @@ def auth_callback():
         }
         
         response = requests.post(access_token_url, json=access_token_payload)
-        
-        if response.status_code != 200:
+
+    if response.status_code != 200:
             print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
             return f"Failed to get access token: {response.text}", 400
 
@@ -415,8 +427,8 @@ def auth_callback():
 
         # Token in Session speichern und Session permanent machen
         session.permanent = True
-        session['shop'] = shop
-        session['access_token'] = access_token
+    session['shop'] = shop
+    session['access_token'] = access_token
         session['authenticated'] = True
         session['auth_time'] = datetime.datetime.now().isoformat()
         
@@ -483,7 +495,7 @@ def register_webhooks(shop, access_token):
             
             if response.status_code == 201:
                 print(f"✅ Webhook {topic} erfolgreich registriert")
-            else:
+        else:
                 print(f"❌ Fehler bei der Registrierung von Webhook {topic}: {response.text}")
                 
     except Exception as e:
@@ -1114,7 +1126,7 @@ def growth_advisor():
                 shop = all_shops[0]
                 print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
             else:
-                shop = "test-shop.example.com"
+        shop = "test-shop.example.com"
                 print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
         # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
