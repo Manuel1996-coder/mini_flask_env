@@ -1,36 +1,79 @@
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="de">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ translations.app.name }} - {{ translations.app.title }}</title>
-  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Shopify App Bridge -->
-  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
-  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
-  <!-- Zentrales CSS -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
-  <div class="app-container">
-    {% include "sidebar.html" %}
-    <main class="main-content">
-      <div class="language-selector">
-        <a href="{{ url_for('set_language', language='en') }}" class="lang-option {% if lang == 'en' %}active{% endif %}">EN</a>
-        <a href="{{ url_for('set_language', language='de') }}" class="lang-option {% if lang == 'de' %}active{% endif %}">DE</a>
+  <header>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ translations.app.name }}" height="40">
+          <span>{{ translations.app.name }}</span>
+        </a>
+        <div class="d-flex ms-auto">
+          <div class="language-selector">
+            <a href="/set-language/en" class="language-btn {% if 'en' == user_language %}active{% endif %}">EN</a>
+            <a href="/set-language/de" class="language-btn {% if 'de' == user_language %}active{% endif %}">DE</a>
+          </div>
+        </div>
       </div>
-      {% block content %}
-      <!-- Der spezifische Seiteninhalt wird hier eingefügt -->
-      {% endblock %}
-    </main>
+    </nav>
+  </header>
+  
+  <div class="main-container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h5>{{ translations.navigation.analytics }}</h5>
+      </div>
+      <ul class="nav flex-column">
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
+            <span class="icon"><i class="fas fa-chart-line"></i></span>
+            <span class="text">{{ translations.navigation.dashboard }}</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/growth-advisor' %}active{% endif %}" href="/growth-advisor">
+            <span class="icon"><i class="fas fa-lightbulb"></i></span>
+            <span class="text">{{ translations.navigation.growth_advisor }}</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/price-optimizer' %}active{% endif %}" href="/price-optimizer">
+            <span class="icon"><i class="fas fa-tags"></i></span>
+            <span class="text">{{ translations.navigation.price_optimizer }}</span>
+          </a>
+        </li>
+      </ul>
+      
+      <div class="sidebar-header">
+        <h5>{{ translations.navigation.configuration }}</h5>
+      </div>
+      <ul class="nav flex-column">
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/settings' %}active{% endif %}" href="/settings">
+            <span class="icon"><i class="fas fa-cog"></i></span>
+            <span class="text">{{ translations.navigation.settings }}</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+    
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
   </div>
   
   {% block scripts %}
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
 
   <!-- Shopify App Bridge -->
@@ -48,6 +91,19 @@
       $('.language-btn').on('click', function() {
         var language = $(this).data('language');
         window.location.href = '/set-language/' + language;
+      });
+
+      // Animation für Fortschrittsbalken
+      $('.progress-bar-animated').each(function() {
+        const currentWidth = parseFloat($(this).css('width'));
+        if (currentWidth < 5) {
+          setInterval(() => {
+            const random = Math.random() * 0.5;
+            const newWidth = Math.min(currentWidth + random, currentWidth + 1);
+            $(this).css('width', newWidth + '%');
+            $(this).attr('aria-valuenow', newWidth);
+          }, 5000);
+        }
       });
     });
   </script>

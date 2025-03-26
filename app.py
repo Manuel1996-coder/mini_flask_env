@@ -1723,55 +1723,87 @@ def price_optimizer():
         # Daten für diesen Shop abrufen
         shop_data = get_shop_data(shop)
         
+        # Produkt-ID aus dem GET-Parameter auslesen
+        product_id = request.args.get('product_id')
+        
         try:
             # Produkte über Shopify API abrufen
             products = get_shopify_products(shop, access_token)
+            print(f"✅ {len(products)} Produkte geladen für Shop: {shop}")
+            
+            if not products:
+                print("⚠️ Keine Produkte über API gefunden, verwende Mock-Produkte")
+                products = get_mock_products()
         except Exception as e:
-            print(f"Fehler beim Abrufen der Produkte: {e}")
+            print(f"❌ Fehler beim Abrufen der Produkte: {e}")
             # Fallback zu Beispiel-Produkten
             products = get_mock_products()
             
-        # Preisanalysen für jedes Produkt durchführen
-        for product in products:
-            product_type = product.get('product_type', 'Generisches Produkt')
-            price = float(product.get('price', 10.0))
-            product_id = product.get('id', 'mock-id-1')
+        # Ausgewähltes Produkt finden
+        selected_product = None
+        if product_id:
+            for product in products:
+                if str(product.get('id', '')) == str(product_id):
+                    selected_product = product
+                    break
+                    
+        # Wenn kein Produkt ausgewählt oder gefunden wurde und es Produkte gibt, das erste Produkt verwenden
+        if not selected_product and products:
+            selected_product = products[0]
+            product_id = selected_product.get('id')
+        
+        if selected_product:
+            # Produktdetails für die Analyse vorbereiten
+            product_type = selected_product.get('product_type', 'Generisches Produkt')
             
+            # Preis aus der ersten Variante extrahieren oder Fallback-Wert verwenden
+            price = 0
+            if 'variants' in selected_product and selected_product['variants']:
+                price = float(selected_product['variants'][0].get('price', 10.0))
+            else:
+                price = float(selected_product.get('price', 10.0))
+                
             # Wettbewerberdaten abrufen
             competitor_data = get_competitor_data(product_type)
             
             # Preistrend-Daten abrufen
             trend_data = get_price_trend_data(product_type, price, shop, access_token, product_id)
             
-            # Preiselastizität berechnen
-            elasticity = calculate_price_elasticity(shop, access_token, product_id)
-            
             # KI-basierte Preisempfehlungen
             price_recommendations = generate_ai_price_recommendations(
                 product_type, price, competitor_data, trend_data
             )
             
-            # Daten an das Produkt anhängen
-            product['elasticity'] = elasticity
-            product['competitor_data'] = competitor_data
-            product['trend_data'] = trend_data
-            product['price_recommendations'] = price_recommendations
-            
-        # Metadaten für die Seite
-        meta = {
-            'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
-            'shop': shop,
-            'products_analyzed': len(products)
-        }
-            
-        return render_template(
-            'price_optimizer.html',
-            products=products,
-            meta=meta
-        )
+            # Metadaten für die Seite
+            meta = {
+                'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
+                'shop': shop,
+                'products_analyzed': len(products)
+            }
+                
+            return render_template(
+                'price_optimizer.html',
+                products=products,
+                selected_product=selected_product,
+                competitor_data=competitor_data,
+                trend_data=trend_data,
+                price_recommendations=price_recommendations,
+                meta=meta,
+                shop_name=shop
+            )
+        else:
+            # Keine Produkte gefunden oder ausgewählt
+            print("⚠️ Kein Produkt ausgewählt oder keine Produkte verfügbar")
+            return render_template(
+                'price_optimizer.html',
+                products=products,
+                selected_product=None,
+                error=None,  # Kein Fehler, da Produkte eventuell vorhanden sind
+                shop_name=shop
+            )
         
     except Exception as e:
-        print(f"Fehler im Price Optimizer: {e}")
+        print(f"❌ Fehler im Price Optimizer: {e}")
         import traceback
         traceback.print_exc()
         return render_template('error.html', error=str(e))
