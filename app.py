@@ -448,60 +448,68 @@ def auth_callback():
         return f"Error in auth callback: {str(e)}", 500
 
 def register_webhooks(shop, access_token):
-    """Registriert die erforderlichen Webhooks."""
+    """
+    Registriert die erforderlichen Webhooks für den Shop.
+    """
     try:
-        # Zuerst vorhandene Webhooks abrufen
+        # Prüfe zuerst, welche Webhooks bereits existieren
         headers = {
-            "X-Shopify-Access-Token": access_token,
-            "Content-Type": "application/json"
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json'
         }
         
-        existing_webhooks_response = requests.get(
-            f"https://{shop}/admin/api/2023-07/webhooks.json",
-            headers=headers
-        )
+        # Rufe vorhandene Webhooks ab
+        existing_webhooks_url = f"https://{shop}/admin/api/2023-07/webhooks.json"
+        response = requests.get(existing_webhooks_url, headers=headers)
         
-        if existing_webhooks_response.status_code != 200:
-            print(f"❌ Fehler beim Abrufen vorhandener Webhooks: {existing_webhooks_response.text}")
-            return
-            
-        existing_webhooks = existing_webhooks_response.json().get('webhooks', [])
-        existing_topics = {webhook['topic']: webhook['id'] for webhook in existing_webhooks}
+        # Wenn der Abruf der Webhooks fehlschlägt, setze eine leere Liste
+        existing_webhooks = {}
+        if response.status_code == 200:
+            webhooks_data = response.json()
+            # Erstelle ein Dictionary mit den vorhandenen Webhook-Topics für schnellen Zugriff
+            for webhook in webhooks_data.get('webhooks', []):
+                existing_webhooks[webhook.get('topic')] = webhook.get('id')
+            print(f"✅ Vorhandene Webhooks für {shop} abgerufen: {len(existing_webhooks)} gefunden")
+        else:
+            print(f"⚠️ Konnte vorhandene Webhooks nicht abrufen: {response.status_code} - {response.text}")
         
-        webhooks = [
-            {
-                "topic": "app/uninstalled",
-                "address": f"https://{os.getenv('HOST')}/webhook/app/uninstalled",
-                "format": "json"
-            },
-            {
-                "topic": "shop/update",
-                "address": f"https://{os.getenv('HOST')}/webhook/shop/update",
-                "format": "json"
-            }
+        # Liste der Webhooks, die registriert werden sollen
+        webhooks_to_register = [
+            "app/uninstalled",
+            "shop/update"
         ]
-
-        for webhook in webhooks:
-            topic = webhook['topic']
-            if topic in existing_topics:
-                print(f"ℹ️ Webhook für {topic} existiert bereits")
+        
+        base_url = get_base_url()
+        
+        # Registriere jeden Webhook, falls er noch nicht existiert
+        for topic in webhooks_to_register:
+            # Prüfe, ob dieser Webhook bereits existiert
+            if topic in existing_webhooks:
+                print(f"ℹ️ Webhook für {topic} existiert bereits für Shop {shop}")
                 continue
                 
-            response = requests.post(
-                f"https://{shop}/admin/api/2023-07/webhooks.json",
-                json={"webhook": webhook},
-                headers=headers
-            )
+            webhook_url = f"{base_url}/webhook/{topic}"
+            data = {
+                "webhook": {
+                    "topic": topic,
+                    "address": webhook_url,
+                    "format": "json"
+                }
+            }
+            
+            register_url = f"https://{shop}/admin/api/2023-07/webhooks.json"
+            response = requests.post(register_url, json=data, headers=headers)
             
             if response.status_code == 201:
-                print(f"✅ Webhook {topic} erfolgreich registriert")
+                webhook_id = response.json().get('webhook', {}).get('id')
+                print(f"✅ Webhook für {topic} erfolgreich registriert mit ID {webhook_id}")
             else:
-                print(f"❌ Fehler bei der Registrierung von Webhook {topic}: {response.text}")
+                print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {response.status_code} - {response.text}")
                 
+        return True
     except Exception as e:
-        print(f"❌ Fehler bei der Webhook-Registrierung: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Fehler beim Registrieren der Webhooks: {e}")
+        return False
 
 def verify_session_token(f):
     @wraps(f)
@@ -1708,6 +1716,9 @@ def price_optimizer():
         # Access token aus der Session holen
         access_token = session.get('access_token')
         
+        # Produkt-ID aus dem GET-Parameter auslesen
+        product_id = request.args.get('product_id')
+        
         # Wenn kein Shop in der Session gefunden wurde, versuche einen Shop aus den Tracking-Daten zu verwenden
         if not shop:
             tracking_data = load_tracking_data()
@@ -1722,9 +1733,6 @@ def price_optimizer():
                 
         # Daten für diesen Shop abrufen
         shop_data = get_shop_data(shop)
-        
-        # Produkt-ID aus dem GET-Parameter auslesen
-        product_id = request.args.get('product_id')
         
         try:
             # Produkte über Shopify API abrufen
@@ -1745,16 +1753,20 @@ def price_optimizer():
             for product in products:
                 if str(product.get('id', '')) == str(product_id):
                     selected_product = product
+                    print(f"✅ Ausgewähltes Produkt gefunden: {selected_product.get('title', 'Unbekannt')}")
                     break
                     
         # Wenn kein Produkt ausgewählt oder gefunden wurde und es Produkte gibt, das erste Produkt verwenden
         if not selected_product and products:
             selected_product = products[0]
             product_id = selected_product.get('id')
+            print(f"ℹ️ Kein Produkt ausgewählt oder nicht gefunden, verwende erstes Produkt: {selected_product.get('title', 'Unbekannt')}")
         
         if selected_product:
             # Produktdetails für die Analyse vorbereiten
             product_type = selected_product.get('product_type', 'Generisches Produkt')
+            if not product_type:
+                product_type = 'Generisches Produkt'
             
             # Preis aus der ersten Variante extrahieren oder Fallback-Wert verwenden
             price = 0
@@ -1762,6 +1774,8 @@ def price_optimizer():
                 price = float(selected_product['variants'][0].get('price', 10.0))
             else:
                 price = float(selected_product.get('price', 10.0))
+                
+            print(f"ℹ️ Preisanalyse für Produkt: {selected_product.get('title', 'Unbekannt')} (Typ: {product_type}, Preis: {price})")
                 
             # Wettbewerberdaten abrufen
             competitor_data = get_competitor_data(product_type)
@@ -1780,6 +1794,9 @@ def price_optimizer():
                 'shop': shop,
                 'products_analyzed': len(products)
             }
+
+            # Template-Variable für das letzte Update hinzufügen
+            last_updated = datetime.datetime.now().strftime('%d.%m.%Y %H:%M')
                 
             return render_template(
                 'price_optimizer.html',
@@ -1789,7 +1806,8 @@ def price_optimizer():
                 trend_data=trend_data,
                 price_recommendations=price_recommendations,
                 meta=meta,
-                shop_name=shop
+                shop_name=shop,
+                last_updated=last_updated
             )
         else:
             # Keine Produkte gefunden oder ausgewählt

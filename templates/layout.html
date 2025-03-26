@@ -81,8 +81,63 @@
   <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
 
   <script>
-    // Session-Management
-    $(document).ready(function() {
+    // Session-Management und Shopify App Bridge Setup
+    document.addEventListener('DOMContentLoaded', async function() {
+      // App Bridge initialisieren
+      const shop = '{{ shop }}';
+      const host = '{{ host }}';
+      const apiKey = '{{ shopify_api_key }}';
+      
+      if (apiKey && (shop || host)) {
+        let config = {
+          apiKey: apiKey,
+          forceRedirect: true
+        };
+        
+        if (host) {
+          config.host = host;
+        } else if (shop) {
+          config.shop = shop;
+        }
+        
+        try {
+          const app = window['app-bridge'].createApp(config);
+          
+          // Session-Token abrufen und für AJAX-Requests einrichten
+          const { getSessionToken } = window['app-bridge-utils'];
+          
+          async function setupSessionToken() {
+            try {
+              const sessionToken = await getSessionToken(app);
+              
+              // Session-Token für alle AJAX-Requests setzen
+              $.ajaxSetup({
+                headers: {
+                  'Authorization': `Bearer ${sessionToken}`
+                }
+              });
+              
+              // Session-Token auch für Fetch-Requests verfügbar machen
+              const originalFetch = window.fetch;
+              window.fetch = function(url, options = {}) {
+                options.headers = options.headers || {};
+                options.headers['Authorization'] = `Bearer ${sessionToken}`;
+                return originalFetch(url, options);
+              };
+              
+              console.log('Session-Token erfolgreich eingerichtet');
+            } catch (error) {
+              console.error('Fehler beim Abrufen des Session-Tokens:', error);
+            }
+          }
+          
+          // Session-Token einrichten
+          await setupSessionToken();
+        } catch (error) {
+          console.error('Fehler beim Initialisieren des App Bridge:', error);
+        }
+      }
+      
       // Funktionen für lokale Aktionen
       $('.refresh-btn').on('click', function() {
         window.location.reload();
