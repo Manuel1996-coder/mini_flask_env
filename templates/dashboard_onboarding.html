@@ -223,19 +223,26 @@ document.addEventListener('DOMContentLoaded', function() {
             var pageviewDataString = '{{ onboarding.example_data.pageviews_chart|tojson|safe }}';
             var pageviewData = JSON.parse(pageviewDataString);
             
-            // Canvas erstellen und hinzufügen
+            // Container für das Chart erstellen
+            var chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+            chartContainer.style.height = '300px';
+            chartContainer.style.width = '100%';
+            chartContainer.style.marginTop = '20px';
+            
+            // Canvas innerhalb des Containers erstellen
             var canvas = document.createElement('canvas');
             canvas.id = 'pageviewsChart';
-            canvas.style.height = '250px';
-            canvas.style.marginTop = '20px';
-            canvas.style.marginBottom = '10px';
+            chartContainer.appendChild(canvas);
             
+            // Container zum Dashboard-Preview hinzufügen
             var container = document.getElementById('dashboard-preview');
             if (container) {
-                container.appendChild(canvas);
+                container.appendChild(chartContainer);
                 
-                // Chart erstellen
-                new Chart(canvas, {
+                // Chart mit fester Höhe erstellen
+                const ctx = canvas.getContext('2d');
+                new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: pageviewData.labels,
@@ -254,6 +261,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     }
+                });
+                
+                // Stellen Sie sicher, dass die Größe nicht verändert wird
+                window.addEventListener('resize', function() {
+                    // Halten Sie die Höhe konstant
+                    chartContainer.style.height = '300px';
                 });
             }
         } catch (e) {
