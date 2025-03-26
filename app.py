@@ -399,10 +399,10 @@ def auth_callback():
 
         shop = request.args.get('shop')
         code = request.args.get('code')
-
-    if not shop or not code:
+        
+        if not shop or not code:
             print("❌ Fehlende Parameter")
-        return "Missing parameters", 400
+            return "Missing parameters", 400
 
         # Access Token anfordern
         access_token_url = f"https://{shop}/admin/oauth/access_token"
@@ -413,8 +413,8 @@ def auth_callback():
         }
         
         response = requests.post(access_token_url, json=access_token_payload)
-
-    if response.status_code != 200:
+        
+        if response.status_code != 200:
             print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
             return f"Failed to get access token: {response.text}", 400
 
@@ -427,8 +427,8 @@ def auth_callback():
 
         # Token in Session speichern und Session permanent machen
         session.permanent = True
-    session['shop'] = shop
-    session['access_token'] = access_token
+        session['shop'] = shop
+        session['access_token'] = access_token
         session['authenticated'] = True
         session['auth_time'] = datetime.datetime.now().isoformat()
         
@@ -495,7 +495,7 @@ def register_webhooks(shop, access_token):
             
             if response.status_code == 201:
                 print(f"✅ Webhook {topic} erfolgreich registriert")
-        else:
+            else:
                 print(f"❌ Fehler bei der Registrierung von Webhook {topic}: {response.text}")
                 
     except Exception as e:
@@ -918,17 +918,6 @@ def clear_tracking():
         'message': 'Tracking-Daten wurden gelöscht.'
     })
 
-# Home Route
-@app.route('/')
-def home():
-    # Direkt zum Dashboard weiterleiten
-    return redirect('/dashboard')
-
-# Test-Route zum Testen des Trackings (entfernt)
-# @app.route('/test')
-# def test_tracking():
-#     return render_template('test.html')
-
 def generate_growth_advisor_recommendations(shop_data):
     """
     Generiert KI-basierte, priorisierte Handlungsempfehlungen basierend auf Shop-Daten.
@@ -1126,7 +1115,7 @@ def growth_advisor():
                 shop = all_shops[0]
                 print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
             else:
-        shop = "test-shop.example.com"
+                shop = "test-shop.example.com"
                 print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
         # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
