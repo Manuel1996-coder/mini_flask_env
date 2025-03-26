@@ -578,11 +578,25 @@ def get_onboarding_content():
     }
 
 @app.route('/dashboard')
-@verify_session_token
 def dashboard():
     try:
-        shop = get_current_shop()
-        shop_data = load_shop_data(shop)
+        # Prüfe, ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Prüfe, ob ein Access Token vorhanden ist
+        if 'access_token' not in session:
+            print("❌ Kein Access Token in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Shop aus der Session laden
+        shop = session['shop']
+        
+        # Shop-Daten laden
+        shop_data = get_shop_data(shop)
+        
+        print(f"✅ Dashboard für Shop: {shop} wird geladen")
         
         if not has_sufficient_data(shop_data):
             # Zeige Onboarding-Ansicht für neue Shops
@@ -594,7 +608,7 @@ def dashboard():
             
             first_tracking_date = shop_data.get('first_tracking_date')
             if first_tracking_date:
-                days_active = (datetime.now() - datetime.fromisoformat(first_tracking_date)).days
+                days_active = (datetime.datetime.now() - datetime.datetime.fromisoformat(first_tracking_date)).days
                 onboarding_content['steps'][1]['progress'] = min(100, (days_active / 3) * 100)
             
             return render_template(
@@ -1099,16 +1113,24 @@ def generate_growth_advisor_recommendations(shop_data):
     return recommendations
 
 @app.route('/growth-advisor')
-@verify_session_token
 def growth_advisor():
-    """Zeigt den Growth Advisor mit Wachstumsanalysen und -empfehlungen an."""
     try:
-        # Shop aus der Session holen
+        # Prüfe, ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Shop aus der Session laden
         shop = session.get('shop')
+        
+        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
+        access_token = session.get('access_token')
+        
+        # Tracking-Daten aktualisieren durch Neuladen
+        tracking_data = load_tracking_data()
+        
+        # Wenn kein Shop in der Session gefunden wurde, versuche einen Shop aus den Tracking-Daten zu verwenden
         if not shop:
-            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
-            global tracking_data
-            tracking_data = load_tracking_data()
             all_shops = list(tracking_data.keys())
             
             if all_shops:
@@ -1118,51 +1140,43 @@ def growth_advisor():
                 shop = "test-shop.example.com"
                 print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
-        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
-        access_token = session.get('access_token')
-        
-        # Tracking-Daten aktualisieren durch Neuladen
-        tracking_data = load_tracking_data()
-        
-        # Daten für diesen Shop abrufen
+        # Shopify-Daten laden
         shop_data = get_shop_data(shop)
         
-        # Anzahl der Seitenaufrufe und Klicks
-        pageviews_count = len(shop_data.get('pageviews', []))
-        clicks_count = len(shop_data.get('clicks', []))
+        # Growth Advisor Empfehlungen generieren
+        recommendations = generate_growth_advisor_recommendations(shop_data)
         
-        # Generiere Wachstumsanalysen
-        growth_projections = generate_growth_projections(shop_data)
+        # Metadaten für die Seite
+        meta = {
+            'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
+            'shop': shop,
+            'pageviews': len(shop_data.get('pageviews', [])),
+            'clicks': len(shop_data.get('clicks', []))
+        }
         
-        # Generiere AI-Wachstumsempfehlungen
-        growth_recommendations = generate_growth_recommendations(shop_data)
+        # Aktuelle Produkte abrufen
+        try:
+            products = get_shopify_products(shop, access_token)
+        except Exception as e:
+            print(f"Fehler beim Abrufen der Produkte: {e}")
+            # Beispielprodukte verwenden, wenn die echten Produkte nicht abgerufen werden können
+            products = get_mock_products()
         
-        # Generiere Implementierungsaufgaben basierend auf Datenanalyse
+        # Implementation Tasks generieren
         implementation_tasks = generate_implementation_tasks()
         
-        return render_template(
-            "growth_advisor.html",
-            pageviews_count=pageviews_count,
-            clicks_count=clicks_count,
-            growth_projections=growth_projections,
-            growth_recommendations=growth_recommendations,
-            implementation_tasks=implementation_tasks,
-            shop_name=shop
-        )
+        # Render Template
+        return render_template('growth_advisor.html',
+                              meta=meta,
+                              recommendations=recommendations,
+                              implementation_tasks=implementation_tasks,
+                              products=products)
+                              
     except Exception as e:
-        print(f"Fehler beim Laden des Growth Advisors: {e}")
+        print(f"Fehler im Growth Advisor: {e}")
         import traceback
         traceback.print_exc()
-        return render_template(
-            "growth_advisor.html",
-            error=str(e),
-            pageviews_count=0,
-            clicks_count=0,
-            growth_projections={},
-            growth_recommendations=[],
-            implementation_tasks=[],
-            shop_name="Nicht verbunden"
-        )
+        return render_template('error.html', error=str(e))
 
 def get_shopify_products(shop_domain, access_token):
     """Ruft Produkte aus der Shopify API ab."""
@@ -1681,15 +1695,21 @@ def get_mock_products():
     ]
 
 @app.route('/price-optimizer')
-@verify_session_token
 def price_optimizer():
-    """Zeigt den Price Optimizer mit Preisempfehlungen und Konkurrenzanalyse an."""
     try:
-        # Shop aus der Session auslesen
+        # Prüfe, ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Shop aus der Session laden
         shop = session.get('shop')
+        
+        # Access token aus der Session holen
+        access_token = session.get('access_token')
+        
+        # Wenn kein Shop in der Session gefunden wurde, versuche einen Shop aus den Tracking-Daten zu verwenden
         if not shop:
-            # Prüfen, ob wir einen Fallback-Shop haben (für Demo oder Entwicklung)
-            global tracking_data
             tracking_data = load_tracking_data()
             all_shops = list(tracking_data.keys())
             
@@ -1699,89 +1719,62 @@ def price_optimizer():
             else:
                 shop = "test-shop.example.com"
                 print(f"Price Optimizer: Keine Shops gefunden, verwende Default-Shop: {shop}")
-        
-        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
-        access_token = session.get('access_token')
-        
-        # Produkt-ID aus dem GET-Parameter auslesen
-        product_id = request.args.get('product_id')
-        
-        # Lade echte Produkte aus der Shopify API, wenn access_token vorhanden
-        products = []
-        if access_token:
-            try:
-                products = get_shopify_products(shop, access_token)
-                if products:
-                    print(f"✅ Produkte aus Shopify API für {shop} geladen")
-            except Exception as e:
-                print(f"❌ Fehler beim Laden von Shopify-Produkten: {e}")
                 
-        # Fallback auf Mock-Produkte, wenn keine echten Produkte geladen werden konnten
-        if not products:
+        # Daten für diesen Shop abrufen
+        shop_data = get_shop_data(shop)
+        
+        try:
+            # Produkte über Shopify API abrufen
+            products = get_shopify_products(shop, access_token)
+        except Exception as e:
+            print(f"Fehler beim Abrufen der Produkte: {e}")
+            # Fallback zu Beispiel-Produkten
             products = get_mock_products()
-            print(f"ℹ️ Verwende Mock-Produkte für Shop {shop}")
-        
-        # Ausgewähltes Produkt finden
-        selected_product = None
-        if product_id:
-            for product in products:
-                if str(product['id']) == str(product_id):
-                    selected_product = product
-                    break
-        
-        # Wenn kein Produkt ausgewählt oder gefunden wurde, verwende das erste Produkt als Fallback
-        if not selected_product and products:
-            selected_product = products[0]
-            product_id = selected_product.get('id')
-        
-        # Wettbewerbsdaten abrufen
-        competitor_data = get_competitor_data(selected_product.get('product_type', ''))
-        
-        # Preistrend-Daten abrufen mit echten Verkaufsdaten, wenn verfügbar
-        trend_data = get_price_trend_data(
-            selected_product.get('product_type', ''), 
-            float(selected_product.get('variants', [{}])[0].get('price', 0)), 
-            shop_domain=shop,
-            access_token=access_token,
-            product_id=selected_product.get('id')
-        )
-        
-        # KI-Preisempfehlungen generieren
-        price_recommendations = generate_ai_price_recommendations(
-            selected_product.get('product_type', ''), 
-            float(selected_product.get('variants', [{}])[0].get('price', 0)), 
-            competitor_data, 
-            trend_data
-        )
-        
-        # Datum der letzten Aktualisierung
-        last_updated = datetime.datetime.now().strftime("%d.%m.%Y, %H:%M")
-        
+            
+        # Preisanalysen für jedes Produkt durchführen
+        for product in products:
+            product_type = product.get('product_type', 'Generisches Produkt')
+            price = float(product.get('price', 10.0))
+            product_id = product.get('id', 'mock-id-1')
+            
+            # Wettbewerberdaten abrufen
+            competitor_data = get_competitor_data(product_type)
+            
+            # Preistrend-Daten abrufen
+            trend_data = get_price_trend_data(product_type, price, shop, access_token, product_id)
+            
+            # Preiselastizität berechnen
+            elasticity = calculate_price_elasticity(shop, access_token, product_id)
+            
+            # KI-basierte Preisempfehlungen
+            price_recommendations = generate_ai_price_recommendations(
+                product_type, price, competitor_data, trend_data
+            )
+            
+            # Daten an das Produkt anhängen
+            product['elasticity'] = elasticity
+            product['competitor_data'] = competitor_data
+            product['trend_data'] = trend_data
+            product['price_recommendations'] = price_recommendations
+            
+        # Metadaten für die Seite
+        meta = {
+            'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
+            'shop': shop,
+            'products_analyzed': len(products)
+        }
+            
         return render_template(
-            "price_optimizer.html",
+            'price_optimizer.html',
             products=products,
-            selected_product=selected_product,
-            competitor_data=competitor_data,
-            trend_data=trend_data,
-            price_recommendations=price_recommendations,
-            last_updated=last_updated,
-            shop_name=shop
+            meta=meta
         )
+        
     except Exception as e:
-        print(f"Fehler beim Laden des Price Optimizers: {e}")
+        print(f"Fehler im Price Optimizer: {e}")
         import traceback
         traceback.print_exc()
-        return render_template(
-            "price_optimizer.html",
-            error=str(e),
-            products=[],
-            selected_product=None,
-            competitor_data={},
-            trend_data={},
-            price_recommendations=[],
-            last_updated=datetime.datetime.now().strftime("%d.%m.%Y, %H:%M"),
-            shop_name="Nicht verbunden"
-        )
+        return render_template('error.html', error=str(e))
 
 @app.context_processor
 def inject_translations():
@@ -2071,3 +2064,90 @@ def generate_example_chart_data():
             }
         ]
     }
+
+def get_current_shop():
+    """Holt den aktuellen Shop aus der Session."""
+    # Versuche den Shop aus der Session zu lesen
+    if 'shop' in session:
+        return session['shop']
+        
+    # Falls kein Shop in der Session vorhanden ist
+    print("❌ Kein Shop in der Session gefunden")
+    
+    # Versuche einen Shop aus den Tracking-Daten zu verwenden
+    tracking_data = load_tracking_data()
+    all_shops = list(tracking_data.keys())
+    
+    if all_shops:
+        shop = all_shops[0]
+        print(f"✅ Verwende ersten verfügbaren Shop: {shop}")
+        return shop
+    
+    # Wenn kein Shop gefunden wurde
+    print("❌ Kein Shop gefunden, weder in der Session noch in den Tracking-Daten")
+    return None
+
+def load_shop_data(shop):
+    """Lädt die Daten für einen bestimmten Shop."""
+    if not shop:
+        print("❌ Kann keine Shop-Daten laden: Shop ist None")
+        return {}
+        
+    # Tracking-Daten aus der Datei laden
+    tracking_data = load_tracking_data()
+    
+    # Wenn der Shop nicht in den Tracking-Daten existiert, initialisiere ihn
+    if shop not in tracking_data:
+        print(f"🆕 Initialisiere neuen Shop in den Tracking-Daten: {shop}")
+        tracking_data[shop] = {
+            'pageviews': [],
+            'clicks': [],
+            'created_at': datetime.datetime.now().isoformat(),
+            'last_updated': datetime.datetime.now().isoformat(),
+            'first_tracking_date': datetime.datetime.now().isoformat(),
+            'total_pageviews': 0,
+            'total_clicks': 0
+        }
+        save_tracking_data()
+    
+    # Berechne abgeleitete Daten wie Gesamtzahlen und Durchschnitte
+    shop_data = tracking_data[shop].copy()
+    
+    # Gesamtzahl der Seitenaufrufe
+    shop_data['total_pageviews'] = len(shop_data.get('pageviews', []))
+    
+    # Gesamtzahl der Klicks
+    shop_data['total_clicks'] = len(shop_data.get('clicks', []))
+    
+    # Klickrate (CTR)
+    if shop_data['total_pageviews'] > 0:
+        shop_data['click_rate'] = (shop_data['total_clicks'] / shop_data['total_pageviews']) * 100
+    else:
+        shop_data['click_rate'] = 0
+    
+    # KI-Tipps generieren
+    shop_data['ai_quick_tips'] = generate_ai_tips(shop_data)
+    
+    # Letzte Ereignisse
+    all_events = []
+    for pageview in shop_data.get('pageviews', [])[:50]:  # Begrenzen auf die letzten 50 Seitenaufrufe
+        all_events.append({
+            'type': 'pageview',
+            'timestamp': pageview.get('timestamp'),
+            'data': pageview
+        })
+    
+    for click in shop_data.get('clicks', [])[:50]:  # Begrenzen auf die letzten 50 Klicks
+        all_events.append({
+            'type': 'click',
+            'timestamp': click.get('timestamp'),
+            'data': click
+        })
+    
+    # Sortiere die Ereignisse nach Zeitstempel (absteigend, neueste zuerst)
+    all_events.sort(key=lambda e: e.get('timestamp', ''), reverse=True)
+    
+    # Limitieren auf die letzten 20 Ereignisse
+    shop_data['events'] = all_events[:20]
+    
+    return shop_data
