@@ -626,6 +626,29 @@ def dashboard():
         # Bestimme den Host-Parameter für embedded Apps
         host = request.args.get('host', '')
         
+        # Prüfe, ob der Host-Parameter gültig ist
+        if not host or host == 'undefined':
+            # Wenn kein gültiger Host, versuche ihn aus dem Referer zu extrahieren
+            referer = request.headers.get('Referer', '')
+            if 'admin.shopify.com' in referer:
+                # Extrahiere Host aus Referer URL
+                try:
+                    from urllib.parse import urlparse, parse_qs
+                    parsed_url = urlparse(referer)
+                    if parsed_url.query:
+                        query_params = parse_qs(parsed_url.query)
+                        if 'host' in query_params:
+                            host = query_params['host'][0]
+                            print(f"✅ Host aus Referer extrahiert: {host}")
+                except Exception as e:
+                    print(f"❌ Fehler beim Extrahieren des Hosts aus Referer: {e}")
+            
+            if not host or host == 'undefined':
+                print(f"⚠️ Kein gültiger Host-Parameter gefunden, App läuft im Standalone-Modus")
+
+        # Debug-Informationen
+        print(f"🔍 Dashboard Parameter: shop={shop}, host={host}, api_key={'vorhanden' if shopify_api_key else 'fehlt'}")
+        
         if not has_sufficient_data(shop_data):
             # Zeige Onboarding-Ansicht für neue Shops
             onboarding_content = get_onboarding_content()
@@ -658,7 +681,7 @@ def dashboard():
         )
         
     except Exception as e:
-        print(f"Fehler im Dashboard: {e}")
+        print(f"❌ Fehler im Dashboard: {e}")
         import traceback
         traceback.print_exc()
         return render_template('error.html', error=str(e))

@@ -88,19 +88,38 @@
       const host = '{{ host }}';
       const apiKey = '{{ shopify_api_key }}';
       
-      if (apiKey && (shop || host)) {
+      // Debug-Informationen in der Konsole ausgeben
+      console.log('Shop:', shop);
+      console.log('Host:', host);
+      console.log('API Key:', apiKey);
+      
+      // Prüfung, ob wir uns im Shopify-Admin befinden oder standalone
+      let isEmbedded = false;
+      
+      // Ein gültiger Host muss vorhanden sein und darf nicht 'undefined' sein
+      if (host && host !== 'undefined' && host.length > 0) {
+        isEmbedded = true;
+        console.log('App läuft im Embedded-Modus mit Host:', host);
+      } else {
+        console.log('App läuft im Standalone-Modus');
+      }
+      
+      // App Bridge nur initialisieren, wenn API-Key und ein gültiger Shop oder Host vorhanden sind
+      if (apiKey && ((isEmbedded && host) || (!isEmbedded && shop))) {
         let config = {
           apiKey: apiKey,
-          forceRedirect: true
+          // Nur im Embedded-Modus Redirects erzwingen
+          forceRedirect: isEmbedded
         };
         
-        if (host) {
+        if (isEmbedded) {
           config.host = host;
         } else if (shop) {
           config.shop = shop;
         }
         
         try {
+          console.log('Initialisiere App Bridge mit Konfiguration:', config);
           const app = window['app-bridge'].createApp(config);
           
           // Session-Token abrufen und für AJAX-Requests einrichten
@@ -108,6 +127,12 @@
           
           async function setupSessionToken() {
             try {
+              // Im Standalone-Modus könnte getSessionToken nicht funktionieren
+              if (!isEmbedded && !config.shop) {
+                console.log('Überspringe Session-Token im Standalone-Modus ohne Shop');
+                return;
+              }
+              
               const sessionToken = await getSessionToken(app);
               
               // Session-Token für alle AJAX-Requests setzen
@@ -128,6 +153,9 @@
               console.log('Session-Token erfolgreich eingerichtet');
             } catch (error) {
               console.error('Fehler beim Abrufen des Session-Tokens:', error);
+              
+              // Fallback im Fehlerfall - App trotzdem nutzbar machen
+              console.log('Setze Anwendung im Standalone-Modus fort');
             }
           }
           
@@ -135,7 +163,10 @@
           await setupSessionToken();
         } catch (error) {
           console.error('Fehler beim Initialisieren des App Bridge:', error);
+          console.log('Setze Anwendung im Standalone-Modus fort');
         }
+      } else {
+        console.log('App Bridge nicht initialisiert - fehlende Parameter');
       }
       
       // Funktionen für lokale Aktionen
