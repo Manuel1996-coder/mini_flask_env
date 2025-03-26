@@ -30,8 +30,9 @@
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated" 
                                  role="progressbar" 
-                                 style="width: {{ step.progress }}%;" 
-                                 aria-valuenow="{{ step.progress }}" 
+                                 data-progress="{{ step.progress }}"
+                                 style="width: 0%;" 
+                                 aria-valuenow="0" 
                                  aria-valuemin="0" 
                                  aria-valuemax="100">
                             </div>
@@ -193,6 +194,13 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Setze die Fortschrittsbalken-Werte
+    document.querySelectorAll('[data-progress]').forEach(element => {
+        const progress = element.getAttribute('data-progress');
+        element.style.width = progress + '%';
+        element.setAttribute('aria-valuenow', progress);
+    });
+    
     // Simulation einer Datensammlung mit animiertem Fortschrittsbalken
     const progressBars = document.querySelectorAll('.progress-bar');
     progressBars.forEach(bar => {
