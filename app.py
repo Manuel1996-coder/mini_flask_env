@@ -463,6 +463,485 @@ def get_base_url():
 
 def register_webhooks(shop, access_token):
     """
+    Registriert die erforderlichen Webhooks für den Shop über GraphQL.
+    """
+    try:
+        # GraphQL Endpoint
+        url = f"https://{shop}/admin/api/2024-01/graphql.json"
+        headers = {
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json'
+        }
+        
+        # Prüfe zuerst, welche Webhooks bereits existieren
+        query_existing = """
+        {
+          webhookSubscriptions(first: 100) {
+from flask import Flask, request, jsonify, render_template, redirect, session, Response
+import datetime
+import openai
+from dotenv import load_dotenv
+import os
+import requests
+from urllib.parse import quote
+from flask_cors import CORS
+import json
+import uuid
+import random  # Für Simulationszwecke
+import numpy as np  # Für statistische Berechnungen
+import argparse
+import hmac
+import hashlib
+from functools import wraps
+import jwt
+from flask_session import Session
+
+# Environment-Variablen laden
+load_dotenv()
+
+# Pfad zur Tracking-Datendatei
+TRACKING_DATA_FILE = 'tracking_data.json'
+
+# Flask App konfigurieren
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY')
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True  # Session permanent machen
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=30)  # Session-Lebensdauer auf 30 Tage setzen
+app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'  # Expliziter Session-Speicherort
+app.config['SESSION_FILE_THRESHOLD'] = 500  # Maximale Anzahl von Session-Dateien
+
+# Stelle sicher, dass das Session-Verzeichnis existiert
+os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+
+# Session-Middleware initialisieren
+sess = Session()
+sess.init_app(app)
+
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Shopify API Keys aus der .env Datei
+SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
+SHOPIFY_API_SECRET = os.getenv("SHOPIFY_API_SECRET")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+SCOPES = os.getenv("SCOPES")
+HOST = os.getenv("HOST", "miniflaskenv-production.up.railway.app")
+
+# OpenAI konfigurieren
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Tracking-Data für Dashboard
+tracking_data = {}  # Leeres Dictionary für alle Shops
+
+# Übersetzungen laden
+translations = {
+    'en': {},
+    'de': {}
+}
+
+def load_translations():
+    """Lädt die Übersetzungsdateien für alle unterstützten Sprachen."""
+    global translations
+    
+    # Standardwerte initialisieren
+    translations = {
+        'en': {
+            "app": {"name": "ShoppulseAI", "title": "Intelligent Growth Analysis for Shopify"},
+            "navigation": {
+                "dashboard": "Dashboard",
+                "growth_advisor": "Growth Advisor™",
+                "price_optimizer": "Price Optimizer™",
+                "settings": "Settings",
+                "analytics": "Analytics",
+                "configuration": "Configuration"
+            },
+            "dashboard": {"title": "Analytics Dashboard"},
+            "price_optimizer": {"title": "Price Optimizer™"},
+            "growth_advisor": {"title": "Growth Advisor™"},
+            "errors": {
+                "general": "An error occurred.",
+                "data_load": "Error loading data.",
+                "not_connected": "Shop not connected.",
+                "no_products": "No products found."
+            },
+            "language": {
+                "select": "Select Language",
+                "en": "English",
+                "de": "German"
+            },
+            "buttons": {
+                "save": "Save",
+                "cancel": "Cancel",
+                "apply": "Apply",
+                "reload": "Reload",
+                "export": "Export"
+            }
+        },
+        'de': {
+            "app": {"name": "ShoppulseAI", "title": "Intelligente Wachstumsanalyse für Shopify"},
+            "navigation": {
+                "dashboard": "Dashboard",
+                "growth_advisor": "Growth Advisor™",
+                "price_optimizer": "Price Optimizer™",
+                "settings": "Einstellungen",
+                "analytics": "Analytics",
+                "configuration": "Konfiguration"
+            },
+            "dashboard": {"title": "Analytics Dashboard"},
+            "price_optimizer": {"title": "Price Optimizer™"},
+            "growth_advisor": {"title": "Growth Advisor™"},
+            "errors": {
+                "general": "Ein Fehler ist aufgetreten.",
+                "data_load": "Fehler beim Laden der Daten.",
+                "not_connected": "Shop nicht verbunden.",
+                "no_products": "Keine Produkte gefunden."
+            },
+            "language": {
+                "select": "Sprache auswählen",
+                "en": "Englisch",
+                "de": "Deutsch"
+            },
+            "buttons": {
+                "save": "Speichern",
+                "cancel": "Abbrechen",
+                "apply": "Anwenden",
+                "reload": "Neu laden",
+                "export": "Exportieren"
+            }
+        }
+    }
+    
+    try:
+        # Absolute Pfade für Railway und lokale Entwicklung
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        en_path = os.path.join(base_dir, 'translations', 'en.json')
+        de_path = os.path.join(base_dir, 'translations', 'de.json')
+        
+        # Verzeichnis erstellen, falls es nicht existiert
+        translations_dir = os.path.join(base_dir, 'translations')
+        if not os.path.exists(translations_dir):
+            os.makedirs(translations_dir)
+            print(f"Verzeichnis für Übersetzungen erstellt: {translations_dir}")
+        
+        # Englische Übersetzung laden
+        if os.path.exists(en_path):
+            with open(en_path, 'r', encoding='utf-8') as f:
+                loaded_translations = json.load(f)
+                translations['en'].update(loaded_translations)
+                print(f"Englische Übersetzungen geladen aus {en_path}.")
+        else:
+            print(f"Warnung: Englische Übersetzungsdatei nicht gefunden unter {en_path}. Verwende Standardwerte.")
+            # Speichere die Standardwerte in der Datei
+            with open(en_path, 'w', encoding='utf-8') as f:
+                json.dump(translations['en'], f, ensure_ascii=False, indent=2)
+                print(f"Englische Standardübersetzungen in {en_path} gespeichert.")
+        
+        # Deutsche Übersetzung laden
+        if os.path.exists(de_path):
+            with open(de_path, 'r', encoding='utf-8') as f:
+                loaded_translations = json.load(f)
+                translations['de'].update(loaded_translations)
+                print(f"Deutsche Übersetzungen geladen aus {de_path}.")
+        else:
+            print(f"Warnung: Deutsche Übersetzungsdatei nicht gefunden unter {de_path}. Verwende Standardwerte.")
+            # Speichere die Standardwerte in der Datei
+            with open(de_path, 'w', encoding='utf-8') as f:
+                json.dump(translations['de'], f, ensure_ascii=False, indent=2)
+                print(f"Deutsche Standardübersetzungen in {de_path} gespeichert.")
+    
+    except Exception as e:
+        print(f"Fehler beim Laden der Übersetzungen: {e}")
+        print("Verwende Standardwerte für Übersetzungen.")
+        import traceback
+        traceback.print_exc()
+
+def get_user_language():
+    """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
+    # Versuche zuerst die Sprache aus der Session zu lesen
+    if 'language' in session:
+        return session['language']
+    
+    # Dann versuche die Sprache aus dem Cookie zu lesen
+    if request.cookies.get('language'):
+        return request.cookies.get('language')
+    
+    # Dann versuche die Accept-Language Header zu lesen
+    if request.headers.get('Accept-Language'):
+        # Parse den Accept-Language Header und nimm den ersten Teil
+        accept_languages = request.headers.get('Accept-Language').split(',')
+        if accept_languages:
+            lang_code = accept_languages[0].split(';')[0].strip().lower()
+            if lang_code.startswith('de'):
+                return 'de'
+    
+    # Fallback auf Englisch
+    return 'en'
+
+def save_tracking_data():
+    """Speichert die Tracking-Daten in einer JSON-Datei."""
+    global tracking_data
+    try:
+        with open(TRACKING_DATA_FILE, 'w') as f:
+            json.dump(tracking_data, f)
+        print(f"Tracking-Daten in {TRACKING_DATA_FILE} gespeichert.")
+    except Exception as e:
+        print(f"Fehler beim Speichern der Tracking-Daten: {e}")
+
+def load_tracking_data():
+    """Lädt die Tracking-Daten aus einer JSON-Datei oder dem globalen Dictionary."""
+    global tracking_data
+    
+    # Versuche, die Daten aus der Datei zu laden
+    try:
+        if os.path.exists(TRACKING_DATA_FILE):
+            with open(TRACKING_DATA_FILE, 'r') as f:
+                tracking_data = json.load(f)
+                print(f"Tracking-Daten aus {TRACKING_DATA_FILE} geladen.")
+                
+                # Stelle sicher, dass alle Shop-Einträge die korrekten Unterstrukturen haben
+                for shop_domain in tracking_data:
+                    if 'pageviews' not in tracking_data[shop_domain]:
+                        tracking_data[shop_domain]['pageviews'] = []
+                    if 'clicks' not in tracking_data[shop_domain]:
+                        tracking_data[shop_domain]['clicks'] = []
+    except Exception as e:
+        print(f"Fehler beim Laden der Tracking-Daten: {e}")
+        tracking_data = {}
+    
+    return tracking_data
+
+def get_shop_data(shop_domain):
+    """Holt oder erstellt die Tracking-Daten für einen bestimmten Shop."""
+    global tracking_data
+    
+    # Validiere shop_domain
+    if not shop_domain or not isinstance(shop_domain, str):
+        print(f"⚠️ Ungültige Shop-Domain: {shop_domain}")
+        shop_domain = "unknown-shop.example.com"
+    
+    # Standardformat für die Shop-Domain
+    if shop_domain.endswith(';'):
+        shop_domain = shop_domain[:-1]
+        print(f"🔧 Shop-Domain bereinigt: {shop_domain}")
+    
+    # Wenn der Shop noch nicht im Dictionary existiert, initialisiere ihn
+    if shop_domain not in tracking_data:
+        print(f"🆕 Initialisiere neuen Shop: {shop_domain}")
+        tracking_data[shop_domain] = {
+            'pageviews': [],
+            'clicks': [],
+            'created_at': datetime.datetime.now().isoformat(),
+            'last_updated': datetime.datetime.now().isoformat()
+        }
+        save_tracking_data()
+    
+    # Stelle sicher, dass die Schlüssel existieren
+    if 'pageviews' not in tracking_data[shop_domain]:
+        tracking_data[shop_domain]['pageviews'] = []
+    
+    if 'clicks' not in tracking_data[shop_domain]:
+        tracking_data[shop_domain]['clicks'] = []
+    
+    # Datum für 'last_updated' aktualisieren
+    tracking_data[shop_domain]['last_updated'] = datetime.datetime.now().isoformat()
+    
+    return tracking_data[shop_domain]
+
+def generate_implementation_tasks():
+    """Generiert priorisierte Implementierungsaufgaben basierend auf Datenanalyse."""
+    tasks = [
+        {
+            "priority": "high",
+            "title": "Call-to-Action Optimierung",
+            "description": "Überarbeitung der primären CTAs auf der Startseite für bessere Sichtbarkeit und Klarheit.",
+            "effort": "medium",
+            "impact": "high"
+        },
+        {
+            "priority": "high",
+            "title": "Ladezeit-Optimierung",
+            "description": "Komprimierung von Bildern und Optimierung des CSS für schnellere Seitenladezeiten.",
+            "effort": "medium",
+            "impact": "high"
+        },
+        {
+            "priority": "medium",
+            "title": "Mobile Responsiveness",
+            "description": "Verbesserung der Benutzeroberfläche auf mobilen Geräten, insbesondere auf Produktseiten.",
+            "effort": "high",
+            "impact": "medium"
+        },
+        {
+            "priority": "medium",
+            "title": "SEO-Optimierung",
+            "description": "Überarbeitung der Meta-Tags und Seitentitel für bessere Suchmaschinenplatzierung.",
+            "effort": "low",
+            "impact": "medium"
+        },
+        {
+            "priority": "low",
+            "title": "Feedback-Formular",
+            "description": "Implementierung eines Feedback-Formulars für Benutzer zur Sammlung von Verbesserungsvorschlägen.",
+            "effort": "low",
+            "impact": "low"
+        }
+    ]
+    return tasks
+
+def hmac_validation(params):
+    """Validiert den HMAC-Parameter von Shopify."""
+    if not params.get('hmac'):
+        return False
+
+    # Parameter sortieren und HMAC entfernen
+    sorted_params = dict(sorted(params.items()))
+    hmac_value = sorted_params.pop('hmac')
+
+    # Query-String erstellen
+    query_string = '&'.join([f"{key}={value}" for key, value in sorted_params.items()])
+    
+    # HMAC berechnen
+    calculated_hmac = hmac.new(
+        SHOPIFY_API_SECRET.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(calculated_hmac, hmac_value)
+
+@app.route('/')
+def index():
+    """Root-Route mit Authentifizierungsprüfung."""
+    try:
+        # Prüfe ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Prüfe ob ein Access Token vorhanden ist
+        if 'access_token' not in session:
+            print("❌ Kein Access Token in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        print(f"✅ Shop authentifiziert: {session['shop']}")
+        return redirect('/dashboard')
+        
+    except Exception as e:
+        print(f"❌ Fehler in der Root-Route: {e}")
+        import traceback
+        traceback.print_exc()
+        return redirect('/install')
+
+@app.route('/install')
+def install():
+    """Installation der App initiieren."""
+    try:
+        shop = request.args.get('shop')
+        
+        # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben
+        if not shop and 'shop' in session:
+            shop = session['shop']
+            print(f"✅ Shop aus Session verwendet: {shop}")
+
+        if not shop:
+            print("❌ Kein Shop-Parameter gefunden und kein Shop in Session")
+            return render_template(
+                'error.html',
+                error="Bitte geben Sie einen Shop-Parameter an oder installieren Sie die App über den Shopify App Store."
+            )
+
+        # Shopify OAuth URL erstellen
+        nonce = os.urandom(16).hex()
+        session['nonce'] = nonce
+        
+        install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={SCOPES}&redirect_uri={REDIRECT_URI}&state={nonce}"
+        
+        print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
+        return redirect(install_url)
+    except Exception as e:
+        print(f"❌ Fehler bei der Installation: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template(
+            'error.html',
+            error=f"Installationsfehler: {str(e)}"
+        )
+
+@app.route('/auth/callback')
+def auth_callback():
+    """Callback für OAuth-Flow."""
+    try:
+        # HMAC validieren
+        if not hmac_validation(request.args):
+            print("❌ HMAC Validierung fehlgeschlagen")
+            return "Invalid HMAC", 400
+
+        shop = request.args.get('shop')
+        code = request.args.get('code')
+
+        if not shop or not code:
+            print("❌ Fehlende Parameter")
+            return "Missing parameters", 400
+
+        # Access Token anfordern
+        access_token_url = f"https://{shop}/admin/oauth/access_token"
+        access_token_payload = {
+            'client_id': SHOPIFY_API_KEY,
+            'client_secret': SHOPIFY_API_SECRET,
+            'code': code
+        }
+        
+        response = requests.post(access_token_url, json=access_token_payload)
+
+        if response.status_code != 200:
+            print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
+            return f"Failed to get access token: {response.text}", 400
+
+        # Token aus Response extrahieren
+        access_token = response.json().get('access_token')
+        
+        if not access_token:
+            print("❌ Kein Access Token in der Antwort")
+            return "No access token in response", 400
+
+        # Token in Session speichern und Session permanent machen
+        session.permanent = True
+        session['shop'] = shop
+        session['access_token'] = access_token
+        session['authenticated'] = True
+        session['auth_time'] = datetime.datetime.now().isoformat()
+        
+        print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
+        print(f"✅ Session-Daten gespeichert: {dict(session)}")
+        
+        # Webhooks registrieren
+        register_webhooks(shop, access_token)
+        
+        # Zum Dashboard weiterleiten
+        return redirect('/dashboard')
+        
+    except Exception as e:
+        print(f"❌ Fehler im Auth Callback: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Error in auth callback: {str(e)}", 500
+
+def get_base_url():
+    """
+    Gibt die Basis-URL der Anwendung zurück, je nach Umgebung.
+    """
+    if os.getenv('RAILWAY_STATIC_URL'):
+        # Railway Produktionsumgebung
+        return os.getenv('RAILWAY_STATIC_URL', 'https://miniflaskenv-production.up.railway.app')
+    elif os.getenv('HOST'):
+        # Shopify App Umgebung
+        return f"https://{os.getenv('HOST')}"
+    else:
+        # Lokale Entwicklungsumgebung oder Fallback
+        return os.getenv('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+
+def register_webhooks(shop, access_token):
+    """
     Registriert die erforderlichen Webhooks für den Shop.
     """
     try:
@@ -1238,10 +1717,43 @@ def growth_advisor():
         return render_template('error.html', error=str(e))
 
 def get_shopify_products(shop_domain, access_token):
-    """Ruft Produkte aus der Shopify API ab."""
+    """Ruft Produkte aus der Shopify GraphQL API ab."""
     try:
-        # URL für die Shopify API
-        url = f"https://{shop_domain}/admin/api/2023-04/products.json"
+        # GraphQL Endpoint
+        url = f"https://{shop_domain}/admin/api/2024-01/graphql.json"
+        
+        # GraphQL Query
+        query = """
+        {
+          products(first: 250) {
+            edges {
+              node {
+                id
+                title
+                productType
+                description: descriptionHtml
+                variants(first: 10) {
+                  edges {
+                    node {
+                      id
+                      price
+                      compareAtPrice
+                      inventoryQuantity
+                    }
+                  }
+                }
+                images(first: 1) {
+                  edges {
+                    node {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
         
         # Header mit Access-Token für die Authentifizierung
         headers = {
@@ -1249,23 +1761,46 @@ def get_shopify_products(shop_domain, access_token):
             "Content-Type": "application/json"
         }
         
-        # API-Aufruf durchführen
-        response = requests.get(url, headers=headers)
+        # GraphQL-Aufruf durchführen
+        response = requests.post(url, json={'query': query}, headers=headers)
         
         # Prüfen, ob der Aufruf erfolgreich war
         if response.status_code == 200:
-            products_data = response.json().get('products', [])
+            data = response.json()
+            if 'errors' in data:
+                print(f"❌ GraphQL Fehler: {data['errors']}")
+                return []
+                
+            products_data = data.get('data', {}).get('products', {}).get('edges', [])
             
             # Produkte für unsere Verwendung aufbereiten
             formatted_products = []
-            for product in products_data:
+            for product_edge in products_data:
+                product = product_edge['node']
+                
+                # Varianten verarbeiten
+                variants = []
+                for variant_edge in product.get('variants', {}).get('edges', []):
+                    variant = variant_edge['node']
+                    variants.append({
+                        'id': variant['id'].split('/')[-1],  # ID ohne Präfix
+                        'price': variant['price'],
+                        'compare_at_price': variant['compareAtPrice'],
+                        'inventory_quantity': variant['inventoryQuantity']
+                    })
+                
+                # Bild-URL extrahieren
+                image_url = None
+                if product.get('images', {}).get('edges'):
+                    image_url = product['images']['edges'][0]['node']['url']
+                
                 formatted_product = {
-                    "id": product.get('id'),
-                    "title": product.get('title'),
-                    "product_type": product.get('product_type'),
-                    "variants": product.get('variants', []),
-                    "image": product.get('image', {}),
-                    "description": product.get('body_html', '')
+                    "id": product['id'].split('/')[-1],  # ID ohne Präfix
+                    "title": product['title'],
+                    "product_type": product['productType'],
+                    "variants": variants,
+                    "image": {"src": image_url} if image_url else {},
+                    "description": product['description']
                 }
                 formatted_products.append(formatted_product)
             
@@ -1356,7 +1891,7 @@ def get_competitor_data(product_type, product_title=None):
 def calculate_price_elasticity(shop_domain, access_token, product_id):
     """
     Berechnet die Preiselastizität eines Produkts basierend auf historischen Verkaufsdaten.
-    Verwendet die Shopify Orders API, um Bestellungen zu analysieren und Preis-Verkaufs-Paare zu erstellen.
+    Verwendet die Shopify GraphQL API, um Bestellungen zu analysieren und Preis-Verkaufs-Paare zu erstellen.
     """
     try:
         # Wenn kein Access Token verfügbar ist, können wir keine Daten abrufen
@@ -1366,47 +1901,72 @@ def calculate_price_elasticity(shop_domain, access_token, product_id):
         
         print(f"🔍 Berechne Preiselastizität für Produkt {product_id} in Shop {shop_domain}")
         
-        # Historische Bestellungen der letzten 90 Tage abrufen
-        orders_url = f"https://{shop_domain}/admin/api/2023-07/orders.json?status=any&limit=250"
-        headers = {"X-Shopify-Access-Token": access_token}
+        # GraphQL Endpoint
+        url = f"https://{shop_domain}/admin/api/2024-01/graphql.json"
         
-        response = requests.get(orders_url, headers=headers)
+        # GraphQL Query für Bestellungen der letzten 90 Tage
+        ninety_days_ago = (datetime.datetime.now() - datetime.timedelta(days=90)).isoformat()
+        
+        query = """
+        {
+          orders(first: 250, query: "created_at:>=%s") {
+            edges {
+              node {
+                id
+                createdAt
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      product {
+                        id
+                      }
+                      quantity
+                      originalUnitPrice
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """ % ninety_days_ago
+        
+        # Header mit Access-Token für die Authentifizierung
+        headers = {
+            "X-Shopify-Access-Token": access_token,
+            "Content-Type": "application/json"
+        }
+        
+        # GraphQL-Aufruf durchführen
+        response = requests.post(url, json={'query': query}, headers=headers)
         
         if response.status_code != 200:
             print(f"❌ Fehler beim Abrufen der Bestellungen: Status {response.status_code}")
             print(f"Antwort: {response.text}")
             return None
         
+        data = response.json()
+        if 'errors' in data:
+            print(f"❌ GraphQL Fehler: {data['errors']}")
+            return None
+            
         # Bestellungen aus der API-Antwort extrahieren
-        orders = response.json().get('orders', [])
+        orders = data.get('data', {}).get('orders', {}).get('edges', [])
         print(f"✅ {len(orders)} Bestellungen gefunden")
         
         # Preis-Mengen-Paare für das Produkt sammeln
         price_quantity_pairs = []
         
-        for order in orders:
-            # Bestelldatum in Datetime-Objekt umwandeln
-            order_date_str = order.get('created_at', '')
-            if not order_date_str:
-                continue
-                
-            try:
-                # ISO-Format mit Z für UTC in Datetime umwandeln
-                order_date = datetime.datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
-                
-                # Nur Bestellungen der letzten 90 Tage betrachten
-                time_diff = datetime.datetime.now(datetime.timezone.utc) - order_date
-                if time_diff.days > 90:
-                    continue
-            except Exception as e:
-                print(f"⚠️ Fehler beim Parsen des Bestelldatums: {e}")
-                continue
-                
+        for order_edge in orders:
+            order = order_edge['node']
+            
             # Bestellpositionen durchgehen
-            for line_item in order.get('line_items', []):
+            for line_item_edge in order.get('lineItems', {}).get('edges', []):
+                line_item = line_item_edge['node']
+                
                 # Prüfen, ob es sich um das gesuchte Produkt handelt
-                if str(line_item.get('product_id')) == str(product_id):
-                    price = float(line_item.get('price', 0))
+                if line_item.get('product', {}).get('id', '').endswith(str(product_id)):
+                    price = float(line_item.get('originalUnitPrice', 0))
                     quantity = int(line_item.get('quantity', 1))
                     
                     # Nach Preis gruppieren (auf 2 Dezimalstellen gerundet)
