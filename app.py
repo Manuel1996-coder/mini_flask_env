@@ -1848,8 +1848,8 @@ def price_optimizer():
 
             # Template-Variable für das letzte Update hinzufügen
             last_updated = datetime.datetime.now().strftime('%d.%m.%Y %H:%M')
-        
-        return render_template(
+            
+            return render_template(
                 'price_optimizer.html',
                 products=products,
                 selected_product=selected_product,
