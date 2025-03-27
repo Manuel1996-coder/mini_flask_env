@@ -1868,8 +1868,8 @@ def price_optimizer():
                 products=products,
                 selected_product=None,
                 error=None,  # Kein Fehler, da Produkte eventuell vorhanden sind
-                shop_name=shop
-            )
+            shop_name=shop
+        )
         
     except Exception as e:
         print(f"❌ Fehler im Price Optimizer: {e}")
