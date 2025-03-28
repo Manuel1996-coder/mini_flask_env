@@ -475,29 +475,25 @@ def register_webhooks(shop, access_token):
         
         # Liste der Webhooks, die registriert werden sollen
         webhooks_to_register = [
-            "app/uninstalled",
-            "shop/update",
-            "customers/data_request",
-            "customers/redact",
-            "shop/redact"
+            "APP_UNINSTALLED",
+            "SHOP_UPDATE",
+            "CUSTOMERS_DATA_REQUEST",
+            "CUSTOMERS_REDACT",
+            "SHOP_REDACT"
         ]
         
         base_url = get_base_url()
         
         # Registriere jeden Webhook
         for topic in webhooks_to_register:
-            webhook_url = f"{base_url}/webhook/{topic}"
-            
             # GraphQL Mutation zum Erstellen des Webhooks
             mutation = """
-            mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookUrl: URL!) {
+            mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $callbackUrl: URL!) {
               webhookSubscriptionCreate(
                 topic: $topic
                 webhookSubscription: {
+                  callbackUrl: $callbackUrl
                   format: JSON
-                  endpoint: {
-                    url: $webhookUrl
-                  }
                 }
               ) {
                 webhookSubscription {
@@ -511,10 +507,14 @@ def register_webhooks(shop, access_token):
             }
             """
             
+            # Webhook-URL basierend auf dem Topic
+            topic_path = topic.lower().replace("_", "/")
+            webhook_url = f"{base_url}/webhook/{topic_path}"
+            
             # Variablen für die Mutation
             variables = {
-                "topic": topic.upper(),
-                "webhookUrl": webhook_url
+                "topic": topic,
+                "callbackUrl": webhook_url
             }
             
             # GraphQL-Aufruf durchführen
@@ -622,77 +622,46 @@ def dashboard():
             print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
             return redirect('/install')
             
-        # Prüfe, ob ein Access Token vorhanden ist
-        if 'access_token' not in session:
-            print("❌ Kein Access Token in der Session gefunden - Weiterleitung zur Installation")
+        # Shop und Host aus den Parametern oder der Session laden
+        shop = request.args.get('shop') or session.get('shop')
+        host = request.args.get('host')
+        
+        if not shop:
+            print("❌ Kein Shop-Parameter gefunden")
             return redirect('/install')
             
-        # Shop aus der Session laden
-        shop = session['shop']
+        # Wenn kein Host-Parameter vorhanden ist, generiere die Host-URL
+        if not host:
+            host = f"admin.shopify.com/store/{shop.replace('.myshopify.com', '')}"
+            print(f"ℹ️ Host-URL generiert: {host}")
         
-        # Shop-Daten laden
-        shop_data = get_shop_data(shop)
+        print(f"🔍 Dashboard Parameter: shop={shop}, host={host}, api_key=vorhanden")
         
+        # Tracking-Daten aktualisieren
+        tracking_data = load_tracking_data()
+        
+        # Wenn der Shop noch nicht in den Tracking-Daten ist, initialisiere ihn
+        if shop not in tracking_data:
+            print(f"🆕 Initialisiere neuen Shop: {shop}")
+            tracking_data[shop] = {
+                'pageviews': [],
+                'clicks': [],
+                'last_update': datetime.datetime.now().isoformat()
+            }
+            save_tracking_data(tracking_data)
+            print("Tracking-Daten in tracking_data.json gespeichert.")
+            
         print(f"✅ Dashboard für Shop: {shop} wird geladen")
         
-        # Shopify API Key für App Bridge
-        shopify_api_key = SHOPIFY_API_KEY
+        # Übersetzungen laden
+        translations = load_translations('en')
         
-        # Bestimme den Host-Parameter für embedded Apps
-        host = request.args.get('host', '')
-        
-        # Prüfe, ob der Host-Parameter gültig ist
-        if not host or host == 'undefined':
-            # Wenn kein gültiger Host, versuche ihn aus dem Referer zu extrahieren
-            referer = request.headers.get('Referer', '')
-            if 'admin.shopify.com' in referer:
-                # Extrahiere Host aus Referer URL
-                try:
-                    from urllib.parse import urlparse, parse_qs
-                    parsed_url = urlparse(referer)
-                    if parsed_url.query:
-                        query_params = parse_qs(parsed_url.query)
-                        if 'host' in query_params:
-                            host = query_params['host'][0]
-                            print(f"✅ Host aus Referer extrahiert: {host}")
-                except Exception as e:
-                    print(f"❌ Fehler beim Extrahieren des Hosts aus Referer: {e}")
-            
-            if not host or host == 'undefined':
-                print(f"⚠️ Kein gültiger Host-Parameter gefunden, App läuft im Standalone-Modus")
-
-        # Debug-Informationen
-        print(f"🔍 Dashboard Parameter: shop={shop}, host={host}, api_key={'vorhanden' if shopify_api_key else 'fehlt'}")
-        
-        if not has_sufficient_data(shop_data):
-            # Zeige Onboarding-Ansicht für neue Shops
-            onboarding_content = get_onboarding_content()
-            
-            # Berechne Fortschritt
-            total_pageviews = shop_data.get('total_pageviews', 0)
-            onboarding_content['steps'][0]['progress'] = min(100, (total_pageviews / 100) * 100)
-            
-            first_tracking_date = shop_data.get('first_tracking_date')
-            if first_tracking_date:
-                days_active = (datetime.datetime.now() - datetime.datetime.fromisoformat(first_tracking_date)).days
-                onboarding_content['steps'][1]['progress'] = min(100, (days_active / 3) * 100)
-            
-            return render_template(
-                'dashboard_onboarding.html',
-                onboarding=onboarding_content,
-                shop_data=shop_data,
-                shop=shop,
-                shopify_api_key=shopify_api_key,
-                host=host
-            )
-            
-        # Normale Dashboard-Ansicht für Shops mit genügend Daten
         return render_template(
             'dashboard.html',
-            shop_data=shop_data,
             shop=shop,
-            shopify_api_key=shopify_api_key,
-            host=host
+            host=host,
+            api_key=SHOPIFY_API_KEY,
+            translations=translations
         )
         
     except Exception as e:
