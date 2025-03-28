@@ -364,7 +364,7 @@ def install():
             shop = session['shop']
             print(f"✅ Shop aus Session verwendet: {shop}")
 
-        if not shop:
+    if not shop:
             print("❌ Kein Shop-Parameter gefunden und kein Shop in Session")
             return render_template(
                 'error.html',
@@ -378,7 +378,7 @@ def install():
         install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={SCOPES}&redirect_uri={REDIRECT_URI}&state={nonce}"
         
         print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
-        return redirect(install_url)
+    return redirect(install_url)
     except Exception as e:
         print(f"❌ Fehler bei der Installation: {e}")
         import traceback
@@ -400,9 +400,9 @@ def auth_callback():
         shop = request.args.get('shop')
         code = request.args.get('code')
 
-        if not shop or not code:
+    if not shop or not code:
             print("❌ Fehlende Parameter")
-            return "Missing parameters", 400
+        return "Missing parameters", 400
 
         # Access Token anfordern
         access_token_url = f"https://{shop}/admin/oauth/access_token"
@@ -414,7 +414,7 @@ def auth_callback():
         
         response = requests.post(access_token_url, json=access_token_payload)
 
-        if response.status_code != 200:
+    if response.status_code != 200:
             print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
             return f"Failed to get access token: {response.text}", 400
 
@@ -427,8 +427,8 @@ def auth_callback():
 
         # Token in Session speichern und Session permanent machen
         session.permanent = True
-        session['shop'] = shop
-        session['access_token'] = access_token
+    session['shop'] = shop
+    session['access_token'] = access_token
         session['authenticated'] = True
         session['auth_time'] = datetime.datetime.now().isoformat()
         
@@ -546,7 +546,7 @@ def verify_session_token(f):
         session_token = request.headers.get('Authorization', '').replace('Bearer ', '')
         
         if not session_token:
-            return jsonify({'error': 'No session token provided'}), 401
+            return jsonify({'error': 'Kein Session Token vorhanden'}), 401
             
         try:
             # Verifiziere das Session Token
@@ -562,9 +562,9 @@ def verify_session_token(f):
             return f(*args, **kwargs)
             
         except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'Session token expired'}), 401
+            return jsonify({'error': 'Session Token abgelaufen'}), 401
         except jwt.InvalidTokenError:
-            return jsonify({'error': 'Invalid session token'}), 401
+            return jsonify({'error': 'Ungültiges Session Token'}), 401
             
     return decorated_function
 
@@ -1211,7 +1211,7 @@ def growth_advisor():
                 shop = all_shops[0]
                 print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
             else:
-                shop = "test-shop.example.com"
+        shop = "test-shop.example.com"
                 print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
         
         # Shopify-Daten laden
@@ -1944,8 +1944,8 @@ def price_optimizer():
 
             # Template-Variable für das letzte Update hinzufügen
             last_updated = datetime.datetime.now().strftime('%d.%m.%Y %H:%M')
-            
-            return render_template(
+        
+        return render_template(
                 'price_optimizer.html',
                 products=products,
                 selected_product=selected_product,
@@ -1964,8 +1964,8 @@ def price_optimizer():
                 products=products,
                 selected_product=None,
                 error=None,  # Kein Fehler, da Produkte eventuell vorhanden sind
-                shop_name=shop
-            )
+            shop_name=shop
+        )
         
     except Exception as e:
         print(f"❌ Fehler im Price Optimizer: {e}")

@@ -7,6 +7,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -80,116 +83,69 @@
   <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
 
   <script>
-    // Session-Management und Shopify App Bridge Setup
-    document.addEventListener('DOMContentLoaded', async function() {
-      // App Bridge initialisieren
-      const shop = '{{ shop }}';
-      const host = '{{ host }}';
-      const apiKey = '{{ shopify_api_key }}';
-      
-      // Debug-Informationen in der Konsole ausgeben
-      console.log('Shop:', shop);
-      console.log('Host:', host);
-      console.log('API Key:', apiKey);
-      
-      // Prüfung, ob wir uns im Shopify-Admin befinden oder standalone
-      let isEmbedded = false;
-      
-      // Ein gültiger Host muss vorhanden sein und darf nicht 'undefined' sein
-      if (host && host !== 'undefined' && host.length > 0) {
-        isEmbedded = true;
-        console.log('App läuft im Embedded-Modus mit Host:', host);
-      } else {
-        console.log('App läuft im Standalone-Modus');
-      }
-      
-      // App Bridge nur initialisieren, wenn API-Key und ein gültiger Shop oder Host vorhanden sind
-      if (apiKey && ((isEmbedded && host) || (!isEmbedded && shop))) {
-        let config = {
-          apiKey: apiKey,
-          // Nur im Embedded-Modus Redirects erzwingen
-          forceRedirect: isEmbedded
-        };
-        
-        if (isEmbedded) {
-          config.host = host;
-        } else if (shop) {
-          config.shop = shop;
-        }
-        
-        try {
-          console.log('Initialisiere App Bridge mit Konfiguration:', config);
-          const app = window['app-bridge'].createApp(config);
-          
-          // Session-Token abrufen und für AJAX-Requests einrichten
-          const { getSessionToken } = window['app-bridge-utils'];
-          
-          async function setupSessionToken() {
-            try {
-              // Im Standalone-Modus könnte getSessionToken nicht funktionieren
-              if (!isEmbedded && !config.shop) {
-                console.log('Überspringe Session-Token im Standalone-Modus ohne Shop');
-                return;
-              }
-              
-              const sessionToken = await getSessionToken(app);
-              
-              // Session-Token für alle AJAX-Requests setzen
-              $.ajaxSetup({
-                headers: {
-                  'Authorization': `Bearer ${sessionToken}`
-                }
-              });
-              
-              // Session-Token auch für Fetch-Requests verfügbar machen
-              const originalFetch = window.fetch;
-              window.fetch = function(url, options = {}) {
-                options.headers = options.headers || {};
-                options.headers['Authorization'] = `Bearer ${sessionToken}`;
-                return originalFetch(url, options);
-              };
-              
-              console.log('Session-Token erfolgreich eingerichtet');
-            } catch (error) {
-              console.error('Fehler beim Abrufen des Session-Tokens:', error);
-              
-              // Fallback im Fehlerfall - App trotzdem nutzbar machen
-              console.log('Setze Anwendung im Standalone-Modus fort');
-            }
-          }
-          
-          // Session-Token einrichten
-          await setupSessionToken();
-        } catch (error) {
-          console.error('Fehler beim Initialisieren des App Bridge:', error);
-          console.log('Setze Anwendung im Standalone-Modus fort');
-        }
-      } else {
-        console.log('App Bridge nicht initialisiert - fehlende Parameter');
-      }
-      
-      // Funktionen für lokale Aktionen
-      $('.refresh-btn').on('click', function() {
-        window.location.reload();
-      });
-      
-      $('.language-btn').on('click', function() {
-        var language = $(this).data('language');
-        window.location.href = '/set-language/' + language;
-      });
+    const host = new URLSearchParams(window.location.search).get("host");
+    const config = {
+      apiKey: '{{ config.SHOPIFY_API_KEY }}',
+      host: host,
+      forceRedirect: true
+    };
 
-      // Animation für Fortschrittsbalken
-      $('.progress-bar-animated').each(function() {
-        const currentWidth = parseFloat($(this).css('width'));
-        if (currentWidth < 5) {
-          setInterval(() => {
-            const random = Math.random() * 0.5;
-            const newWidth = Math.min(currentWidth + random, currentWidth + 1);
-            $(this).css('width', newWidth + '%');
-            $(this).attr('aria-valuenow', newWidth);
-          }, 5000);
-        }
-      });
+    const app = window['app-bridge'].createApp(config);
+    const { getSessionToken } = window['app-bridge-utils'];
+
+    // Session Token zu allen AJAX-Anfragen hinzufügen
+    async function initializeApp() {
+      try {
+        const sessionToken = await getSessionToken(app);
+        
+        // Token zu allen AJAX-Anfragen hinzufügen
+        $.ajaxSetup({
+          beforeSend: function(xhr) {
+            xhr.setRequestHeader('Authorization', `Bearer ${sessionToken}`);
+          }
+        });
+
+        // Token periodisch aktualisieren
+        setInterval(async () => {
+          try {
+            const newSessionToken = await getSessionToken(app);
+            $.ajaxSetup({
+              beforeSend: function(xhr) {
+                xhr.setRequestHeader('Authorization', `Bearer ${newSessionToken}`);
+              }
+            });
+          } catch (error) {
+            console.error('Fehler beim Aktualisieren des Session Tokens:', error);
+          }
+        }, 55 * 60 * 1000); // Alle 55 Minuten aktualisieren
+      } catch (error) {
+        console.error('Fehler beim Initialisieren des Session Tokens:', error);
+      }
+    }
+
+    initializeApp();
+
+    // Funktionen für lokale Aktionen
+    $('.refresh-btn').on('click', function() {
+      window.location.reload();
+    });
+    
+    $('.language-btn').on('click', function() {
+      var language = $(this).data('language');
+      window.location.href = '/set-language/' + language;
+    });
+
+    // Animation für Fortschrittsbalken
+    $('.progress-bar-animated').each(function() {
+      const currentWidth = parseFloat($(this).css('width'));
+      if (currentWidth < 5) {
+        setInterval(() => {
+          const random = Math.random() * 0.5;
+          const newWidth = Math.min(currentWidth + random, currentWidth + 1);
+          $(this).css('width', newWidth + '%');
+          $(this).attr('aria-valuenow', newWidth);
+        }, 5000);
+      }
     });
   </script>
   {% endblock %}
