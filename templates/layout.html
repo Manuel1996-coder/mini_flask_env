@@ -18,109 +18,158 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   
-  <!-- Shopify App Bridge -->
-  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
-  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  <!-- Shopify App Bridge - ESM Module-Format (modern) -->
+  <script type="module">
+    // ESM Module Import von App Bridge
+    import { createApp } from 'https://unpkg.com/@shopify/app-bridge@3.7.9/dist/esm/index.js';
+    import { getSessionToken } from 'https://unpkg.com/@shopify/app-bridge-utils@3.6.1/dist/esm/index.js';
+    
+    window.getSessionToken = getSessionToken;
+    window.createShopifyApp = createApp;
+    
+    console.log("✅ App Bridge ESM Module erfolgreich geladen");
+  </script>
+  
+  <!-- Fallback für ältere Browser (UMD) -->
+  <script src="https://unpkg.com/@shopify/app-bridge@3.7.9"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3.6.1"></script>
   
   {% block head %}{% endblock %}
   
   <!-- App Bridge Initialization -->
   <script>
-    // App Bridge
-    var AppBridge = window['app-bridge'];
-    var actions = AppBridge.actions;
-    var utils = window['app-bridge-utils'];
+    // Warte, bis die ESM-Module geladen sind
+    function waitForAppBridge() {
+      // Prüfe, ob die ESM-Module erfolgreich geladen wurden
+      if (window.createShopifyApp && window.getSessionToken) {
+        initAppBridge();
+      } else if (window['app-bridge'] && window['app-bridge-utils']) {
+        // Fallback auf UMD-Module
+        console.log("Verwende Fallback UMD-Module");
+        window.createShopifyApp = window['app-bridge'].createApp;
+        window.getSessionToken = window['app-bridge-utils'].getSessionToken;
+        initAppBridge();
+      } else {
+        // Warte kurz und versuche es erneut
+        setTimeout(waitForAppBridge, 100);
+      }
+    }
     
-    // Initialize App Bridge
-    var config = {
-      apiKey: "{{ api_key }}",
-      host: "{{ host }}",
-      forceRedirect: true
-    };
-    
-    // Debug-Ausgabe
-    console.log("App Bridge Host:", config.host);
-    
-    // Bereite App Bridge Konfiguration vor
-    try {
-      var app = AppBridge.createApp(config);
-      console.log("✅ App Bridge erfolgreich initialisiert");
-    } catch (error) {
-      console.error("❌ Fehler bei App Bridge Initialisierung:", error);
+    // Initialisiere App Bridge
+    function initAppBridge() {
+      console.log("Initialisiere App Bridge");
       
-      // Versuche, den Host zu korrigieren
-      if (error.message && error.message.includes("not a valid host")) {
-        console.log("⚠️ Ungültiger Host, versuche Korrektur...");
+      // Initialize App Bridge
+      var config = {
+        apiKey: "{{ api_key }}",
+        host: "{{ host }}",
+        forceRedirect: true
+      };
+      
+      // Debug-Ausgabe
+      console.log("App Bridge Host:", config.host);
+      console.log("App Bridge API Key:", config.apiKey);
+      
+      // Bereite App Bridge Konfiguration vor
+      try {
+        window.app = window.createShopifyApp(config);
+        console.log("✅ App Bridge erfolgreich initialisiert");
+      } catch (error) {
+        console.error("❌ Fehler bei App Bridge Initialisierung:", error);
         
-        // Entferne eventuell vorhandene http(s):// Prefixe
-        config.host = config.host.replace(/^https?:\/\//, '');
-        
-        // Überprüfe auf admin.shopify.com Format
-        if (!config.host.includes('admin.shopify.com')) {
-          const shopMatch = config.host.match(/([a-zA-Z0-9-]+)\.myshopify\.com/);
-          if (shopMatch) {
-            config.host = `admin.shopify.com/store/${shopMatch[1]}`;
+        // Versuche, den Host zu korrigieren
+        if (error.message && error.message.includes("not a valid host")) {
+          console.log("⚠️ Ungültiger Host, versuche Korrektur...");
+          
+          // Entferne eventuell vorhandene http(s):// Prefixe
+          config.host = config.host.replace(/^https?:\/\//, '');
+          
+          // Überprüfe auf admin.shopify.com Format
+          if (!config.host.includes('admin.shopify.com')) {
+            const shopMatch = config.host.match(/([a-zA-Z0-9-]+)\.myshopify\.com/);
+            if (shopMatch) {
+              config.host = `admin.shopify.com/store/${shopMatch[1]}`;
+            }
+          }
+          
+          console.log("🔄 Korrigierter Host:", config.host);
+          try {
+            window.app = window.createShopifyApp(config);
+            console.log("✅ App Bridge erfolgreich initialisiert (nach Host-Korrektur)");
+          } catch (e) {
+            console.error("❌ App Bridge Initialisierung fehlgeschlagen nach Host-Korrektur:", e);
           }
         }
-        
-        console.log("🔄 Korrigierter Host:", config.host);
-        app = AppBridge.createApp(config);
-      }
-    }
-    
-    // Session Token-Funktionen
-    async function getSessionToken() {
-      try {
-        const sessionToken = await utils.getSessionToken(app);
-        console.log("✅ Session Token erhalten");
-        return sessionToken;
-      } catch (error) {
-        console.error("❌ Fehler beim Abrufen des Session Tokens:", error);
-        return null;
-      }
-    }
-    
-    // Authentifiziertes Fetch mit Session Token
-    async function authenticatedFetch(url, options = {}) {
-      const sessionToken = await getSessionToken();
-      if (!sessionToken) {
-        console.error("Keine Authentifizierung möglich - kein Session Token");
-        return fetch(url, options);
       }
       
-      const fetchOptions = {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${sessionToken}`
+      // Session Token-Funktionen
+      window.getAppSessionToken = async function() {
+        try {
+          console.log("Versuche Session Token zu holen");
+          const sessionToken = await window.getSessionToken(window.app);
+          console.log("✅ Session Token erhalten:", sessionToken ? sessionToken.substring(0, 10) + "..." : "leer");
+          return sessionToken;
+        } catch (error) {
+          console.error("❌ Fehler beim Abrufen des Session Tokens:", error);
+          
+          // Weitere Diagnose
+          if (error.message && error.message.includes("getSessionToken")) {
+            console.log("⚠️ Problem mit getSessionToken Funktion. API verfügbar?", 
+                       typeof window.getSessionToken === 'function');
+          }
+          
+          return null;
         }
       };
       
-      return fetch(url, fetchOptions);
+      // Authentifiziertes Fetch mit Session Token
+      window.authenticatedFetch = async function(url, options = {}) {
+        const sessionToken = await window.getAppSessionToken();
+        if (!sessionToken) {
+          console.error("❌ Keine Authentifizierung möglich - kein Session Token");
+          return fetch(url, options);
+        }
+        
+        const fetchOptions = {
+          ...options,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${sessionToken}`
+          }
+        };
+        
+        return fetch(url, fetchOptions);
+      };
+      
+      // Stellt die authentifizierten Fetch-Funktionen global zur Verfügung
+      window.shopify = {
+        getSessionToken: window.getAppSessionToken,
+        authenticatedFetch: window.authenticatedFetch
+      };
+      
+      // Löse den Test-Event aus, sobald alles initialisiert ist
+      document.dispatchEvent(new Event('appbridge:ready'));
     }
     
-    // Stellt die authentifizierten Fetch-Funktionen global zur Verfügung
-    window.shopify = {
-      getSessionToken,
-      authenticatedFetch
-    };
+    // Starte den Initialisierungsprozess
+    waitForAppBridge();
     
     // Testet die Session Token Authentifizierung
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('appbridge:ready', async function() {
       // Überprüfe, ob wir uns auf der Install-Seite befinden
       const isInstallPage = window.location.pathname.includes('/install');
       
-      // Überprüfe, ob Host und API-Key verfügbar sind (Voraussetzung für Session Tokens)
-      const hasSessionRequirements = config.host && config.apiKey;
+      // Überprüfe, ob App Bridge initialisiert wurde
+      const hasAppBridge = !!window.app;
       
-      console.log("Seite geladen. Install-Seite:", isInstallPage, "Hat Session-Voraussetzungen:", hasSessionRequirements);
+      console.log("App Bridge bereit. Install-Seite:", isInstallPage, "App Bridge initialisiert:", hasAppBridge);
       
-      // Token-Test nur durchführen, wenn wir nicht auf der Install-Seite sind und die Voraussetzungen erfüllt sind
-      if (!isInstallPage && hasSessionRequirements) {
+      // Token-Test nur durchführen, wenn wir nicht auf der Install-Seite sind und App Bridge initialisiert ist
+      if (!isInstallPage && hasAppBridge) {
         try {
           // Testet die API mit Session Token
           console.log("Versuche Session Token Test...");
-          const response = await authenticatedFetch('/api/test-session-token');
+          const response = await window.authenticatedFetch('/api/test-session-token');
           const data = await response.json();
           console.log("✅ Session Token Test:", data);
           
@@ -141,7 +190,7 @@
           console.error("❌ Fehler beim Session Token Test:", error);
         }
       } else {
-        console.log("Session Token Test übersprungen - Wir befinden uns auf der Install-Seite oder die Voraussetzungen sind nicht erfüllt");
+        console.log("Session Token Test übersprungen - Wir befinden uns auf der Install-Seite oder App Bridge ist nicht initialisiert");
       }
     });
   </script>
