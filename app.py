@@ -30,7 +30,7 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # CORS für alle Routen und Origins erlauben
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Authorization", "Content-Type"]}})
 
 # Cookie-Einstellungen
 app.config['SESSION_COOKIE_SECURE'] = True
@@ -641,8 +641,18 @@ def verify_session_token(token):
         return False
 
 # API-Endpunkt, der Session Token Authentifizierung verwendet
-@app.route('/api/data', methods=['GET'])
+@app.route('/api/data', methods=['GET', 'OPTIONS'])
 def api_data():
+    # CORS für OPTIONS-Anfragen
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+        
     # Token aus dem Authorization Header extrahieren
     auth_header = request.headers.get('Authorization', '')
     if auth_header.startswith('Bearer '):
@@ -655,12 +665,16 @@ def api_data():
         return jsonify({'error': 'Unauthorized - Invalid session token'}), 401
     
     # Wenn Token gültig ist, gib die Daten zurück
-    return jsonify({
+    response = jsonify({
         'data': 'Hier sind deine geschützten Daten!',
         'timestamp': datetime.datetime.now().isoformat(),
         'success': True,
         'message': 'Session Token Authentifizierung erfolgreich!'
     })
+    
+    # CORS-Header hinzufügen
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 @app.route('/api/test-session-token', methods=['GET', 'OPTIONS'])
 def test_session_token():
@@ -670,7 +684,8 @@ def test_session_token():
         headers = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Max-Age': '3600'
         }
         return ('', 204, headers)
     
@@ -687,22 +702,30 @@ def test_session_token():
     # Token validieren
     if not verify_session_token(token):
         print("❌ Session Token Validierung fehlgeschlagen")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'authenticated': False,
             'message': 'Ungültiger Session Token',
             'validation_for_shopify': 'FAILED'
         }), 401
+        
+        # CORS-Header hinzufügen
+        response[0].headers.add('Access-Control-Allow-Origin', '*')
+        return response
     
     # Wenn Token gültig ist, gib Erfolgsmeldung zurück
     print("✅ SESSION TOKEN AUTHENTIFIZIERUNG ERFOLGREICH - SHOPIFY APP STORE VALIDATION BESTANDEN")
-    return jsonify({
+    response = jsonify({
         'success': True,
         'authenticated': True,
         'message': 'Session Token Authentifizierung erfolgreich!',
         'timestamp': datetime.datetime.now().isoformat(),
         'validation_for_shopify': 'SUCCESS'
     })
+    
+    # CORS-Header hinzufügen
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 def has_sufficient_data(shop_data):
     """Prüft, ob genügend Daten für aussagekräftige Analysen vorhanden sind"""
