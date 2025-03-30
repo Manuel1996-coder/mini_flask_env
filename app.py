@@ -198,10 +198,12 @@ def get_user_language():
     # Fallback auf Englisch
     return 'en'
 
-def save_tracking_data():
+def save_tracking_data(data=None):
     """Speichert die Tracking-Daten in einer JSON-Datei."""
     global tracking_data
     try:
+        if data is not None:
+            tracking_data = data
         with open(TRACKING_DATA_FILE, 'w') as f:
             json.dump(tracking_data, f)
         print(f"Tracking-Daten in {TRACKING_DATA_FILE} gespeichert.")
@@ -477,9 +479,9 @@ def register_webhooks(shop, access_token):
         webhooks_to_register = [
             "APP_UNINSTALLED",
             "SHOP_UPDATE",
-            "CUSTOMERS_DATA_REQUEST",
-            "CUSTOMERS_REDACT",
-            "SHOP_REDACT"
+            "CUSTOMERS_CREATE",
+            "CUSTOMERS_UPDATE",
+            "CUSTOMERS_DELETE"
         ]
         
         base_url = get_base_url()
@@ -509,7 +511,7 @@ def register_webhooks(shop, access_token):
             
             # Webhook-URL basierend auf dem Topic
             topic_path = topic.lower().replace("_", "/")
-            webhook_url = f"{base_url}/webhook/{topic_path}"
+            webhook_url = f"https://{base_url}/webhook/{topic_path}"
             
             # Variablen für die Mutation
             variables = {
