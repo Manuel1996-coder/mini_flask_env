@@ -29,7 +29,35 @@
       forceRedirect: true
     };
     
-    var app = AppBridge.createApp(config);
+    // Debug-Ausgabe
+    console.log("App Bridge Host:", config.host);
+    
+    // Bereite App Bridge Konfiguration vor
+    try {
+      var app = AppBridge.createApp(config);
+      console.log("✅ App Bridge erfolgreich initialisiert");
+    } catch (error) {
+      console.error("❌ Fehler bei App Bridge Initialisierung:", error);
+      
+      // Versuche, den Host zu korrigieren
+      if (error.message && error.message.includes("not a valid host")) {
+        console.log("⚠️ Ungültiger Host, versuche Korrektur...");
+        
+        // Entferne eventuell vorhandene http(s):// Prefixe
+        config.host = config.host.replace(/^https?:\/\//, '');
+        
+        // Überprüfe auf admin.shopify.com Format
+        if (!config.host.includes('admin.shopify.com')) {
+          const shopMatch = config.host.match(/([a-zA-Z0-9-]+)\.myshopify\.com/);
+          if (shopMatch) {
+            config.host = `admin.shopify.com/store/${shopMatch[1]}`;
+          }
+        }
+        
+        console.log("🔄 Korrigierter Host:", config.host);
+        app = AppBridge.createApp(config);
+      }
+    }
     
     // Session Token-Funktionen
     async function getSessionToken() {

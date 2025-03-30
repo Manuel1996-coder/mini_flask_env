@@ -716,12 +716,20 @@ def dashboard():
         # Wenn kein Host-Parameter vorhanden ist, generiere die Host-URL
         if not host:
             shop_name = shop.replace('.myshopify.com', '')
+            # Wichtig: Host muss im korrekten Format für App Bridge sein
             host = f"admin.shopify.com/store/{shop_name}"
             print(f"ℹ️ Host-URL generiert: {host}")
         else:
-            # Stelle sicher, dass der Host-Parameter vollständig ist
-            if not host.startswith('http'):
-                host = f"https://{host}"
+            # Stelle sicher, dass der Host-Parameter im richtigen Format ist
+            # App Bridge erwartet keinen http(s):// Prefix
+            if host.startswith('http'):
+                host = host.replace('https://', '').replace('http://', '')
+            
+            # Stelle sicher, dass der Host admin.shopify.com enthält
+            if not host.startswith('admin.shopify.com'):
+                shop_name = shop.replace('.myshopify.com', '')
+                host = f"admin.shopify.com/store/{shop_name}"
+                print(f"⚠️ Host-URL korrigiert: {host}")
         
         # Speichere den Host in der Session
         session['host'] = host
