@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, session, Response
+from flask import Flask, request, jsonify, render_template, redirect, session, Response, url_for, make_response
 import datetime
 import openai
 from dotenv import load_dotenv
@@ -17,6 +17,7 @@ from functools import wraps
 import jwt
 from flask_session import Session
 import time
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Environment-Variablen laden
 load_dotenv()
@@ -26,10 +27,38 @@ TRACKING_DATA_FILE = 'tracking_data.json'
 
 # Flask App konfigurieren
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY')
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+# CORS für alle Routen und Origins erlauben
+CORS(app, supports_credentials=True)
+
+# Cookie-Einstellungen
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=1)
+
+# Umgebungsvariablen laden
+SHOPIFY_API_KEY = os.environ.get('SHOPIFY_API_KEY', 'bc64e63be55d4cbad777bc2b89d1307c')
+SHOPIFY_API_SECRET = os.environ.get('SHOPIFY_API_SECRET', 'a04bb1e1c1cd5b9d8881d6c9c19f4c6c')
+APP_URL = os.environ.get('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+SCOPES = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
+REDIRECT_URI = f"{APP_URL}/auth/callback"
+HOST = os.environ.get('HOST', 'miniflaskenv-production.up.railway.app')
+
+# Überschreibe, falls REDIRECT_URI direkt gesetzt wurde
+if os.environ.get('REDIRECT_URI'):
+    REDIRECT_URI = os.environ.get('REDIRECT_URI')
+    
+# Shopify API Zugriff
+print(f"🔧 API-Konfiguration: KEY={SHOPIFY_API_KEY}, REDIRECT={REDIRECT_URI}, HOST={HOST}")
+
+# Geheimer Schlüssel für Session-Verschlüsselung
+app.secret_key = os.environ.get('SECRET_KEY', 'sehr_sicherer_schlüssel_2023')
+
+# Session-Einstellungen
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True  # Session permanent machen
-app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=30)  # Session-Lebensdauer auf 30 Tage setzen
 app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'  # Expliziter Session-Speicherort
 app.config['SESSION_FILE_THRESHOLD'] = 500  # Maximale Anzahl von Session-Dateien
 
@@ -40,14 +69,8 @@ os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 sess = Session()
 sess.init_app(app)
 
-CORS(app, resources={r"/*": {"origins": "*"}})
-
 # Shopify API Keys aus der .env Datei
-SHOPIFY_API_KEY = os.getenv("SHOPIFY_API_KEY")
-SHOPIFY_API_SECRET = os.getenv("SHOPIFY_API_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-SCOPES = os.getenv("SCOPES")
-HOST = os.getenv("HOST", "miniflaskenv-production.up.railway.app")
 
 # OpenAI konfigurieren
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -371,19 +394,30 @@ def install():
 
         if not shop:
             print("❌ Kein Shop-Parameter gefunden und kein Shop in Session")
-            return render_template(
+            response = make_response(render_template(
                 'error.html',
                 error="Bitte geben Sie einen Shop-Parameter an oder installieren Sie die App über den Shopify App Store."
-            )
+            ))
+            # Vergewissere dich, dass die Installation-Seite Cookies setzen kann
+            response.headers.add('Set-Cookie', 'cookie_test=1; Path=/; SameSite=None; Secure')
+            return response
 
         # Shopify OAuth URL erstellen
         nonce = os.urandom(16).hex()
         session['nonce'] = nonce
         
+        # Session auch im Cookie speichern
+        session.modified = True
+        
         install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={SCOPES}&redirect_uri={REDIRECT_URI}&state={nonce}"
         
         print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
-        return redirect(install_url)
+        
+        # Wichtig: SameSite=None und Secure für Embedded Apps
+        response = make_response(redirect(install_url))
+        response.headers.add('Set-Cookie', f'nonce={nonce}; Path=/; SameSite=None; Secure; HttpOnly')
+        return response
+        
     except Exception as e:
         print(f"❌ Fehler bei der Installation: {e}")
         import traceback
@@ -404,6 +438,12 @@ def auth_callback():
 
         shop = request.args.get('shop')
         code = request.args.get('code')
+        nonce = request.args.get('state')
+
+        # Überprüfe, ob der Nonce übereinstimmt
+        if not nonce or nonce != session.get('nonce'):
+            print(f"❌ Nonce-Validierung fehlgeschlagen: {nonce} != {session.get('nonce')}")
+            return "Invalid nonce", 400
 
         if not shop or not code:
             print("❌ Fehlende Parameter")
@@ -437,14 +477,27 @@ def auth_callback():
         session['authenticated'] = True
         session['auth_time'] = datetime.datetime.now().isoformat()
         
+        # Stelle sicher, dass Host richtig gesetzt ist für App Bridge
+        shop_name = shop.replace('.myshopify.com', '')
+        session['host'] = f"admin.shopify.com/store/{shop_name}"
+        
+        # Stelle sicher, dass die Session auch gespeichert wird
+        session.modified = True
+        
         print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
         print(f"✅ Session-Daten gespeichert: {dict(session)}")
         
         # Webhooks registrieren
         register_webhooks(shop, access_token)
         
-        # Zum Dashboard weiterleiten
-        return redirect('/dashboard')
+        # Zum Dashboard weiterleiten mit Cookie-Settings
+        response = make_response(redirect('/dashboard'))
+        
+        # Setze SameSite=None für Embedded Apps
+        response.headers.add('Set-Cookie', f'shop={shop}; Path=/; SameSite=None; Secure; HttpOnly')
+        response.headers.add('Set-Cookie', 'authenticated=1; Path=/; SameSite=None; Secure; HttpOnly')
+        
+        return response
         
     except Exception as e:
         print(f"❌ Fehler im Auth Callback: {e}")
