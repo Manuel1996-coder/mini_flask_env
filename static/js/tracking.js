@@ -57,7 +57,10 @@
       
       console.log("📊 Sending pageview data:", data);
       
-      fetch(baseUrl + '/collect', {
+      // Verwende authenticatedFetch wenn verfügbar, sonst normales fetch
+      const fetchFunction = window.shopify && window.shopify.authenticatedFetch || fetch;
+      
+      fetchFunction(baseUrl + '/collect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -99,7 +102,10 @@
         
         console.log("👆 Sending click data:", data);
         
-        fetch(baseUrl + '/collect', {
+        // Verwende authenticatedFetch wenn verfügbar, sonst normales fetch
+        const fetchFunction = window.shopify && window.shopify.authenticatedFetch || fetch;
+        
+        fetchFunction(baseUrl + '/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
@@ -146,7 +152,10 @@
         
         console.log("🔧 Sending manual click data:", data);
         
-        fetch(baseUrl + '/collect', {
+        // Verwende authenticatedFetch wenn verfügbar, sonst normales fetch
+        const fetchFunction = window.shopify && window.shopify.authenticatedFetch || fetch;
+        
+        fetchFunction(baseUrl + '/collect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),

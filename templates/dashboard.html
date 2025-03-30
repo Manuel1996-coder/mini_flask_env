@@ -81,9 +81,9 @@
         <div class="kpi-content">
           <div class="kpi-label">{{ translations.dashboard.avg_session_duration }}</div>
           <div class="kpi-value">{{ avg_session_duration|default(0) }}s</div>
-          <div class="kpi-trend {% if trends.session_duration.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
-            <i class="fas fa-{% if trends.session_duration.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
-            <span>{{ trends.session_duration.value }}%</span>
+          <div class="kpi-trend {% if trends.get('session_duration', {}).get('direction') == 'up' %}trend-up{% else %}trend-down{% endif %}">
+            <i class="fas fa-{% if trends.get('session_duration', {}).get('direction') == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+            <span>{{ trends.get('session_duration', {}).get('value', 0) }}%</span>
             <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
           </div>
         </div>
@@ -336,7 +336,7 @@
         ['Page Views', '{{ total_pageviews|default(0) }}', '{{ trends.pageviews.value }}%'],
         ['Clicks', '{{ total_clicks|default(0) }}', '{{ trends.clicks.value }}%'],
         ['Click Rate', '{{ click_rate|default(0) }}%', '{{ trends.click_rate.value }}%'],
-        ['Durchschnittliche Verweildauer', '{{ avg_session_duration|default(0) }}s', '{{ trends.session_duration.value }}%'],
+        ['Durchschnittliche Verweildauer', '{{ avg_session_duration|default(0) }}s', '{{ trends.get("session_duration", {}).get("value", 0) }}%'],
         ['Conversion Rate', '{{ conversion_rate|default(0) }}%', '{{ trends.conversion_rate.value }}%'],
         ['Unique Pages', '{{ unique_pages|default(0) }}', '{{ trends.unique_pages.value }}%']
       ];
