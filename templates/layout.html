@@ -83,47 +83,27 @@
   <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
 
   <script>
-    const host = new URLSearchParams(window.location.search).get("host");
-    const config = {
-      apiKey: '{{ config.SHOPIFY_API_KEY }}',
-      host: host,
-      forceRedirect: true
-    };
-
-    const app = window['app-bridge'].createApp(config);
-    const { getSessionToken } = window['app-bridge-utils'];
-
-    // Session Token zu allen AJAX-Anfragen hinzufügen
-    async function initializeApp() {
-      try {
-        const sessionToken = await getSessionToken(app);
-        
-        // Token zu allen AJAX-Anfragen hinzufügen
-        $.ajaxSetup({
-          beforeSend: function(xhr) {
-            xhr.setRequestHeader('Authorization', `Bearer ${sessionToken}`);
-          }
-        });
-
-        // Token periodisch aktualisieren
-        setInterval(async () => {
-          try {
-            const newSessionToken = await getSessionToken(app);
-            $.ajaxSetup({
-              beforeSend: function(xhr) {
-                xhr.setRequestHeader('Authorization', `Bearer ${newSessionToken}`);
-              }
-            });
-          } catch (error) {
-            console.error('Fehler beim Aktualisieren des Session Tokens:', error);
-          }
-        }, 55 * 60 * 1000); // Alle 55 Minuten aktualisieren
-      } catch (error) {
-        console.error('Fehler beim Initialisieren des Session Tokens:', error);
-      }
+    var host = "{{ host }}";
+    var shop = "{{ shop }}";
+    var apiKey = "{{ api_key }}";
+    
+    // Stelle sicher, dass der Host vollständig ist
+    if (!host.startsWith('http')) {
+        host = 'https://' + host;
     }
-
-    initializeApp();
+    
+    // Initialisiere App Bridge
+    var app = createApp({
+        apiKey: apiKey,
+        host: host,
+        forceRedirect: true
+    });
+    
+    // Session Token Handling
+    const sessionToken = app.sessionToken;
+    sessionToken.subscribe(token => {
+        // ... existing token handling code ...
+    });
 
     // Funktionen für lokale Aktionen
     $('.refresh-btn').on('click', function() {

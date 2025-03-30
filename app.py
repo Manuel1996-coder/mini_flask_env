@@ -636,8 +636,16 @@ def dashboard():
             
         # Wenn kein Host-Parameter vorhanden ist, generiere die Host-URL
         if not host:
-            host = f"admin.shopify.com/store/{shop.replace('.myshopify.com', '')}"
+            shop_name = shop.replace('.myshopify.com', '')
+            host = f"admin.shopify.com/store/{shop_name}"
             print(f"ℹ️ Host-URL generiert: {host}")
+        else:
+            # Stelle sicher, dass der Host-Parameter vollständig ist
+            if not host.startswith('http'):
+                host = f"https://{host}"
+        
+        # Speichere den Host in der Session
+        session['host'] = host
         
         print(f"🔍 Dashboard Parameter: shop={shop}, host={host}, api_key=vorhanden")
         
@@ -662,14 +670,25 @@ def dashboard():
         translations = load_translations(language)
         
         # Trends-Daten vorbereiten
+        shop_data = tracking_data.get(shop, {})
+        total_pageviews = len(shop_data.get('pageviews', []))
+        total_clicks = len(shop_data.get('clicks', []))
+        
+        # Klickrate berechnen
+        click_rate = (total_clicks / total_pageviews * 100) if total_pageviews > 0 else 0
+        
         trends = {
             'pageviews': {
-                'direction': 'up',  # oder basierend auf echten Daten berechnen
-                'value': 0
+                'direction': 'up' if total_pageviews > 0 else 'down',
+                'value': total_pageviews
             },
             'clicks': {
-                'direction': 'up',
-                'value': 0
+                'direction': 'up' if total_clicks > 0 else 'down',
+                'value': total_clicks
+            },
+            'click_rate': {
+                'direction': 'up' if click_rate > 0 else 'down',
+                'value': round(click_rate, 2)
             }
         }
         
@@ -679,7 +698,7 @@ def dashboard():
             host=host,
             api_key=SHOPIFY_API_KEY,
             translations=translations,
-            trends=trends  # Trends-Daten hinzufügen
+            trends=trends
         )
         
     except Exception as e:
