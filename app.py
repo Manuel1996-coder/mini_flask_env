@@ -60,7 +60,7 @@ translations = {
     'de': {}
 }
 
-def load_translations():
+def load_translations(language='en'):
     """Lädt die Übersetzungsdateien für alle unterstützten Sprachen."""
     global translations
     
@@ -175,6 +175,8 @@ def load_translations():
         print("Verwende Standardwerte für Übersetzungen.")
         import traceback
         traceback.print_exc()
+    
+    return translations.get(language, translations['en'])
 
 def get_user_language():
     """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
@@ -656,7 +658,8 @@ def dashboard():
         print(f"✅ Dashboard für Shop: {shop} wird geladen")
         
         # Übersetzungen laden
-        translations = load_translations('en')
+        language = get_user_language()
+        translations = load_translations(language)
         
         return render_template(
             'dashboard.html',
