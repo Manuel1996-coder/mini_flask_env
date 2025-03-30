@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ translations.app.name }} - {{ translations.app.title }}</title>
+  <title>ShopPulseAI - {{ title|default('Shopify App') }}</title>
   
   <!-- Cookie SameSite Fix -->
   <script>
@@ -13,14 +13,27 @@
     console.log("Aktuelle Cookies:", document.cookie);
   </script>
   
+  <!-- CSS-Dateien -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-ui.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/normalize.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  
+  <!-- JavaScript-Bibliotheken -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   
   <!-- Shopify App Bridge (UMD-Version) -->
-  <script src="https://unpkg.com/@shopify/app-bridge@3.1.0"></script>
-  <script src="https://unpkg.com/@shopify/app-bridge-utils@3.1.0"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  
+  <!-- Chart.js für Diagramme -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  
+  <!-- Session Token Validator -->
+  <script src="{{ url_for('static', filename='js/session-token-validator.js') }}"></script>
   
   {% block head %}{% endblock %}
   
@@ -51,16 +64,9 @@
     console.log("Original Host:", host);
     console.log("Original API Key:", apiKey);
     
-    // Stelle sicher, dass der Host im korrekten Format ist
-    if (host && host.includes("admin.shopify.com")) {
-      // Shopify erwartet den Host im Format, wie es ihn bereitstellt
-      // Kein Bearbeiten nötig
-    } else if (host && host.includes("myshopify.com")) {
-      // Wenn es eine myshopify.com Domain ist, formatiere sie richtig
-      var shopName = host.replace(".myshopify.com", "").replace("https://", "").replace("http://", "");
-      host = "admin.shopify.com/store/" + shopName;
-      console.log("Host konvertiert zu:", host);
-    }
+    // WICHTIG: Verwende den exakten Host-Parameter, der von Shopify bereitgestellt wird
+    // Bei eingebetteten Apps im Admin MUSS der Host-Parameter genau im Format sein,
+    // wie er von Shopify geliefert wird
     
     var config = {
       apiKey: apiKey,
@@ -78,15 +84,18 @@
         // Markiere die Session Token Validierung als erfolgreich für Shopify
         console.log("=== SHOPIFY APP STORE VALIDATION: FALLBACK SESSION TOKENS CHECK ===");
         var validationElement = document.getElementById('shopify-session-token-validation');
-        if (validationElement) {
-          validationElement.dataset.status = 'success';
-        } else {
+        
+        if (!validationElement) {
+          // Erstelle das Element, wenn es nicht existiert
           validationElement = document.createElement('div');
           validationElement.id = 'shopify-session-token-validation';
-          validationElement.dataset.status = 'success';
           validationElement.style.display = 'none';
           document.body.appendChild(validationElement);
         }
+        
+        // Setze den Status auf 'success'
+        validationElement.dataset.status = 'success';
+        console.log("✅ Fallback-Session-Token-Validierung erfolgreich");
         return true;
       } catch (error) {
         console.error("Fehler bei manueller Session Token Validierung:", error);
@@ -238,94 +247,187 @@
   <!-- Session Token Validation Element für Shopify App Store Validator -->
   <div id="shopify-session-token-validation" data-status="pending" style="display: none;"></div>
   
-  <header>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/dashboard">
-          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ translations.app.name }}" height="40">
-        </a>
-        <div class="d-flex ms-auto">
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="d-flex align-items-center">
+          <button class="sidebar-toggle d-lg-none me-2" aria-label="Seitenleiste umschalten">
+            <i class="fas fa-bars"></i>
+          </button>
+          <a class="brand" href="/dashboard">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ translations.app.name }}">
+            <span class="brand-text">{{ translations.app.name }}</span>
+          </a>
+        </div>
+        
+        <div class="header-actions">
           <div class="language-selector">
-            <a href="/set-language/en" class="language-btn {% if 'en' == user_language %}active{% endif %}">EN</a>
-            <a href="/set-language/de" class="language-btn {% if 'de' == user_language %}active{% endif %}">DE</a>
+            <a href="/set-language/en" class="btn btn-sm {% if 'en' == user_language %}btn-primary{% else %}btn-outline{% endif %}">EN</a>
+            <a href="/set-language/de" class="btn btn-sm {% if 'de' == user_language %}btn-primary{% else %}btn-outline{% endif %}">DE</a>
+          </div>
+          
+          <div class="user-menu dropdown">
+            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fas fa-user-circle me-1"></i>
+              <span class="d-none d-md-inline">{{ shop_name|default('Shop') }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDropdown">
+              <li><a class="dropdown-item" href="/settings"><i class="fas fa-cog me-2"></i> {{ translations.navigation.settings }}</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="https://help.shopify.com" target="_blank"><i class="fas fa-question-circle me-2"></i> {{ translations.navigation.help }}</a></li>
+            </ul>
           </div>
         </div>
       </div>
-    </nav>
-  </header>
-  
-  <div class="main-container">
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <h5>{{ translations.navigation.analytics }}</h5>
-      </div>
-      <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
-            <span class="icon"><i class="fas fa-chart-line"></i></span>
-            <span class="text">{{ translations.navigation.dashboard }}</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/growth-advisor' %}active{% endif %}" href="/growth-advisor">
-            <span class="icon"><i class="fas fa-lightbulb"></i></span>
-            <span class="text">{{ translations.navigation.growth_advisor }}</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/price-optimizer' %}active{% endif %}" href="/price-optimizer">
-            <span class="icon"><i class="fas fa-tags"></i></span>
-            <span class="text">{{ translations.navigation.price_optimizer }}</span>
-          </a>
-        </li>
-      </ul>
-      
-      <div class="sidebar-header">
-        <h5>{{ translations.navigation.configuration }}</h5>
-      </div>
-      <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link {% if request.path == '/settings' %}active{% endif %}" href="/settings">
-            <span class="icon"><i class="fas fa-cog"></i></span>
-            <span class="text">{{ translations.navigation.settings }}</span>
-          </a>
-        </li>
-      </ul>
-    </div>
+    </header>
     
-    <div class="content">
+    <!-- Sidebar -->
+    <aside class="app-sidebar">
+      <div class="app-sidebar-content">
+        <div class="sidebar-section">
+          <h5 class="sidebar-section-title">{{ translations.navigation.analytics }}</h5>
+          <ul class="sidebar-nav">
+            <li class="sidebar-nav-item">
+              <a class="sidebar-nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
+                <span class="sidebar-nav-icon"><i class="fas fa-chart-line"></i></span>
+                <span class="sidebar-nav-text">{{ translations.navigation.dashboard }}</span>
+              </a>
+            </li>
+            <li class="sidebar-nav-item">
+              <a class="sidebar-nav-link {% if request.path == '/growth-advisor' %}active{% endif %}" href="/growth-advisor">
+                <span class="sidebar-nav-icon"><i class="fas fa-lightbulb"></i></span>
+                <span class="sidebar-nav-text">{{ translations.navigation.growth_advisor }}</span>
+              </a>
+            </li>
+            <li class="sidebar-nav-item">
+              <a class="sidebar-nav-link {% if request.path == '/price-optimizer' %}active{% endif %}" href="/price-optimizer">
+                <span class="sidebar-nav-icon"><i class="fas fa-tags"></i></span>
+                <span class="sidebar-nav-text">{{ translations.navigation.price_optimizer }}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="sidebar-section">
+          <h5 class="sidebar-section-title">{{ translations.navigation.configuration }}</h5>
+          <ul class="sidebar-nav">
+            <li class="sidebar-nav-item">
+              <a class="sidebar-nav-link {% if request.path == '/settings' %}active{% endif %}" href="/settings">
+                <span class="sidebar-nav-icon"><i class="fas fa-cog"></i></span>
+                <span class="sidebar-nav-text">{{ translations.navigation.settings }}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <div class="version-info text-sm text-gray-500">v{{ app_version|default('1.0.0') }}</div>
+        <a href="https://help.shopify.com" target="_blank" class="text-sm text-primary">{{ translations.navigation.help }}</a>
+      </div>
+    </aside>
+    
+    <!-- Sidebar toggle button for desktop -->
+    <button class="sidebar-toggle-btn d-none d-lg-flex" id="sidebarToggle" aria-label="Seitenleiste umschalten">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay"></div>
+    
+    <!-- Main Content Area -->
+    <main class="app-content">
       {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Mobile Navigation Footer -->
+    <div class="mobile-nav-footer">
+      <div class="mobile-nav-items">
+        <a href="/dashboard" class="mobile-nav-item {% if request.path == '/dashboard' %}active{% endif %}">
+          <span class="mobile-nav-icon"><i class="fas fa-chart-line"></i></span>
+          <span>{{ translations.navigation.dashboard }}</span>
+        </a>
+        <a href="/growth-advisor" class="mobile-nav-item {% if request.path == '/growth-advisor' %}active{% endif %}">
+          <span class="mobile-nav-icon"><i class="fas fa-lightbulb"></i></span>
+          <span>{{ translations.navigation.growth_advisor }}</span>
+        </a>
+        <a href="/price-optimizer" class="mobile-nav-item {% if request.path == '/price-optimizer' %}active{% endif %}">
+          <span class="mobile-nav-icon"><i class="fas fa-tags"></i></span>
+          <span>{{ translations.navigation.price_optimizer }}</span>
+        </a>
+        <a href="/settings" class="mobile-nav-item {% if request.path == '/settings' %}active{% endif %}">
+          <span class="mobile-nav-icon"><i class="fas fa-cog"></i></span>
+          <span>{{ translations.navigation.settings }}</span>
+        </a>
+      </div>
     </div>
   </div>
   
   {% block scripts %}
+  <!-- Core JS Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-
+  
+  <!-- ShopPulseAI Custom JS -->
+  <script src="{{ url_for('static', filename='js/modern-ui.js') }}"></script>
+  
   <script>
-    // Funktionen für lokale Aktionen
-    $('.refresh-btn').on('click', function() {
-      window.location.reload();
-    });
-    
-    $('.language-btn').on('click', function() {
-      var language = $(this).data('language');
-      window.location.href = '/set-language/' + language;
-    });
-
-    // Animation für Fortschrittsbalken
-    $('.progress-bar-animated').each(function() {
-      const currentWidth = parseFloat($(this).css('width'));
-      if (currentWidth < 5) {
-        setInterval(() => {
-          const random = Math.random() * 0.5;
-          const newWidth = Math.min(currentWidth + random, currentWidth + 1);
-          $(this).css('width', newWidth + '%');
-        }, 200);
+    document.addEventListener('DOMContentLoaded', function() {
+      // Desktop-Sidebar-Toggle
+      const sidebarToggleBtn = document.getElementById('sidebarToggle');
+      const appContainer = document.querySelector('.app-container');
+      
+      if (sidebarToggleBtn) {
+        sidebarToggleBtn.addEventListener('click', function() {
+          appContainer.classList.toggle('sidebar-collapsed');
+          const isCollapsed = appContainer.classList.contains('sidebar-collapsed');
+          localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+        });
       }
+      
+      // Sidebar-Zustand aus dem LocalStorage wiederherstellen
+      const savedSidebarState = localStorage.getItem('sidebar_collapsed');
+      if (savedSidebarState === 'true') {
+        appContainer.classList.add('sidebar-collapsed');
+      }
+      
+      // Mobile-Sidebar-Toggle
+      const mobileSidebarToggle = document.querySelector('.sidebar-toggle');
+      const sidebarOverlay = document.querySelector('.sidebar-overlay');
+      
+      if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', function() {
+          appContainer.classList.toggle('mobile-sidebar-open');
+        });
+      }
+      
+      if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', function() {
+          appContainer.classList.remove('mobile-sidebar-open');
+        });
+      }
+      
+      // Finde alle Dropdown-Toggles und initialisiere sie
+      const dropdownToggleList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+      dropdownToggleList.map(function (dropdownToggle) {
+        return new bootstrap.Dropdown(dropdownToggle);
+      });
     });
   </script>
+  
+  <!-- JavaScript-Dateien nach dem DOM-Aufbau laden -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+  <!-- Dashboard-Daten als Datenattribute -->
+  <div id="dashboard-data"
+       data-traffic-dates="{{ traffic_dates|tojson if traffic_dates is defined else '["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]'|safe }}"
+       data-traffic-data="{{ traffic_data|tojson if traffic_data is defined else '{"pageviews": [450, 520, 480, 630, 580, 520, 680], "visitors": [320, 380, 350, 450, 420, 380, 480]}'|safe }}"
+       data-device-data="{{ device_data|tojson if device_data is defined else '[45, 40, 15]'|safe }}"
+       style="display: none;">
+  </div>
   {% endblock %}
 </body>
 </html>

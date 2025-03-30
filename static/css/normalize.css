@@ -1,0 +1,348 @@
+/*! normalize.css v8.0.1 | MIT License | github.com/necolas/normalize.css */
+
+/* Document
+   ========================================================================== */
+
+/**
+ * 1. Korrigiert die Zeilenhöhe in allen Browsern.
+ * 2. Verhindert Größenanpassungen von Schriftarten nach Orientierungsänderungen in iOS.
+ */
+
+html {
+  line-height: 1.15; /* 1 */
+  -webkit-text-size-adjust: 100%; /* 2 */
+}
+
+/* Abschnitte
+   ========================================================================== */
+
+/**
+ * Entfernt den Rand in allen Browsern.
+ */
+
+body {
+  margin: 0;
+}
+
+/**
+ * Rendert das `main`-Element konsistent in IE.
+ */
+
+main {
+  display: block;
+}
+
+/**
+ * Korrigiert die Schriftgröße und den Rand für `h1`-Elemente in `section` und
+ * `article`-Kontexten in Chrome, Firefox und Safari.
+ */
+
+h1 {
+  font-size: 2em;
+  margin: 0.67em 0;
+}
+
+/* Gruppierungsinhalte
+   ========================================================================== */
+
+/**
+ * 1. Fügt die korrekte Kastengröße in Firefox hinzu.
+ * 2. Zeigt den Überlauf in Edge und IE an.
+ */
+
+hr {
+  box-sizing: content-box; /* 1 */
+  height: 0; /* 1 */
+  overflow: visible; /* 2 */
+}
+
+/**
+ * 1. Korrigiert die Schriftgröße in allen Browsern.
+ * 2. Korrigiert die eigentümliche Schriftgröße für `pre` in allen Browsern.
+ */
+
+pre {
+  font-family: monospace, monospace; /* 1 */
+  font-size: 1em; /* 2 */
+}
+
+/* Textebene Semantik
+   ========================================================================== */
+
+/**
+ * Entfernt den grauen Hintergrund für aktive Links in IE 10.
+ */
+
+a {
+  background-color: transparent;
+}
+
+/**
+ * 1. Entfernt die untere Rahmenlinie in Chrome 57-
+ * 2. Fügt die richtige Textdekoration in Chrome, Edge, IE, Opera und Safari hinzu.
+ */
+
+abbr[title] {
+  border-bottom: none; /* 1 */
+  text-decoration: underline; /* 2 */
+  text-decoration: underline dotted; /* 2 */
+}
+
+/**
+ * Fügt das richtige Schriftgewicht in Chrome, Edge und Safari hinzu.
+ */
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+/**
+ * 1. Korrigiert die Schriftgröße in allen Browsern.
+ * 2. Korrigiert die eigenartige Schriftgröße für `pre` in allen Browsern.
+ */
+
+code,
+kbd,
+samp {
+  font-family: monospace, monospace; /* 1 */
+  font-size: 1em; /* 2 */
+}
+
+/**
+ * Fügt die richtige Schriftgröße in allen Browsern hinzu.
+ */
+
+small {
+  font-size: 80%;
+}
+
+/**
+ * Verhindert, dass `sub` und `sup` die Zeilenhöhe in allen Browsern beeinflussen.
+ */
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/* Eingebettete Inhalte
+   ========================================================================== */
+
+/**
+ * Entfernt den Rand für Bilder innerhalb von Links in IE 10.
+ */
+
+img {
+  border-style: none;
+}
+
+/* Formulare
+   ========================================================================== */
+
+/**
+ * 1. Ändert die Textstile in allen Browsern.
+ * 2. Entfernt Rand in Firefox und Safari.
+ */
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit; /* 1 */
+  font-size: 100%; /* 1 */
+  line-height: 1.15; /* 1 */
+  margin: 0; /* 2 */
+}
+
+/**
+ * Zeigt den Überlauf in IE an.
+ * 1. Zeigt den Überlauf in Edge an.
+ */
+
+button,
+input { /* 1 */
+  overflow: visible;
+}
+
+/**
+ * Entfernt die Vererbung der Textumwandlung in Edge, Firefox und IE.
+ * 1. Entfernt die Vererbung der Textumwandlung in Firefox.
+ */
+
+button,
+select { /* 1 */
+  text-transform: none;
+}
+
+/**
+ * Korrigiert die Unfähigkeit, bestimmte Schaltflächen in iOS und Safari zu stylen.
+ */
+
+button,
+[type="button"],
+[type="reset"],
+[type="submit"] {
+  -webkit-appearance: button;
+}
+
+/**
+ * Entfernt den inneren Rand und Padding in Firefox.
+ */
+
+button::-moz-focus-inner,
+[type="button"]::-moz-focus-inner,
+[type="reset"]::-moz-focus-inner,
+[type="submit"]::-moz-focus-inner {
+  border-style: none;
+  padding: 0;
+}
+
+/**
+ * Stellt den Fokus-Stil zurück, der von vorherigen Regelungen unbeabsichtigt überschrieben wurde.
+ */
+
+button:-moz-focusring,
+[type="button"]:-moz-focusring,
+[type="reset"]:-moz-focusring,
+[type="submit"]:-moz-focusring {
+  outline: 1px dotted ButtonText;
+}
+
+/**
+ * Korrigiert Padding in Firefox.
+ */
+
+fieldset {
+  padding: 0.35em 0.75em 0.625em;
+}
+
+/**
+ * 1. Korrigiert Textumbruch in Edge und IE.
+ * 2. Korrigiert Farbvererbung von `fieldset`-Elementen in IE.
+ * 3. Entfernt Padding, so dass Entwickler nicht davon getäuscht werden, dass sie
+ *    vergessen, 0 zu setzen, und so versehentlich Leerzeichen hinzufügen.
+ */
+
+legend {
+  box-sizing: border-box; /* 1 */
+  color: inherit; /* 2 */
+  display: table; /* 1 */
+  max-width: 100%; /* 1 */
+  padding: 0; /* 3 */
+  white-space: normal; /* 1 */
+}
+
+/**
+ * Fügt das richtige vertikale Ausrichten in Chrome, Firefox und Opera hinzu.
+ */
+
+progress {
+  vertical-align: baseline;
+}
+
+/**
+ * Entfernt die Standardvertikalrolle in IE 10+.
+ */
+
+textarea {
+  overflow: auto;
+}
+
+/**
+ * 1. Fügt die richtige Kastengröße in IE 10 hinzu.
+ * 2. Entfernt das Padding in IE 10.
+ */
+
+[type="checkbox"],
+[type="radio"] {
+  box-sizing: border-box; /* 1 */
+  padding: 0; /* 2 */
+}
+
+/**
+ * Korrigiert den Kursorstil der Schaltflächen zum Erhöhen und Verringern in Chrome.
+ */
+
+[type="number"]::-webkit-inner-spin-button,
+[type="number"]::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/**
+ * 1. Korrigiert das merkwürdige Aussehen in Chrome und Safari.
+ * 2. Korrigiert den Umrandungsstil in Safari.
+ */
+
+[type="search"] {
+  -webkit-appearance: textfield; /* 1 */
+  outline-offset: -2px; /* 2 */
+}
+
+/**
+ * Entfernt den inneren Padding in Chrome und Safari in macOS.
+ */
+
+[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/**
+ * 1. Korrigiert die Unfähigkeit, klickbare Typen in iOS und Safari zu stylen.
+ * 2. Ändert Schrifteigenschaften auf 'inherit' in Safari.
+ */
+
+::-webkit-file-upload-button {
+  -webkit-appearance: button; /* 1 */
+  font: inherit; /* 2 */
+}
+
+/* Interaktiv
+   ========================================================================== */
+
+/*
+ * Fügt die richtige Anzeige in Edge, IE 10+ und Firefox hinzu.
+ */
+
+details {
+  display: block;
+}
+
+/*
+ * Fügt die richtige Anzeige in allen Browsern hinzu.
+ */
+
+summary {
+  display: list-item;
+}
+
+/* Diverses
+   ========================================================================== */
+
+/**
+ * Fügt die richtige Anzeige in IE 10+ hinzu.
+ */
+
+template {
+  display: none;
+}
+
+/**
+ * Fügt die richtige Anzeige in IE 10 hinzu.
+ */
+
+[hidden] {
+  display: none;
+} 
