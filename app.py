@@ -661,12 +661,25 @@ def dashboard():
         language = get_user_language()
         translations = load_translations(language)
         
+        # Trends-Daten vorbereiten
+        trends = {
+            'pageviews': {
+                'direction': 'up',  # oder basierend auf echten Daten berechnen
+                'value': 0
+            },
+            'clicks': {
+                'direction': 'up',
+                'value': 0
+            }
+        }
+        
         return render_template(
             'dashboard.html',
             shop=shop,
             host=host,
             api_key=SHOPIFY_API_KEY,
-            translations=translations
+            translations=translations,
+            trends=trends  # Trends-Daten hinzufügen
         )
         
     except Exception as e:
