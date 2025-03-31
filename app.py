@@ -44,14 +44,28 @@ app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=1)
 SHOPIFY_API_KEY = os.environ.get('SHOPIFY_API_KEY', 'bc64e63be55d4cbad777bc2b89d1307c')
 SHOPIFY_API_SECRET = os.environ.get('SHOPIFY_API_SECRET', 'a04bb1e1c1cd5b9d8881d6c9c19f4c6c')
 APP_URL = os.environ.get('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+
+# Sicherstellen, dass APP_URL mit https:// beginnt
+if not APP_URL.startswith(('http://', 'https://')):
+    APP_URL = 'https://' + APP_URL
+    print(f"🔧 APP_URL korrigiert: {APP_URL}")
+
 SCOPES = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
+
+# Redirect-URI mit vollständiger URL (einschließlich https://)
 REDIRECT_URI = f"{APP_URL}/auth/callback"
+
+# Hostname konfigurieren
 HOST = os.environ.get('HOST', 'miniflaskenv-production.up.railway.app')
 
 # Überschreibe, falls REDIRECT_URI direkt gesetzt wurde
 if os.environ.get('REDIRECT_URI'):
     REDIRECT_URI = os.environ.get('REDIRECT_URI')
-    
+    # Sicherstellen, dass explizit gesetzte REDIRECT_URI mit https:// beginnt
+    if not REDIRECT_URI.startswith(('http://', 'https://')):
+        REDIRECT_URI = 'https://' + REDIRECT_URI
+        print(f"🔧 Explizit gesetzte REDIRECT_URI korrigiert: {REDIRECT_URI}")
+
 # Shopify API Zugriff
 print(f"🔧 API-Konfiguration: KEY={SHOPIFY_API_KEY}, REDIRECT={REDIRECT_URI}, HOST={HOST}")
 
@@ -423,8 +437,17 @@ def install():
         session['nonce'] = nonce
         
         scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
-        redirect_uri = f"{get_base_url()}/auth/callback"
+        
+        # Korrekte Basis-URL mit Schema erstellen
+        base_url = get_base_url()
+        # Sicherstellen, dass die URL mit https:// beginnt
+        if not base_url.startswith(('http://', 'https://')):
+            base_url = 'https://' + base_url
+            
+        redirect_uri = f"{base_url}/auth/callback"
         state = nonce
+        
+        print(f"🔧 Redirect URI für OAuth: {redirect_uri}")
         
         shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
         
@@ -437,13 +460,34 @@ def install():
         traceback.print_exc()
         return render_template('error.html', error=str(e))
 
+@app.route('/oauth-error')
+def oauth_error():
+    """Zeigt eine spezielle Fehlerseite für OAuth-Fehler an."""
+    error_type = request.args.get('error', 'unbekannt')
+    error_message = request.args.get('error_message', 'Es ist ein unbekannter Fehler bei der OAuth-Authentifizierung aufgetreten.')
+    
+    print(f"🔴 OAuth-Fehler: {error_type} - {error_message}")
+    
+    # Spezielle Fehlerseite anzeigen
+    return render_template('oauth_error.html', 
+                           error_type=error_type, 
+                           error_message=error_message,
+                           redirect_uri=REDIRECT_URI)
+
 @app.route('/auth/callback')
 def auth_callback():
     try:
         # HMAC-Validierung für Shopify-Anfragen
         if not hmac_validation(request.args):
             print("❌ HMAC-Validierung fehlgeschlagen")
-            return "HMAC validation failed", 400
+            return redirect('/oauth-error?error=hmac_validation_failed&error_message=HMAC-Validierung fehlgeschlagen')
+
+        # Prüfen, ob ein OAuth-Fehler aufgetreten ist
+        if 'error' in request.args:
+            error = request.args.get('error')
+            error_description = request.args.get('error_description', 'Keine Details verfügbar')
+            print(f"🔴 OAuth-Fehler empfangen: {error} - {error_description}")
+            return redirect(f'/oauth-error?error={error}&error_message={error_description}')
 
         # Parameter aus der Anfrage extrahieren
         shop = request.args.get('shop')
@@ -451,26 +495,34 @@ def auth_callback():
         state = request.args.get('state')
         host_param = request.args.get('host')
         
+        # Debug-Ausgaben
+        print(f"🔄 Auth Callback erhalten - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}")
+        
         # Shopify sendet manchmal einen Base64-kodierten Host-Parameter
         host = None
         if host_param:
             try:
                 # Versuche, den Host-Parameter zu dekodieren (falls Base64-kodiert)
                 decoded_host = base64.b64decode(host_param).decode('utf-8')
-                print(f"Dekodierter Host-Parameter: {decoded_host}")
+                print(f"🔍 Dekodierter Host-Parameter: {decoded_host}")
                 host = decoded_host
             except Exception as e:
                 # Falls die Dekodierung fehlschlägt, verwende den originalen Parameter
-                print(f"Host-Dekodierung fehlgeschlagen: {e}, verwende Originalen: {host_param}")
+                print(f"⚠️ Host-Dekodierung fehlgeschlagen: {e}, verwende Originalen: {host_param}")
                 host = host_param
         
         # Debug-Ausgaben für Troubleshooting
-        print(f"Auth Callback - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}, Host: {host}")
+        print(f"🔍 Auth Callback - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}, Host: {host}")
         
         # Prüfen, ob alle erforderlichen Parameter vorhanden sind
         if not shop or not code:
             print("❌ Fehlende Parameter: shop oder code")
-            return "Missing parameters", 400
+            missing_params = []
+            if not shop:
+                missing_params.append("shop")
+            if not code:
+                missing_params.append("code")
+            return redirect(f'/oauth-error?error=missing_parameters&error_message=Fehlende Parameter: {", ".join(missing_params)}')
         
         # Prüfen, ob der State mit dem in der Session übereinstimmt (CSRF-Schutz)
         session_nonce = session.get('nonce')
@@ -498,14 +550,15 @@ def auth_callback():
         except requests.exceptions.RequestException as e:
             print(f"❌ Fehler bei der Token-Anfrage: {e}")
             error_msg = f"Failed to get access token: {str(e)}"
-            return render_template('error.html', error=error_msg)
+            return redirect(f'/oauth-error?error=token_request_failed&error_message={error_msg}')
             
         # Antwort parsen
         token_data = response.json()
         
         if 'access_token' not in token_data:
             print(f"❌ Kein Access Token in der Antwort: {token_data}")
-            return render_template('error.html', error="No access token in response")
+            error_details = json.dumps(token_data)
+            return redirect(f'/oauth-error?error=no_access_token&error_message=Kein Access Token in der Antwort: {error_details}')
             
         # Token aus der Antwort extrahieren
         access_token = token_data.get('access_token')
@@ -519,13 +572,15 @@ def auth_callback():
         # Host-Parameter speichern (wichtig für App Bridge)
         if host:
             session['host'] = host
+            print(f"✅ Host in Session gespeichert: {host}")
         else:
             # Wenn kein Host-Parameter vorhanden ist, eine standardmäßige Host-URL generieren
             shop_name = shop.replace('.myshopify.com', '')
             session['host'] = f"admin.shopify.com/store/{shop_name}"
+            print(f"ℹ️ Generierter Host in Session gespeichert: {session['host']}")
             
         print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
-        print(f"✅ Session-Daten gespeichert: {session}")
+        print(f"✅ Session-Daten gespeichert: shop={session.get('shop')}, host={session.get('host')}")
         
         # Webhooks für wichtige Shop-Ereignisse registrieren
         try:
@@ -540,6 +595,7 @@ def auth_callback():
         if host:
             redirect_url += f"&host={host}"
             
+        print(f"➡️ Weiterleitung zu: {redirect_url}")
         return redirect(redirect_url)
         
     except Exception as e:
@@ -551,22 +607,37 @@ def auth_callback():
 def get_base_url():
     """
     Gibt die Basis-URL der Anwendung zurück, je nach Umgebung.
+    Stellt sicher, dass immer eine vollständige URL mit HTTPS zurückgegeben wird.
     """
+    base_url = ""
+    
     if os.getenv('RAILWAY_STATIC_URL'):
         # Railway Produktionsumgebung
-        return os.getenv('RAILWAY_STATIC_URL', 'https://miniflaskenv-production.up.railway.app')
+        base_url = os.getenv('RAILWAY_STATIC_URL', 'https://miniflaskenv-production.up.railway.app')
     elif os.getenv('HOST'):
         # Shopify App Umgebung
-        return f"https://{os.getenv('HOST')}"
+        base_url = f"https://{os.getenv('HOST')}"
     else:
         # Lokale Entwicklungsumgebung oder Fallback
-        return os.getenv('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+        base_url = os.getenv('APP_URL', 'https://miniflaskenv-production.up.railway.app')
+    
+    # Sicherstellen, dass die URL mit https:// beginnt
+    if not base_url.startswith(('http://', 'https://')):
+        base_url = 'https://' + base_url
+    
+    print(f"🌐 Basis-URL für die App: {base_url}")
+    return base_url
 
 def register_webhooks(shop, access_token):
     """
     Registriert die erforderlichen Webhooks für den Shop über GraphQL.
     """
     try:
+        # Wenn kein Access Token verfügbar ist, können wir keine Webhooks registrieren
+        if not access_token:
+            print("⚠️ Kein Access Token für Webhook-Registrierung verfügbar")
+            return False
+            
         # GraphQL Endpoint
         url = f"https://{shop}/admin/api/2024-01/graphql.json"
         headers = {
@@ -583,6 +654,7 @@ def register_webhooks(shop, access_token):
             "CUSTOMERS_DELETE"
         ]
         
+        # Vollständige Basis-URL mit HTTPS abrufen
         base_url = get_base_url()
         
         # Registriere jeden Webhook
@@ -610,7 +682,9 @@ def register_webhooks(shop, access_token):
             
             # Webhook-URL basierend auf dem Topic
             topic_path = topic.lower().replace("_", "/")
-            webhook_url = f"https://{base_url}/webhook/{topic_path}"
+            webhook_url = f"{base_url}/webhook/{topic_path}"
+            
+            print(f"🔄 Registriere Webhook für {topic} mit URL: {webhook_url}")
             
             # Variablen für die Mutation
             variables = {
