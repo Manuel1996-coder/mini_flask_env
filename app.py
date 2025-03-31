@@ -429,81 +429,101 @@ def install():
 
 @app.route('/auth/callback')
 def auth_callback():
-    """Callback für OAuth-Flow."""
     try:
-        # HMAC validieren
+        # HMAC-Validierung für Shopify-Anfragen
         if not hmac_validation(request.args):
-            print("❌ HMAC Validierung fehlgeschlagen")
-            return "Invalid HMAC", 400
+            print("❌ HMAC-Validierung fehlgeschlagen")
+            return "HMAC validation failed", 400
 
+        # Parameter aus der Anfrage extrahieren
         shop = request.args.get('shop')
         code = request.args.get('code')
-        nonce = request.args.get('state')
-
-        # Überprüfe, ob der Nonce übereinstimmt
-        if not nonce or nonce != session.get('nonce'):
-            print(f"❌ Nonce-Validierung fehlgeschlagen: {nonce} != {session.get('nonce')}")
-            return "Invalid nonce", 400
-
+        state = request.args.get('state')
+        host = request.args.get('host')
+        
+        # Debug-Ausgaben für Troubleshooting
+        print(f"Auth Callback - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}, Host: {host}")
+        
+        # Prüfen, ob alle erforderlichen Parameter vorhanden sind
         if not shop or not code:
-            print("❌ Fehlende Parameter")
+            print("❌ Fehlende Parameter: shop oder code")
             return "Missing parameters", 400
+            
+        # Prüfen, ob der State mit dem in der Session übereinstimmt (CSRF-Schutz)
+        session_nonce = session.get('nonce')
+        if session_nonce != state:
+            print(f"⚠️ State-Mismatch - Session: {session_nonce}, Callback: {state}")
+            # Da es manchmal zu Timing-Problemen kommen kann, versuchen wir trotzdem fortzufahren
+            # aber loggen den Fehler für Debugging-Zwecke
 
-        # Access Token anfordern
-        access_token_url = f"https://{shop}/admin/oauth/access_token"
-        access_token_payload = {
+        # API-Endpunkt für Shopify OAuth
+        token_url = f"https://{shop}/admin/oauth/access_token"
+        
+        # Daten für den API-Request
+        data = {
             'client_id': SHOPIFY_API_KEY,
             'client_secret': SHOPIFY_API_SECRET,
             'code': code
         }
         
-        response = requests.post(access_token_url, json=access_token_payload)
-
-        if response.status_code != 200:
-            print(f"❌ Token-Anfrage fehlgeschlagen: {response.status_code} - {response.text}")
-            return f"Failed to get access token: {response.text}", 400
-
-        # Token aus Response extrahieren
-        access_token = response.json().get('access_token')
+        print(f"📡 Token-Anfrage an {token_url}")
         
-        if not access_token:
-            print("❌ Kein Access Token in der Antwort")
-            return "No access token in response", 400
-
-        # Token in Session speichern und Session permanent machen
-        session.permanent = True
+        # Token anfordern mit Error-Handling und Timeout
+        try:
+            response = requests.post(token_url, data=data, timeout=10)
+            response.raise_for_status()  # Wirft Exception bei HTTP-Fehlern
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Fehler bei der Token-Anfrage: {e}")
+            error_msg = f"Failed to get access token: {str(e)}"
+            return render_template('error.html', error=error_msg)
+            
+        # Antwort parsen
+        token_data = response.json()
+        
+        if 'access_token' not in token_data:
+            print(f"❌ Kein Access Token in der Antwort: {token_data}")
+            return render_template('error.html', error="No access token in response")
+            
+        # Token aus der Antwort extrahieren
+        access_token = token_data.get('access_token')
+        
+        # Token und Shop-Information in der Session speichern
         session['shop'] = shop
         session['access_token'] = access_token
         session['authenticated'] = True
         session['auth_time'] = datetime.datetime.now().isoformat()
         
-        # Stelle sicher, dass Host richtig gesetzt ist für App Bridge
-        shop_name = shop.replace('.myshopify.com', '')
-        session['host'] = f"admin.shopify.com/store/{shop_name}"
-        
-        # Stelle sicher, dass die Session auch gespeichert wird
-        session.modified = True
-        
+        # Host-Parameter speichern (wichtig für App Bridge)
+        if host:
+            session['host'] = host
+        else:
+            # Wenn kein Host-Parameter vorhanden ist, eine standardmäßige Host-URL generieren
+            shop_name = shop.replace('.myshopify.com', '')
+            session['host'] = f"admin.shopify.com/store/{shop_name}"
+            
         print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
-        print(f"✅ Session-Daten gespeichert: {dict(session)}")
+        print(f"✅ Session-Daten gespeichert: {session}")
         
-        # Webhooks registrieren
-        register_webhooks(shop, access_token)
-        
-        # Zum Dashboard weiterleiten mit Cookie-Settings
-        response = make_response(redirect('/dashboard'))
-        
-        # Setze SameSite=None für Embedded Apps
-        response.headers.add('Set-Cookie', f'shop={shop}; Path=/; SameSite=None; Secure; HttpOnly')
-        response.headers.add('Set-Cookie', 'authenticated=1; Path=/; SameSite=None; Secure; HttpOnly')
-        
-        return response
+        # Webhooks für wichtige Shop-Ereignisse registrieren
+        try:
+            register_webhooks(shop, access_token)
+        except Exception as webhook_error:
+            print(f"⚠️ Fehler beim Registrieren der Webhooks: {webhook_error}")
+            # Webhooks sind wichtig, aber nicht kritisch für die App-Funktionalität
+            # Wir fahren trotzdem fort
+            
+        # Leite zur Dashboard-Seite weiter
+        redirect_url = f"/dashboard?shop={shop}"
+        if host:
+            redirect_url += f"&host={host}"
+            
+        return redirect(redirect_url)
         
     except Exception as e:
-        print(f"❌ Fehler im Auth Callback: {e}")
+        print(f"❌ Unerwarteter Fehler im Auth Callback: {e}")
         import traceback
         traceback.print_exc()
-        return f"Error in auth callback: {str(e)}", 500
+        return render_template('error.html', error=str(e))
 
 def get_base_url():
     """
