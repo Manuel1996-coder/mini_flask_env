@@ -18,6 +18,8 @@ import jwt
 from flask_session import Session
 import time
 from werkzeug.middleware.proxy_fix import ProxyFix
+import base64
+import secrets
 
 # Environment-Variablen laden
 load_dotenv()
@@ -383,49 +385,57 @@ def index():
 
 @app.route('/install')
 def install():
-    """Installation der App initiieren."""
+    """Shopify OAuth-Installationsseite"""
     try:
+        # Prüfe auf Embedded-Modus
+        embedded = request.args.get('embedded') == '1'
+        
+        # Shopify-spezifischer Parameter zum Erkennen von eingebetteten Apps
+        is_embedded = 'embedded' in request.args
+        
+        # Wenn wir im eingebetteten Modus sind und ggf. Sandbox-Probleme haben könnten,
+        # leiten wir zu einer speziellen Fehlerseite weiter
+        if is_embedded:
+            # Nur zu Debug-Zwecken
+            print("Embedded-Modus erkannt, könnte Sandbox-Einschränkungen haben")
+        
+        # Erzeugen eines eindeutigen Nonce für CSRF-Schutz
+        nonce = secrets.token_hex(16)
+        session['nonce'] = nonce
+        
+        # Shop-Parameter aus der Anfrage extrahieren
         shop = request.args.get('shop')
+        
+        if not shop:
+            # Wenn kein Shop-Parameter vorhanden ist, zeige ein Formular an
+            return render_template('install_form.html')
         
         # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben
         if not shop and 'shop' in session:
-            shop = session['shop']
-            print(f"✅ Shop aus Session verwendet: {shop}")
-
+            shop = session.get('shop')
+            print(f"🔍 Shop aus Session: {shop}")
+        
+        # Wenn immer noch kein Shop vorhanden ist, zeige ein Installationsformular an
         if not shop:
-            print("❌ Kein Shop-Parameter gefunden und kein Shop in Session")
-            response = make_response(render_template(
-                'error.html',
-                error="Bitte geben Sie einen Shop-Parameter an oder installieren Sie die App über den Shopify App Store."
-            ))
-            # Vergewissere dich, dass die Installation-Seite Cookies setzen kann
-            response.headers.add('Set-Cookie', 'cookie_test=1; Path=/; SameSite=None; Secure')
-            return response
-
+            return render_template('install_form.html')
+            
         # Shopify OAuth URL erstellen
-        nonce = os.urandom(16).hex()
         session['nonce'] = nonce
         
-        # Session auch im Cookie speichern
-        session.modified = True
+        scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
+        redirect_uri = f"{get_base_url()}/auth/callback"
+        state = nonce
         
-        install_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={SCOPES}&redirect_uri={REDIRECT_URI}&state={nonce}"
+        shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
         
-        print(f"✅ Weiterleitung zur Shopify OAuth: {install_url}")
-        
-        # Wichtig: SameSite=None und Secure für Embedded Apps
-        response = make_response(redirect(install_url))
-        response.headers.add('Set-Cookie', f'nonce={nonce}; Path=/; SameSite=None; Secure; HttpOnly')
-        return response
+        print(f"✅ Weiterleitung zur Shopify OAuth: {shopify_auth_url}")
+        return redirect(shopify_auth_url)
         
     except Exception as e:
-        print(f"❌ Fehler bei der Installation: {e}")
+        print(f"❌ Fehler in der Installationsroutine: {e}")
         import traceback
         traceback.print_exc()
-        return render_template(
-            'error.html',
-            error=f"Installationsfehler: {str(e)}"
-        )
+        return render_template('error.html', error=str(e))
 
 @app.route('/auth/callback')
 def auth_callback():
@@ -439,7 +449,20 @@ def auth_callback():
         shop = request.args.get('shop')
         code = request.args.get('code')
         state = request.args.get('state')
-        host = request.args.get('host')
+        host_param = request.args.get('host')
+        
+        # Shopify sendet manchmal einen Base64-kodierten Host-Parameter
+        host = None
+        if host_param:
+            try:
+                # Versuche, den Host-Parameter zu dekodieren (falls Base64-kodiert)
+                decoded_host = base64.b64decode(host_param).decode('utf-8')
+                print(f"Dekodierter Host-Parameter: {decoded_host}")
+                host = decoded_host
+            except Exception as e:
+                # Falls die Dekodierung fehlschlägt, verwende den originalen Parameter
+                print(f"Host-Dekodierung fehlgeschlagen: {e}, verwende Originalen: {host_param}")
+                host = host_param
         
         # Debug-Ausgaben für Troubleshooting
         print(f"Auth Callback - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}, Host: {host}")
@@ -448,7 +471,7 @@ def auth_callback():
         if not shop or not code:
             print("❌ Fehlende Parameter: shop oder code")
             return "Missing parameters", 400
-            
+        
         # Prüfen, ob der State mit dem in der Session übereinstimmt (CSRF-Schutz)
         session_nonce = session.get('nonce')
         if session_nonce != state:
@@ -2682,3 +2705,43 @@ def verify_request_with_token():
     except Exception as e:
         print(f"❌ Fehler bei der Token-Validierung: {e}")
         return False
+
+@app.route('/sandbox-error')
+def sandbox_error():
+    """Zeigt eine Fehlermeldung an, wenn die App in einem Sandbox-Frame läuft."""
+    return render_template('sandbox_error.html')
+
+@app.route('/open-admin')
+def open_admin():
+    """Leitet den Benutzer zum Shopify Admin Dashboard weiter."""
+    try:
+        # Shop aus der Session holen oder aus den Parametern
+        shop = request.args.get('shop') or session.get('shop')
+        if not shop:
+            return render_template('error.html', error="Kein Shop gefunden")
+            
+        # URL zum Shopify Admin für diesen Shop erstellen
+        shop_admin_url = f"https://{shop}/admin"
+        
+        print(f"✅ Leite weiter zum Shopify Admin: {shop_admin_url}")
+        return redirect(shop_admin_url)
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der Weiterleitung zum Admin: {e}")
+        return render_template('error.html', error=str(e))
+
+@app.route('/cookie-hilfe')
+def cookie_help():
+    """Zeigt eine Hilfeseite zu Chrome's Third-Party Cookie-Einschränkungen an."""
+    try:
+        # Shop aus der Session oder Request holen
+        shop = request.args.get('shop') or session.get('shop')
+        
+        return render_template(
+            'cookie_help.html',
+            shop_name=shop,
+            translations=get_translations()
+        )
+    except Exception as e:
+        print(f"❌ Fehler beim Anzeigen der Cookie-Hilfeseite: {e}")
+        return render_template('error.html', error=str(e))

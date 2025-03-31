@@ -1,0 +1,148 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="page-container">
+  <div class="content-header">
+    <h1 class="page-title">Cookie-Einstellungen in Chrome</h1>
+    <p class="page-description">Anleitung zum Umgang mit Drittanbieter-Cookie-Einschränkungen</p>
+  </div>
+
+  <div class="alert alert-info mb-4">
+    <div class="d-flex align-items-center">
+      <i class="fas fa-info-circle me-3 fs-4"></i>
+      <div>
+        <strong>Chrome ändert den Umgang mit Cookies</strong>
+        <p class="mb-0">Ab 2024 blockiert Chrome standardmäßig Drittanbieter-Cookies, was Auswirkungen auf eingebettete Shopify-Apps haben kann.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h2 class="card-title h5 mb-0">Warum betrifft mich das?</h2>
+    </div>
+    <div class="card-body">
+      <p>Wenn Sie die ShopPulseAI App im eingebetteten Modus in Ihrem Shopify Admin nutzen, werden Cookies für die Authentifizierung und Session-Verwaltung verwendet. Chromes neue Einschränkungen können dazu führen, dass:</p>
+      
+      <ul>
+        <li>Sie wiederholt zur Anmeldung aufgefordert werden</li>
+        <li>Session-Daten nicht gespeichert werden können</li>
+        <li>Die App nicht richtig funktioniert oder Fehler anzeigt</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h2 class="card-title h5 mb-0">Lösungsmöglichkeiten</h2>
+    </div>
+    <div class="card-body">
+      <div class="mb-4">
+        <h3 class="h6">Option 1: Nutzen Sie die App in einem eigenen Tab (empfohlen)</h3>
+        <p>Die einfachste Lösung ist, ShopPulseAI in einem separaten Browser-Tab zu öffnen:</p>
+        <ol>
+          <li>Öffnen Sie <a href="/" target="_blank" class="text-primary">diese App in einem neuen Tab</a></li>
+          <li>Nutzen Sie die volle Funktionalität ohne Cookie-Einschränkungen</li>
+        </ol>
+        <a href="/" target="_blank" class="btn btn-primary">App in neuem Tab öffnen</a>
+      </div>
+
+      <div class="mb-4">
+        <h3 class="h6">Option 2: Chrome-Einstellungen anpassen</h3>
+        <p>Sie können Drittanbieter-Cookies für bestimmte Websites in Chrome erlauben:</p>
+        <ol>
+          <li>Öffnen Sie Chrome-Einstellungen (3 Punkte oben rechts → Einstellungen)</li>
+          <li>Gehen Sie zu "Datenschutz und Sicherheit" → "Cookies und andere Websitedaten"</li>
+          <li>Fügen Sie Ihre Shopify Admin-Domain zur Liste der erlaubten Websites hinzu</li>
+        </ol>
+        <a href="https://support.google.com/chrome/answer/95647" target="_blank" class="btn btn-outline-primary">Chrome Cookie-Einstellungen Hilfe</a>
+      </div>
+
+      <div>
+        <h3 class="h6">Option 3: Verwenden Sie einen anderen Browser</h3>
+        <p>Andere Browser wie Firefox oder Safari haben möglicherweise weniger strenge Einschränkungen:</p>
+        <div class="d-flex gap-3">
+          <a href="https://www.mozilla.org/firefox/new/" target="_blank" class="btn btn-outline-secondary">Firefox herunterladen</a>
+          <a href="https://www.apple.com/safari/" target="_blank" class="btn btn-outline-secondary">Safari herunterladen</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title h5 mb-0">Hintergrundinformationen</h2>
+    </div>
+    <div class="card-body">
+      <p>Chrome implementiert ein neues System namens "Privacy Sandbox", das Drittanbieter-Cookies durch andere Technologien ersetzt. Diese Änderung betrifft viele Web-Anwendungen, die in iFrames eingebettet sind, wie Shopify-Apps.</p>
+      
+      <p>Mehr Informationen:</p>
+      <ul>
+        <li><a href="https://developers.google.com/privacy-sandbox/blog/third-party-cookie-phase-out" target="_blank" class="text-primary">Google's Privacy Sandbox Initiative</a></li>
+        <li><a href="https://help.shopify.com/manual/apps" target="_blank" class="text-primary">Shopify App-Dokumentation</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .page-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .content-header {
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+  
+  .page-title {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .page-description {
+    color: #6c757d;
+    font-size: 1.1rem;
+  }
+  
+  .card {
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.125);
+  }
+  
+  .card-header {
+    background-color: rgba(0,0,0,0.02);
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+  }
+  
+  .card-title {
+    margin-bottom: 0;
+  }
+  
+  .btn {
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+  }
+  
+  .btn-primary {
+    background-color: #2c6ecb;
+    border-color: #2c6ecb;
+  }
+  
+  .btn-primary:hover {
+    background-color: #255cb3;
+    border-color: #255cb3;
+  }
+  
+  .alert-info {
+    background-color: #e8f4fd;
+    border-color: #b8e2fb;
+    color: #0c5395;
+  }
+</style>
+{% endblock %} 
