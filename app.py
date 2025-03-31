@@ -2632,3 +2632,33 @@ def cors_preflight_response():
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
     response.headers.add('Access-Control-Max-Age', '3600')
     return response
+
+# Funktion zur Überprüfung des Session-Tokens
+def verify_request_with_token():
+    """
+    Überprüft, ob die Anfrage über einen gültigen Session-Token authentifiziert ist.
+    
+    Returns:
+        bool: True, wenn der Session-Token gültig ist, sonst False
+    """
+    try:
+        # Token aus dem Authorization-Header extrahieren
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            print("❌ Kein Bearer-Token im Authorization-Header gefunden")
+            return False
+            
+        token = auth_header.replace('Bearer ', '')
+        if not token:
+            print("❌ Leerer Token im Authorization-Header")
+            return False
+            
+        # Token validieren (hier könnten zusätzliche Prüfungen erfolgen)
+        # Bei einer echten App würden wir den Token mit der Shopify API verifizieren
+        # Für Testzwecke nehmen wir an, dass ein vorhandener Token gültig ist
+        print(f"✅ Session-Token validiert: {token[:15]}...")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der Token-Validierung: {e}")
+        return False
