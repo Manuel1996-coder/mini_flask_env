@@ -136,6 +136,26 @@ def load_translations(language='en'):
                 "apply": "Apply",
                 "reload": "Reload",
                 "export": "Export"
+            },
+            "settings": {
+                "notifications": "Notifications",
+                "email_notifications": "Email notifications",
+                "email_notifications_help": "Receive important updates via email",
+                "push_notifications": "Push notifications",
+                "push_notifications_help": "Receive real-time alerts in your browser",
+                "tracking": "Tracking Settings",
+                "enable_tracking": "Enable analytics tracking",
+                "enable_tracking_help": "Collect anonymous usage data to improve your shop performance",
+                "anonymize_ip": "Anonymize IP addresses",
+                "anonymize_ip_help": "Enhance privacy by anonymizing customer IP addresses",
+                "display": "Display Settings",
+                "currency": "Currency",
+                "date_format": "Date Format",
+                "api_information": "API Information",
+                "webhook_url": "Webhook URL",
+                "webhook_url_help": "Use this URL for external integrations",
+                "settings_saved": "Settings Saved",
+                "settings_saved_message": "Your settings have been saved successfully."
             }
         },
         'de': {
@@ -168,6 +188,26 @@ def load_translations(language='en'):
                 "apply": "Anwenden",
                 "reload": "Neu laden",
                 "export": "Exportieren"
+            },
+            "settings": {
+                "notifications": "Benachrichtigungen",
+                "email_notifications": "E-Mail-Benachrichtigungen",
+                "email_notifications_help": "Erhalte wichtige Updates per E-Mail",
+                "push_notifications": "Push-Benachrichtigungen",
+                "push_notifications_help": "Erhalte Echtzeit-Warnungen in deinem Browser",
+                "tracking": "Tracking-Einstellungen",
+                "enable_tracking": "Analytics-Tracking aktivieren",
+                "enable_tracking_help": "Sammle anonyme Nutzungsdaten zur Verbesserung deiner Shop-Performance",
+                "anonymize_ip": "IP-Adressen anonymisieren",
+                "anonymize_ip_help": "Verbessere den Datenschutz durch Anonymisierung von Kunden-IP-Adressen",
+                "display": "Anzeigeeinstellungen",
+                "currency": "Währung",
+                "date_format": "Datumsformat",
+                "api_information": "API-Informationen",
+                "webhook_url": "Webhook-URL",
+                "webhook_url_help": "Verwende diese URL für externe Integrationen",
+                "settings_saved": "Einstellungen gespeichert",
+                "settings_saved_message": "Deine Einstellungen wurden erfolgreich gespeichert."
             }
         }
     }
@@ -2288,6 +2328,46 @@ def inject_translations():
             "export": "Export" if language == 'en' else "Exportieren"
         }
     
+    # Sicherstellen, dass die growth_advisor-Schlüssel existieren
+    if 'growth_advisor' not in translations[language]:
+        print(f"WARNUNG: 'growth_advisor' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['growth_advisor'] = {
+            "title": "Growth Advisor™"
+        }
+        
+    # Sicherstellen, dass die settings-Schlüssel existieren
+    if 'settings' not in translations[language]:
+        print(f"WARNUNG: 'settings' Schlüssel fehlt in Übersetzungen für {language}, füge Standardwerte hinzu")
+        translations[language]['settings'] = {
+            "notifications": "Notifications" if language == 'en' else "Benachrichtigungen",
+            "email_notifications": "Email notifications" if language == 'en' else "E-Mail-Benachrichtigungen",
+            "email_notifications_help": "Receive important updates via email" if language == 'en' else "Erhalte wichtige Updates per E-Mail",
+            "push_notifications": "Push notifications" if language == 'en' else "Push-Benachrichtigungen",
+            "push_notifications_help": "Receive real-time alerts in your browser" if language == 'en' else "Erhalte Echtzeit-Warnungen in deinem Browser",
+            "tracking": "Tracking Settings" if language == 'en' else "Tracking-Einstellungen",
+            "enable_tracking": "Enable analytics tracking" if language == 'en' else "Analytics-Tracking aktivieren",
+            "enable_tracking_help": "Collect anonymous usage data to improve your shop performance" if language == 'en' else "Sammle anonyme Nutzungsdaten zur Verbesserung deiner Shop-Performance",
+            "anonymize_ip": "Anonymize IP addresses" if language == 'en' else "IP-Adressen anonymisieren",
+            "anonymize_ip_help": "Enhance privacy by anonymizing customer IP addresses" if language == 'en' else "Verbessere den Datenschutz durch Anonymisierung von Kunden-IP-Adressen",
+            "display": "Display Settings" if language == 'en' else "Anzeigeeinstellungen",
+            "currency": "Currency" if language == 'en' else "Währung",
+            "date_format": "Date Format" if language == 'en' else "Datumsformat",
+            "api_information": "API Information" if language == 'en' else "API-Informationen",
+            "webhook_url": "Webhook URL" if language == 'en' else "Webhook-URL",
+            "webhook_url_help": "Use this URL for external integrations" if language == 'en' else "Verwende diese URL für externe Integrationen",
+            "settings_saved": "Settings Saved" if language == 'en' else "Einstellungen gespeichert",
+            "settings_saved_message": "Your settings have been saved successfully." if language == 'en' else "Deine Einstellungen wurden erfolgreich gespeichert."
+        }
+        
+    if 'buttons' not in translations[language]:
+        translations[language]['buttons'] = {
+            "save": "Save" if language == 'en' else "Speichern",
+            "cancel": "Cancel" if language == 'en' else "Abbrechen",
+            "apply": "Apply" if language == 'en' else "Anwenden",
+            "reload": "Reload" if language == 'en' else "Neu laden",
+            "export": "Export" if language == 'en' else "Exportieren"
+        }
+    
     return {
         'translations': translations[language],
         'lang': language
@@ -2819,3 +2899,50 @@ def cookie_help():
     except Exception as e:
         print(f"❌ Fehler beim Anzeigen der Cookie-Hilfeseite: {e}")
         return render_template('error.html', error=str(e))
+
+@app.route('/settings')
+def settings():
+    # Prüfe, ob ein Shop in der Session ist
+    shop = get_shop_from_session()
+    if not shop:
+        return redirect('/install')
+
+    # Authentifiziere Anfrage (entweder über Session-Token oder Session-Cookie)
+    authenticated = verify_request_with_token() or 'shopify_session' in session
+
+    if not authenticated:
+        return redirect('/install')
+        
+    # Host-Parameter EXAKT von Shopify verwenden (wichtig für App Bridge)
+    host = request.args.get('host', '')
+    
+    # Debugging
+    print(f"Settings Route - Host: {host}, Shop: {shop}")
+
+    # Beispiel-Einstellungen für die Anzeige
+    app_settings = {
+        'notifications': {
+            'email': True,
+            'push': False
+        },
+        'tracking': {
+            'enabled': True,
+            'anonymize_ip': True,
+            'track_heatmap': False
+        },
+        'display': {
+            'currency': 'EUR',
+            'date_format': 'DD.MM.YYYY'
+        },
+        'api': {
+            'webhook_url': f"https://miniflaskenv-production.up.railway.app/webhooks?shop={shop}"
+        }
+    }
+
+    return render_template(
+        'settings.html',
+        shop=shop,
+        host=host,
+        api_key=SHOPIFY_API_KEY,
+        app_settings=app_settings
+    )
