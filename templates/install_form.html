@@ -100,10 +100,19 @@
       Bitte gib deine Shopify-Store-URL ein, um die Installation zu starten.
     </div>
     
+    {% if error %}
+    <div class="error" style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+      {{ error }}
+    </div>
+    {% endif %}
+    
     <form action="/install" method="GET">
       <div class="form-group">
         <label for="shop">Shopify-Store-URL</label>
         <input type="text" id="shop" name="shop" placeholder="dein-store.myshopify.com" required>
+        <small style="color: #6c757d; font-size: 0.875rem; margin-top: 5px; display: block;">
+          Format: dein-store.myshopify.com (ohne https:// oder andere Pfade)
+        </small>
       </div>
       
       <button type="submit" class="btn">App installieren</button>

@@ -439,7 +439,7 @@ def index():
 
 @app.route('/install')
 def install():
-    """Shopify OAuth-Installationsseite"""
+    """Shopify OAuth-Installationsseite mit verbesserter Fehlerbehandlung und direkter Weiterleitung"""
     try:
         # Prüfe auf Embedded-Modus
         embedded = request.args.get('embedded') == '1'
@@ -453,47 +453,58 @@ def install():
             # Nur zu Debug-Zwecken
             print("Embedded-Modus erkannt, könnte Sandbox-Einschränkungen haben")
         
-        # Erzeugen eines eindeutigen Nonce für CSRF-Schutz
-        nonce = secrets.token_hex(16)
-        session['nonce'] = nonce
-        
         # Shop-Parameter aus der Anfrage extrahieren
         shop = request.args.get('shop')
         
-        if not shop:
-            # Wenn kein Shop-Parameter vorhanden ist, zeige ein Formular an
-            return render_template('install_form.html')
+        # Wenn ein Shop-Parameter direkt in der URL vorhanden ist,
+        # leiten wir sofort zur Shopify-OAuth-Seite weiter (ohne Installationsformular)
+        if shop:
+            print(f"✅ Shop-Parameter gefunden: {shop} - leite direkt zur OAuth-Seite weiter")
+            
+            # Erzeugen eines eindeutigen Nonce für CSRF-Schutz
+            nonce = secrets.token_hex(16)
+            session['nonce'] = nonce
+            
+            scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
+            
+            # Korrekte Basis-URL mit Schema erstellen
+            base_url = get_base_url()
+            # Sicherstellen, dass die URL mit https:// beginnt
+            if not base_url.startswith(('http://', 'https://')):
+                base_url = 'https://' + base_url
+                
+            redirect_uri = f"{base_url}/auth/callback"
+            state = nonce
+            
+            print(f"🔧 Redirect URI für OAuth: {redirect_uri}")
+            
+            # Validiere den Shop-Namen (einfache Prüfung)
+            if not shop.endswith('.myshopify.com'):
+                print(f"⚠️ Ungültiger Shop-Name: {shop} - muss auf .myshopify.com enden")
+                return render_template('install_form.html', error="Bitte gib eine gültige Shopify-Shop-URL ein (Format: dein-shop.myshopify.com)")
+            
+            try:
+                shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
+                
+                print(f"✅ Weiterleitung zur Shopify OAuth: {shopify_auth_url}")
+                return redirect(shopify_auth_url)
+            except Exception as e:
+                print(f"❌ Fehler beim Erstellen der OAuth-URL: {e}")
+                return render_template('install_form.html', error=f"Fehler bei der Weiterleitung: {str(e)}")
         
-        # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben
-        if not shop and 'shop' in session:
+        # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben,
+        # verwende diesen und leite direkt zur OAuth-Seite weiter
+        if 'shop' in session:
             shop = session.get('shop')
-            print(f"🔍 Shop aus Session: {shop}")
-        
-        # Wenn immer noch kein Shop vorhanden ist, zeige ein Installationsformular an
-        if not shop:
-            return render_template('install_form.html')
+            print(f"🔍 Shop aus Session: {shop} - leite direkt zur OAuth-Seite weiter")
             
-        # Shopify OAuth URL erstellen
-        session['nonce'] = nonce
+            return redirect(f"/install?shop={shop}")
         
-        scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
-        
-        # Korrekte Basis-URL mit Schema erstellen
-        base_url = get_base_url()
-        # Sicherstellen, dass die URL mit https:// beginnt
-        if not base_url.startswith(('http://', 'https://')):
-            base_url = 'https://' + base_url
+        # Wenn weder Shop-Parameter noch Session-Shop vorhanden ist,
+        # zeige das Installations-Formular an
+        print("🔍 Kein Shop gefunden - zeige Installations-Formular")
+        return render_template('install_form.html')
             
-        redirect_uri = f"{base_url}/auth/callback"
-        state = nonce
-        
-        print(f"🔧 Redirect URI für OAuth: {redirect_uri}")
-        
-        shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
-        
-        print(f"✅ Weiterleitung zur Shopify OAuth: {shopify_auth_url}")
-        return redirect(shopify_auth_url)
-        
     except Exception as e:
         print(f"❌ Fehler in der Installationsroutine: {e}")
         import traceback
