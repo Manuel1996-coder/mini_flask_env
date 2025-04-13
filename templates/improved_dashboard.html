@@ -8,6 +8,14 @@
 <!-- Shopify Session Token Validierungselement (früh im DOM) -->
 <div id="shopify-session-token-validation" data-status="pending" style="display: none;"></div>
 
+<!-- Versteckte Daten-Container für Charts -->
+<div id="chart-data" 
+     data-traffic-dates='{{ traffic_dates|tojson if traffic_dates else ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]|tojson }}'
+     data-traffic-pageviews='{{ traffic_data.pageviews|tojson if traffic_data and traffic_data.pageviews else [1200, 1900, 1500, 2700, 2200, 1900, 2600]|tojson }}'
+     data-traffic-visitors='{{ traffic_data.visitors|tojson if traffic_data and traffic_data.visitors else [800, 1200, 900, 1700, 1500, 1300, 1800]|tojson }}'
+     data-device-data='{{ device_data|tojson if device_data else [45, 40, 15]|tojson }}'
+     style="display: none;"></div>
+
 <div class="page-header">
   <div>
     <h1 class="page-title">{{ translations.dashboard.title|default('Analytics Dashboard') }}</h1>
@@ -21,8 +29,8 @@
         <option value="90">Letzte 90 Tage</option>
       </select>
     </div>
-    <button class="btn btn-outline-primary ml-2">
-      <i class="fas fa-download mr-1"></i> Exportieren
+    <button id="exportDashboardBtn" class="btn btn-outline-primary ml-2">
+      <i class="fas fa-download mr-1"></i> {{ translations.buttons.export|default('Exportieren') }}
     </button>
   </div>
 </div>
@@ -257,9 +265,9 @@
                 </div>
               </td>
               <td>
-                <div class="impact-indicator impact-{{ task.expected_impact }}">
+                <div class="impact-indicator impact-{{ task.impact }}">
                   {% for i in range(3) %}
-                    <span class="indicator-dot {% if i < {'high': 3, 'medium': 2, 'low': 1}[task.expected_impact] %}filled{% else %}empty{% endif %}"></span>
+                    <span class="indicator-dot {% if i < {'high': 3, 'medium': 2, 'low': 1}[task.impact] %}filled{% else %}empty{% endif %}"></span>
                   {% endfor %}
                 </div>
               </td>
@@ -304,6 +312,17 @@
 {{ super() }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Daten aus verstecktem Element laden
+    const chartDataElement = document.getElementById('chart-data');
+    const chartData = {
+      traffic: {
+        dates: JSON.parse(chartDataElement.getAttribute('data-traffic-dates')),
+        pageviews: JSON.parse(chartDataElement.getAttribute('data-traffic-pageviews')),
+        visitors: JSON.parse(chartDataElement.getAttribute('data-traffic-visitors'))
+      },
+      device: JSON.parse(chartDataElement.getAttribute('data-device-data'))
+    };
+
     // Animated counter for KPI values
     function animateCounter(element, targetValue, duration = 1500) {
       const startTime = performance.now();
@@ -343,18 +362,14 @@
     // Traffic Chart
     const trafficCtx = document.getElementById('trafficChart');
     if (trafficCtx) {
-      const dates = {{ traffic_dates|tojson if traffic_dates else '["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]'|safe }};
-      const pageviews = {{ traffic_data.pageviews|tojson if traffic_data and traffic_data.pageviews else '[1200, 1900, 1500, 2700, 2200, 1900, 2600]'|safe }};
-      const visitors = {{ traffic_data.visitors|tojson if traffic_data and traffic_data.visitors else '[800, 1200, 900, 1700, 1500, 1300, 1800]'|safe }};
-      
       const trafficChart = new Chart(trafficCtx, {
         type: 'line',
         data: {
-          labels: dates,
+          labels: chartData.traffic.dates,
           datasets: [
             {
               label: '{{ translations.dashboard.pageviews|default("Seitenaufrufe") }}',
-              data: pageviews,
+              data: chartData.traffic.pageviews,
               borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-600').trim(),
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               tension: 0.4,
@@ -362,7 +377,7 @@
             },
             {
               label: '{{ translations.dashboard.unique_visitors|default("Eindeutige Besucher") }}',
-              data: visitors,
+              data: chartData.traffic.visitors,
               borderColor: getComputedStyle(document.documentElement).getPropertyValue('--secondary-600').trim(),
               backgroundColor: 'transparent',
               tension: 0.4,
@@ -406,8 +421,6 @@
     // Devices Chart
     const devicesCtx = document.getElementById('devicesChart');
     if (devicesCtx) {
-      const deviceData = {{ device_data|tojson if device_data else '[45, 40, 15]'|safe }};
-      
       const devicesChart = new Chart(devicesCtx, {
         type: 'doughnut',
         data: {
@@ -417,7 +430,7 @@
             '{{ translations.dashboard.tablet|default("Tablet") }}'
           ],
           datasets: [{
-            data: deviceData,
+            data: chartData.device,
             backgroundColor: [
               getComputedStyle(document.documentElement).getPropertyValue('--primary-500').trim(),
               getComputedStyle(document.documentElement).getPropertyValue('--secondary-500').trim(),

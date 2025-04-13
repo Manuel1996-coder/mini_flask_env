@@ -975,92 +975,113 @@ def get_onboarding_content():
 
 @app.route('/dashboard')
 def dashboard():
-    # Die allgemeine Authentifizierungsprüfung wird bereits durch 
-    # die Middleware enforce_authentication() sichergestellt
+    try:
+        # Die allgemeine Authentifizierungsprüfung wird bereits durch 
+        # die Middleware enforce_authentication() sichergestellt
+        
+        # Shop aus der Session laden
+        shop = session.get('shop')
+        
+        # Host-Parameter EXAKT von Shopify verwenden (wichtig für App Bridge)
+        host = request.args.get('host', '')
+        
+        # Debugging
+        print(f"Dashboard Route - Host: {host}, Shop: {shop}")
+
+        # Simulierte Daten für die Dashboard-Ansicht
+        traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+        traffic_data = {
+            'pageviews': [450, 520, 480, 630, 580, 520, 680],
+            'visitors': [320, 380, 350, 450, 420, 380, 480]
+        }
+        device_data = [45, 40, 15]  # Prozent: Mobil, Desktop, Tablet
+        
+        trends = {
+            'pageviews': {'direction': 'up', 'value': 15},
+            'clicks': {'direction': 'up', 'value': 12},
+            'conversion_rate': {'direction': 'up', 'value': 8},
+            'session_duration': {'direction': 'down', 'value': 5},
+            'unique_pages': {'direction': 'up', 'value': 10},
+            'avg_order_value': {'direction': 'up', 'value': 7},
+            'total_revenue': {'direction': 'up', 'value': 22}
+        }
+        
+        # Alle direkten Werte, die im Template verwendet werden
+        total_pageviews = 1200
+        total_clicks = 450
+        conversion_rate = 4.5
+        avg_session_duration = 78
+        unique_pages = 25
+        avg_order_value = 87.50
+        total_revenue = 3150.75
+        last_updated = datetime.datetime.now().strftime('%d.%m.%Y, %H:%M Uhr')
+
+        # KI-generierte Handlungsempfehlungen 
+        ai_quick_tips = generate_ai_quick_tips()
+
+        # Priorisierte Umsetzungsaufgaben
+        implementation_tasks = generate_implementation_tasks()
+
+        # Shopify API Key für App Bridge
+        api_key = SHOPIFY_API_KEY
+
+        # Holen der Übersetzungen für die aktuelle Sprache
+        translations = get_translations()
+        user_language = session.get('language', 'de')
+        shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
+        app_version = '1.2.0'
+        
+        # Erweiterte Debug-Ausgabe
+        print(f"📊 Rendern des Dashboards für Shop: {shop_name}")
+        print(f"🌐 API-Key: {api_key[:5]}... Host: {host[:15]}...")
+        print(f"🔤 Sprache: {user_language}")
+
+        # Alles in einem context-Dictionary zusammenfassen
+        context = {
+            # Für das Layout benötigte Variablen
+            'translations': translations,
+            'user_language': user_language,
+            'shop_name': shop_name,
+            'api_key': api_key,
+            'host': host,
+            'app_version': app_version,
+            # Dashboard-spezifische Daten
+            'ai_quick_tips': ai_quick_tips,
+            'implementation_tasks': implementation_tasks,
+            'shop': shop,
+            # Traffic-Daten für Dashboard-Grafiken
+            'traffic_dates': traffic_dates,
+            'traffic_data': traffic_data,
+            'device_data': device_data,
+            # Trend-Daten
+            'trends': trends,
+            # Direkte Kennzahlen
+            'total_pageviews': total_pageviews,
+            'total_clicks': total_clicks,
+            'conversion_rate': conversion_rate,
+            'avg_session_duration': avg_session_duration,
+            'unique_pages': unique_pages,
+            'avg_order_value': avg_order_value,
+            'total_revenue': total_revenue,
+            'last_updated': last_updated,
+            'title': 'Dashboard'
+        }
+        
+        # Das Template rendern
+        return render_template('improved_dashboard.html', **context)
     
-    # Shop aus der Session laden
-    shop = session.get('shop')
-    
-    # Host-Parameter EXAKT von Shopify verwenden (wichtig für App Bridge)
-    host = request.args.get('host', '')
-    
-    # Debugging
-    print(f"Dashboard Route - Host: {host}, Shop: {shop}")
-
-    # Simulierte Daten für die Dashboard-Ansicht
-    traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-    traffic_data = {
-        'pageviews': [450, 520, 480, 630, 580, 520, 680],
-        'visitors': [320, 380, 350, 450, 420, 380, 480]
-    }
-    device_data = [45, 40, 15]  # Prozent: Mobil, Desktop, Tablet
-    
-    trends = {
-        'pageviews': {'direction': 'up', 'value': 15},
-        'clicks': {'direction': 'up', 'value': 12},
-        'conversion_rate': {'direction': 'up', 'value': 8},
-        'session_duration': {'direction': 'down', 'value': 5},
-        'unique_pages': {'direction': 'up', 'value': 10},
-        'avg_order_value': {'direction': 'up', 'value': 7},
-        'total_revenue': {'direction': 'up', 'value': 22}
-    }
-    
-    # Alle direkten Werte, die im Template verwendet werden
-    total_pageviews = 1200
-    total_clicks = 450
-    conversion_rate = 4.5
-    avg_session_duration = 78
-    unique_pages = 25
-    avg_order_value = 87.50
-    total_revenue = 3150.75
-    last_updated = datetime.datetime.now().strftime('%d.%m.%Y, %H:%M Uhr')
-
-    # KI-generierte Handlungsempfehlungen 
-    ai_quick_tips = generate_ai_quick_tips()
-
-    # Priorisierte Umsetzungsaufgaben
-    implementation_tasks = generate_implementation_tasks()
-
-    # Shopify API Key für App Bridge
-    api_key = SHOPIFY_API_KEY
-
-    # Holen der Übersetzungen für die aktuelle Sprache
-    translations = get_translations()
-    user_language = session.get('language', 'de')
-    shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
-    app_version = '1.2.0'
-
-    # Dashboard-Template mit allen erforderlichen Variablen rendern
-    return render_template(
-        'improved_dashboard.html',
-        # Für das Layout benötigte Variablen
-        translations=translations,
-        user_language=user_language,
-        shop_name=shop_name,
-        api_key=api_key,
-        host=host,
-        app_version=app_version,
-        # Dashboard-spezifische Daten
-        ai_quick_tips=ai_quick_tips,
-        implementation_tasks=implementation_tasks,
-        shop=shop,
-        # Traffic-Daten für Dashboard-Grafiken
-        traffic_dates=traffic_dates,
-        traffic_data=traffic_data,
-        device_data=device_data,
-        # Trend-Daten
-        trends=trends,
-        # Direkte Kennzahlen
-        total_pageviews=total_pageviews,
-        total_clicks=total_clicks,
-        conversion_rate=conversion_rate,
-        avg_session_duration=avg_session_duration,
-        unique_pages=unique_pages,
-        avg_order_value=avg_order_value,
-        total_revenue=total_revenue,
-        last_updated=last_updated,
-        title='Dashboard'
-    )
+    except Exception as e:
+        # Fehlerbehandlung
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"❌ Fehler beim Rendern des Dashboards: {e}")
+        print(f"Traceback: {error_traceback}")
+        
+        # Einfache Fehlerseite mit detaillierter Fehlermeldung
+        return render_template('error.html', 
+                               error="Fehler beim Laden des Dashboards", 
+                               details=str(e),
+                               traceback=error_traceback)
 
 def generate_ai_tips(shop_data):
     """Generiert KI-basierte Tipps basierend auf Tracking-Daten."""
