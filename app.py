@@ -414,18 +414,42 @@ def hmac_validation(params):
     
     return hmac.compare_digest(calculated_hmac, hmac_value)
 
+# Hilfsfunktion zur Authentifizierungsprüfung
+def is_authenticated():
+    """Prüft, ob der aktuelle Benutzer authentifiziert ist"""
+    return 'shop' in session and 'access_token' in session
+
+# Middleware-Funktion für Authentifizierungsprüfung
+@app.before_request
+def enforce_authentication():
+    """Stellt sicher, dass alle Seiten (außer OAuth-bezogene) authentifiziert sind"""
+    # Liste der Pfade, die ohne Authentifizierung zugänglich sind
+    exempt_paths = [
+        '/install', 
+        '/auth/callback', 
+        '/oauth-error', 
+        '/error',
+        '/static/',
+        '/favicon.ico'
+    ]
+    
+    # Prüfen, ob der aktuelle Pfad von der Authentifizierung ausgenommen ist
+    for path in exempt_paths:
+        if request.path.startswith(path):
+            return
+    
+    # Wenn nicht authentifiziert, zur Installation weiterleiten
+    if not is_authenticated():
+        print(f"❌ Nicht authentifizierte Anfrage für Pfad: {request.path} - Weiterleitung zur Installation")
+        return redirect('/install')
+
 @app.route('/')
 def index():
     """Root-Route mit Authentifizierungsprüfung."""
     try:
-        # Prüfe ob ein Shop in der Session ist
-        if 'shop' not in session:
+        # Wenn nicht authentifiziert, zur Installation weiterleiten
+        if not is_authenticated():
             print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
-            return redirect('/install')
-            
-        # Prüfe ob ein Access Token vorhanden ist
-        if 'access_token' not in session:
-            print("❌ Kein Access Token in der Session gefunden - Weiterleitung zur Installation")
             return redirect('/install')
             
         print(f"✅ Shop authentifiziert: {session['shop']}")
@@ -439,77 +463,66 @@ def index():
 
 @app.route('/install')
 def install():
-    """Shopify OAuth-Installationsseite mit verbesserter Fehlerbehandlung und direkter Weiterleitung"""
+    """Shopify OAuth-Installationsseite mit direkter Weiterleitung zur Authentifizierung"""
     try:
-        # Prüfe auf Embedded-Modus
-        embedded = request.args.get('embedded') == '1'
-        
-        # Shopify-spezifischer Parameter zum Erkennen von eingebetteten Apps
-        is_embedded = 'embedded' in request.args
-        
-        # Wenn wir im eingebetteten Modus sind und ggf. Sandbox-Probleme haben könnten,
-        # leiten wir zu einer speziellen Fehlerseite weiter
-        if is_embedded:
-            # Nur zu Debug-Zwecken
-            print("Embedded-Modus erkannt, könnte Sandbox-Einschränkungen haben")
-        
-        # Shop-Parameter aus der Anfrage extrahieren
+        # Prüfen, ob ein Shop-Parameter in der Anfrage vorhanden ist
         shop = request.args.get('shop')
         
-        # Wenn ein Shop-Parameter direkt in der URL vorhanden ist,
-        # leiten wir sofort zur Shopify-OAuth-Seite weiter (ohne Installationsformular)
-        if shop:
-            print(f"✅ Shop-Parameter gefunden: {shop} - leite direkt zur OAuth-Seite weiter")
-            
-            # Erzeugen eines eindeutigen Nonce für CSRF-Schutz
-            nonce = secrets.token_hex(16)
-            session['nonce'] = nonce
-            
-            scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
-            
-            # Korrekte Basis-URL mit Schema erstellen
-            base_url = get_base_url()
-            # Sicherstellen, dass die URL mit https:// beginnt
-            if not base_url.startswith(('http://', 'https://')):
-                base_url = 'https://' + base_url
-                
-            redirect_uri = f"{base_url}/auth/callback"
-            state = nonce
-            
-            print(f"🔧 Redirect URI für OAuth: {redirect_uri}")
-            
-            # Validiere den Shop-Namen (einfache Prüfung)
-            if not shop.endswith('.myshopify.com'):
-                print(f"⚠️ Ungültiger Shop-Name: {shop} - muss auf .myshopify.com enden")
-                return render_template('install_form.html', error="Bitte gib eine gültige Shopify-Shop-URL ein (Format: dein-shop.myshopify.com)")
-            
-            try:
-                shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
-                
-                print(f"✅ Weiterleitung zur Shopify OAuth: {shopify_auth_url}")
-                return redirect(shopify_auth_url)
-            except Exception as e:
-                print(f"❌ Fehler beim Erstellen der OAuth-URL: {e}")
-                return render_template('install_form.html', error=f"Fehler bei der Weiterleitung: {str(e)}")
-        
-        # Wenn kein Shop-Parameter vorhanden ist und wir einen Shop in der Session haben,
-        # verwende diesen und leite direkt zur OAuth-Seite weiter
-        if 'shop' in session:
+        # Falls kein Shop-Parameter vorhanden ist, aber in der Session
+        if not shop and 'shop' in session:
             shop = session.get('shop')
-            print(f"🔍 Shop aus Session: {shop} - leite direkt zur OAuth-Seite weiter")
-            
-            return redirect(f"/install?shop={shop}")
+            print(f"✅ Shop aus Session verwendet: {shop}")
         
-        # Wenn weder Shop-Parameter noch Session-Shop vorhanden ist,
-        # zeige das Installations-Formular an
-        print("🔍 Kein Shop gefunden - zeige Installations-Formular")
-        return render_template('install_form.html')
+        # Wenn kein Shop-Parameter vorhanden ist, zeige das Formular an
+        if not shop:
+            print("❌ Kein Shop-Parameter gefunden und kein Shop in der Session")
+            return render_template('install_form.html')
+        
+        # Erzeugen eines eindeutigen Nonce für CSRF-Schutz
+        nonce = secrets.token_hex(16)
+        session['nonce'] = nonce
+        
+        # Scopes für die Berechtigungen definieren
+        scopes = "read_products,write_products,read_orders,read_customers,write_customers,read_analytics"
+        
+        # Korrekte Basis-URL mit Schema erstellen
+        base_url = get_base_url()
+        # Sicherstellen, dass die URL mit https:// beginnt
+        if not base_url.startswith(('http://', 'https://')):
+            base_url = 'https://' + base_url
+            
+        redirect_uri = f"{base_url}/auth/callback"
+        state = nonce
+        
+        print(f"🔧 Redirect URI für OAuth: {redirect_uri}")
+        
+        # Validiere den Shop-Namen (einfache Prüfung)
+        if not shop.endswith('.myshopify.com'):
+            print(f"⚠️ Ungültiger Shop-Name: {shop} - muss auf .myshopify.com enden")
+            
+            # Falls nicht die richtige Form hat, versuche zu korrigieren
+            if '.' not in shop:
+                corrected_shop = f"{shop}.myshopify.com"
+                print(f"🔧 Korrigiere Shop-Name zu: {corrected_shop}")
+                shop = corrected_shop
+            else:
+                return render_template('install_form.html', 
+                                      error="Bitte gib eine gültige Shopify-Shop-URL ein (Format: dein-shop.myshopify.com)")
+        
+        try:
+            shopify_auth_url = f"https://{shop}/admin/oauth/authorize?client_id={SHOPIFY_API_KEY}&scope={scopes}&redirect_uri={redirect_uri}&state={state}"
+            
+            print(f"✅ Weiterleitung zur Shopify OAuth: {shopify_auth_url}")
+            return redirect(shopify_auth_url)
+        except Exception as e:
+            print(f"❌ Fehler beim Erstellen der OAuth-URL: {e}")
+            return render_template('install_form.html', error=f"Fehler bei der Weiterleitung: {str(e)}")
             
     except Exception as e:
-        print(f"❌ Fehler in der Installationsroutine: {e}")
+        print(f"❌ Fehler in der Install-Route: {e}")
         import traceback
         traceback.print_exc()
-        return render_template('error.html', error=str(e))
+        return render_template('install_form.html', error=f"Ein Fehler ist aufgetreten: {str(e)}")
 
 @app.route('/oauth-error')
 def oauth_error():
@@ -527,6 +540,7 @@ def oauth_error():
 
 @app.route('/auth/callback')
 def auth_callback():
+    """Callback für OAuth-Flow mit verbessertem Fehlerhandling."""
     try:
         # HMAC-Validierung für Shopify-Anfragen
         if not hmac_validation(request.args):
@@ -549,22 +563,6 @@ def auth_callback():
         # Debug-Ausgaben
         print(f"🔄 Auth Callback erhalten - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}")
         
-        # Shopify sendet manchmal einen Base64-kodierten Host-Parameter
-        host = None
-        if host_param:
-            try:
-                # Versuche, den Host-Parameter zu dekodieren (falls Base64-kodiert)
-                decoded_host = base64.b64decode(host_param).decode('utf-8')
-                print(f"🔍 Dekodierter Host-Parameter: {decoded_host}")
-                host = decoded_host
-            except Exception as e:
-                # Falls die Dekodierung fehlschlägt, verwende den originalen Parameter
-                print(f"⚠️ Host-Dekodierung fehlgeschlagen: {e}, verwende Originalen: {host_param}")
-                host = host_param
-        
-        # Debug-Ausgaben für Troubleshooting
-        print(f"🔍 Auth Callback - Shop: {shop}, Code vorhanden: {'Ja' if code else 'Nein'}, State: {state}, Host: {host}")
-        
         # Prüfen, ob alle erforderlichen Parameter vorhanden sind
         if not shop or not code:
             print("❌ Fehlende Parameter: shop oder code")
@@ -579,8 +577,7 @@ def auth_callback():
         session_nonce = session.get('nonce')
         if session_nonce != state:
             print(f"⚠️ State-Mismatch - Session: {session_nonce}, Callback: {state}")
-            # Da es manchmal zu Timing-Problemen kommen kann, versuchen wir trotzdem fortzufahren
-            # aber loggen den Fehler für Debugging-Zwecke
+            # Trotzdem fortfahren, aber Warnung loggen
 
         # API-Endpunkt für Shopify OAuth
         token_url = f"https://{shop}/admin/oauth/access_token"
@@ -597,7 +594,7 @@ def auth_callback():
         # Token anfordern mit Error-Handling und Timeout
         try:
             response = requests.post(token_url, data=data, timeout=10)
-            response.raise_for_status()  # Wirft Exception bei HTTP-Fehlern
+            response.raise_for_status()
         except requests.exceptions.RequestException as e:
             print(f"❌ Fehler bei der Token-Anfrage: {e}")
             error_msg = f"Failed to get access token: {str(e)}"
@@ -614,6 +611,9 @@ def auth_callback():
         # Token aus der Antwort extrahieren
         access_token = token_data.get('access_token')
         
+        # Session permanent machen (längere Lebensdauer)
+        session.permanent = True
+        
         # Token und Shop-Information in der Session speichern
         session['shop'] = shop
         session['access_token'] = access_token
@@ -621,9 +621,9 @@ def auth_callback():
         session['auth_time'] = datetime.datetime.now().isoformat()
         
         # Host-Parameter speichern (wichtig für App Bridge)
-        if host:
-            session['host'] = host
-            print(f"✅ Host in Session gespeichert: {host}")
+        if host_param:
+            session['host'] = host_param
+            print(f"✅ Host in Session gespeichert: {host_param}")
         else:
             # Wenn kein Host-Parameter vorhanden ist, eine standardmäßige Host-URL generieren
             shop_name = shop.replace('.myshopify.com', '')
@@ -638,22 +638,16 @@ def auth_callback():
             register_webhooks(shop, access_token)
         except Exception as webhook_error:
             print(f"⚠️ Fehler beim Registrieren der Webhooks: {webhook_error}")
-            # Webhooks sind wichtig, aber nicht kritisch für die App-Funktionalität
-            # Wir fahren trotzdem fort
-            
-        # Leite zur Dashboard-Seite weiter
-        redirect_url = f"/dashboard?shop={shop}"
-        if host:
-            redirect_url += f"&host={host}"
-            
-        print(f"➡️ Weiterleitung zu: {redirect_url}")
-        return redirect(redirect_url)
+            # Fehler beim Registrieren der Webhooks sollte nicht den gesamten Auth-Flow unterbrechen
+        
+        # Zum Dashboard weiterleiten
+        return redirect('/dashboard')
         
     except Exception as e:
-        print(f"❌ Unerwarteter Fehler im Auth Callback: {e}")
+        print(f"❌ Fehler im Auth Callback: {e}")
         import traceback
         traceback.print_exc()
-        return render_template('error.html', error=str(e))
+        return redirect(f'/oauth-error?error=general_error&error_message={str(e)}')
 
 def get_base_url():
     """
@@ -952,17 +946,12 @@ def get_onboarding_content():
 
 @app.route('/dashboard')
 def dashboard():
-    # Prüfe, ob ein Shop in der Session ist
-    shop = get_shop_from_session()
-    if not shop:
-        return redirect('/install')
-
-    # Authentifiziere Anfrage (entweder über Session-Token oder Session-Cookie)
-    authenticated = verify_request_with_token() or 'shopify_session' in session
-
-    if not authenticated:
-        return redirect('/install')
-        
+    # Die allgemeine Authentifizierungsprüfung wird bereits durch 
+    # die Middleware enforce_authentication() sichergestellt
+    
+    # Shop aus der Session laden
+    shop = session.get('shop')
+    
     # Host-Parameter EXAKT von Shopify verwenden (wichtig für App Bridge)
     host = request.args.get('host', '')
     
@@ -996,27 +985,25 @@ def dashboard():
         'last_updated': datetime.datetime.now().strftime('%d.%m.%Y, %H:%M Uhr')
     }
 
-    # KI-generierte Handlungsempfehlungen
+    # KI-generierte Handlungsempfehlungen 
     ai_quick_tips = generate_ai_quick_tips()
 
     # Priorisierte Umsetzungsaufgaben
     implementation_tasks = generate_implementation_tasks()
 
-    # Kontext für das Template
-    context = {
-        'translations': get_translations(),
-        'user_language': session.get('language', 'de'),
-        'shop_name': shop,
-        'api_key': SHOPIFY_API_KEY,
-        'host': host,
-        'app_version': '1.2.0',
-        **analytics_data,
-        'ai_quick_tips': ai_quick_tips,
-        'implementation_tasks': implementation_tasks
-    }
+    # Shopify API Key für App Bridge
+    api_key = SHOPIFY_API_KEY
 
-    # Verbesserte Dashboard-Vorlage verwenden
-    return render_template('improved_dashboard.html', **context)
+    # Render Dashboard-Template
+    return render_template(
+        'improved_dashboard.html',
+        analytics_data=analytics_data,
+        ai_quick_tips=ai_quick_tips,
+        implementation_tasks=implementation_tasks,
+        shop=shop,
+        api_key=api_key,
+        host=host
+    )
 
 def generate_ai_tips(shop_data):
     """Generiert KI-basierte Tipps basierend auf Tracking-Daten."""
@@ -2957,3 +2944,33 @@ def settings():
         api_key=SHOPIFY_API_KEY,
         app_settings=app_settings
     )
+
+@app.route('/api/auth-check', methods=['GET', 'OPTIONS'])
+def api_auth_check():
+    """API-Endpunkt zur Überprüfung des Authentifizierungsstatus."""
+    if request.method == 'OPTIONS':
+        # CORS-Preflight-Anfrage beantworten
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+    
+    # Authentifizierungsstatus überprüfen
+    authenticated = is_authenticated()
+    
+    # Antwort vorbereiten
+    response_data = {
+        'authenticated': authenticated,
+        'timestamp': datetime.datetime.now().isoformat()
+    }
+    
+    # Response mit CORS-Headers
+    response = make_response(jsonify(response_data))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    
+    return response
