@@ -359,36 +359,36 @@ def generate_implementation_tasks():
             'id': 1,
             'title': 'Mobile Checkout optimieren',
             'description': 'Vereinfache den Checkout-Prozess für mobile Geräte, um Abbrüche zu reduzieren',
-            'priority': 'hoch',
-            'effort': 'mittel',
-            'impact': 'hoch',
+            'priority': 'high',
+            'effort': 'medium',
+            'impact': 'high',
             'status': 'offen'
         },
         {
             'id': 2,
             'title': 'Produkt-Metadaten verbessern',
             'description': 'SEO-Optimierung für bessere Sichtbarkeit in Google',
-            'priority': 'mittel',
-            'effort': 'niedrig',
-            'impact': 'mittel',
+            'priority': 'medium',
+            'effort': 'low',
+            'impact': 'medium',
             'status': 'offen'
         },
         {
             'id': 3,
             'title': 'Kundenbewertungen einbinden',
             'description': 'Füge ein Bewertungssystem zu Produktseiten hinzu',
-            'priority': 'niedrig',
-            'effort': 'mittel',
-            'impact': 'mittel',
+            'priority': 'low',
+            'effort': 'medium',
+            'impact': 'medium',
             'status': 'offen'
         },
         {
             'id': 4,
             'title': 'Email-Marketing einrichten',
             'description': 'Automatisiere Abandoned-Cart und Post-Purchase Emails',
-            'priority': 'hoch', 
-            'effort': 'hoch',
-            'impact': 'hoch',
+            'priority': 'high', 
+            'effort': 'high',
+            'impact': 'high',
             'status': 'in Bearbeitung'
         }
     ]
@@ -2861,36 +2861,36 @@ def generate_implementation_tasks():
             'id': 1,
             'title': 'Mobile Checkout optimieren',
             'description': 'Vereinfache den Checkout-Prozess für mobile Geräte, um Abbrüche zu reduzieren',
-            'priority': 'hoch',
-            'effort': 'mittel',
-            'impact': 'hoch',
+            'priority': 'high',
+            'effort': 'medium',
+            'impact': 'high',
             'status': 'offen'
         },
         {
             'id': 2,
             'title': 'Produkt-Metadaten verbessern',
             'description': 'SEO-Optimierung für bessere Sichtbarkeit in Google',
-            'priority': 'mittel',
-            'effort': 'niedrig',
-            'impact': 'mittel',
+            'priority': 'medium',
+            'effort': 'low',
+            'impact': 'medium',
             'status': 'offen'
         },
         {
             'id': 3,
             'title': 'Kundenbewertungen einbinden',
             'description': 'Füge ein Bewertungssystem zu Produktseiten hinzu',
-            'priority': 'niedrig',
-            'effort': 'mittel',
-            'impact': 'mittel',
+            'priority': 'low',
+            'effort': 'medium',
+            'impact': 'medium',
             'status': 'offen'
         },
         {
             'id': 4,
             'title': 'Email-Marketing einrichten',
             'description': 'Automatisiere Abandoned-Cart und Post-Purchase Emails',
-            'priority': 'hoch', 
-            'effort': 'hoch',
-            'impact': 'hoch',
+            'priority': 'high', 
+            'effort': 'high',
+            'impact': 'high',
             'status': 'in Bearbeitung'
         }
     ]
