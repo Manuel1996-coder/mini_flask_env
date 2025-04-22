@@ -1,0 +1,611 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="header">
+        <h1 class="page-title">{{ translations.growth_advisor.title }}</h1>
+        <div class="header-actions">
+            <div class="date-filter">
+                <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
+                {{ translations.growth_advisor.last_updated|default('Letzte Aktualisierung') }}: {{ last_updated }}
+            </div>
+            <button class="export-btn" id="export-advisor-btn">
+                <span class="export-icon"><i class="fas fa-download"></i></span>
+                {{ translations.buttons.export }}
+            </button>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Performance Übersicht -->
+    <section class="kpi-section">
+        <div class="kpi-header">
+            <h2 class="kpi-title">{{ translations.growth_advisor.shop_performance_overview|default('Shop Performance Übersicht') }}</h2>
+            <div class="kpi-period">
+                <span>{{ translations.growth_advisor.shop|default('Shop') }}: {{ shop_name }}</span>
+            </div>
+        </div>
+        
+        <div class="kpi-grid">
+            <div class="kpi-card primary">
+                <div class="kpi-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-label">{{ translations.growth_advisor.growth_score|default('Growth Score') }}</div>
+                    <div class="kpi-value">72/100</div>
+                    <div class="kpi-trend trend-up">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>{{ translations.growth_advisor.points_last_month|default('+8 Punkte im letzten Monat') }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kpi-card secondary">
+                <div class="kpi-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-label">{{ translations.growth_advisor.customer_segmentation }}</div>
+                    <div class="kpi-value">{{ translations.growth_advisor.active_segments|default('4 aktive Segmente') }}</div>
+                    <div class="kpi-trend trend-up">
+                        <i class="fas fa-info-circle"></i>
+                        <span>{{ translations.growth_advisor.segment_potential|default('1 Segment mit Optimierungspotential') }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kpi-card success">
+                <div class="kpi-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-label">{{ translations.growth_advisor.revenue_potential }}</div>
+                    <div class="kpi-value">+24%</div>
+                    <div class="kpi-trend trend-up">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>{{ translations.growth_advisor.by_implementing_all|default('Durch Implementierung aller Empfehlungen') }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kpi-card info">
+                <div class="kpi-icon">
+                    <i class="fas fa-store"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-label">{{ translations.growth_advisor.assortment_optimization }}</div>
+                    <div class="kpi-value">{{ translations.growth_advisor.recommendation_count|default('3 Empfehlungen') }}</div>
+                    <div class="kpi-trend">
+                        <i class="fas fa-check-circle"></i>
+                        <span>{{ translations.growth_advisor.portfolio_analyzed|default('Produktportfolio analysiert') }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- KI-Empfehlungen -->
+    <section class="kpi-section">
+        <div class="kpi-header">
+            <h2 class="kpi-title">{{ translations.growth_advisor.prioritized_actions|default('Priorisierte Handlungsempfehlungen') }} 💡</h2>
+            <div class="kpi-period">
+                <button class="filter-btn active" data-filter="all">{{ translations.growth_advisor.all_recommendations }}</button>
+                <button class="filter-btn" data-filter="sortiment">{{ translations.growth_advisor.assortment_optimization }}</button>
+                <button class="filter-btn" data-filter="kunden">{{ translations.growth_advisor.customer_segmentation }}</button>
+                <button class="filter-btn" data-filter="umsatz">{{ translations.growth_advisor.revenue_potential }}</button>
+            </div>
+        </div>
+
+        <div class="advisor-content">
+            {% if recommendations %}
+                <div class="recommendations-intro mb-4">
+                    <p>{{ translations.growth_advisor.ai_analysis_intro|default('Unser KI-System hat deine Shop-Performance analysiert und folgende individuelle Handlungsempfehlungen generiert:') }}</p>
+                </div>
+                
+                {% for rec in recommendations %}
+                <div class="recommendation-card mb-4 {% if rec.priority == 'hoch' %}priority-high{% elif rec.priority == 'mittel' %}priority-medium{% else %}priority-low{% endif %}" data-category="{{ rec.category|lower }}">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ rec.title }}</h3>
+                        <span class="priority-badge {% if rec.priority == 'hoch' %}high{% elif rec.priority == 'mittel' %}medium{% else %}low{% endif %}">{{ rec.priority|capitalize }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ rec.description }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> {{ translations.growth_advisor.impact }}: {{ rec.expected_impact|capitalize }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> {{ translations.growth_advisor.effort }}: {{ rec.effort|capitalize }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ rec.category }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Erweiterte Empfehlungen basierend auf neuen Features -->
+                
+                <!-- Sortimentsoptimierung -->
+                <div class="recommendation-card mb-4 priority-high" data-category="sortiment">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ translations.growth_advisor.cross_selling_title|default('Cross-Selling Potentiale nutzen: "Produkt A + B" Bundle') }}</h3>
+                        <span class="priority-badge high">{{ translations.growth_advisor.high }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ translations.growth_advisor.cross_selling_desc|default('Unsere Analyse hat gezeigt, dass Kunden, die "Produkt A" kaufen, mit 64% Wahrscheinlichkeit auch "Produkt B" erwerben. Erstelle ein Bundle-Angebot mit 10% Rabatt, um den durchschnittlichen Bestellwert zu steigern.') }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> {{ translations.growth_advisor.impact }}: {{ translations.growth_advisor.high }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> {{ translations.growth_advisor.effort }}: {{ translations.growth_advisor.low }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ translations.growth_advisor.assortment_optimization }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recommendation-card mb-4 priority-medium" data-category="sortiment">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ translations.growth_advisor.seasonal_product_title|default('Saisonale Produktergänzung: "Sommer-Kollektion"') }}</h3>
+                        <span class="priority-badge medium">{{ translations.growth_advisor.medium }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ translations.growth_advisor.seasonal_product_desc|default('Basierend auf aktuellen Markttrends und deinem Sortiment empfehlen wir die Aufnahme von 3 neuen Produkten in deine Sommer-Kollektion. Dies würde eine Lücke in deinem aktuellen Angebot schließen und neue Kundensegmente ansprechen.') }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> {{ translations.growth_advisor.impact }}: {{ translations.growth_advisor.medium }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> {{ translations.growth_advisor.effort }}: {{ translations.growth_advisor.medium }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ translations.growth_advisor.assortment_optimization }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Kundensegmentierung -->
+                <div class="recommendation-card mb-4 priority-high" data-category="kunden">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ translations.growth_advisor.reactivation_campaign|default('Reaktivierungskampagne für schlafende Kunden') }}</h3>
+                        <span class="priority-badge high">{{ translations.growth_advisor.high }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ translations.growth_advisor.reactivation_desc|default('Du hast 247 Kunden, die seit mehr als 120 Tagen keinen Kauf getätigt haben, aber zuvor regelmäßige Käufer waren. Erstelle eine personalisierte E-Mail-Kampagne mit einem speziellen Angebot, um diese Kunden zu reaktivieren.') }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> {{ translations.growth_advisor.impact }}: {{ translations.growth_advisor.high }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> {{ translations.growth_advisor.effort }}: {{ translations.growth_advisor.low }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ translations.growth_advisor.customer_segmentation }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Umsatzpotential -->
+                <div class="recommendation-card mb-4 priority-high" data-category="umsatz">
+                    <div class="recommendation-header">
+                        <h3 class="recommendation-title">{{ translations.growth_advisor.revenue_increase_title|default('Umsatzsteigerung durch optimierte Preisstruktur') }}</h3>
+                        <span class="priority-badge high">{{ translations.growth_advisor.high }}</span>
+                    </div>
+                    <div class="recommendation-body">
+                        <p class="recommendation-desc">{{ translations.growth_advisor.revenue_increase_desc|default('Basierend auf unserer What-If-Analyse könnte eine Preiserhöhung von 7% bei deinen Top-10-Produkten zu einer Umsatzsteigerung von 12% führen, ohne das Verkaufsvolumen signifikant zu beeinträchtigen. Unsere Elastizitätsberechnung zeigt, dass diese Produkte eine niedrige Preiselastizität aufweisen.') }}</p>
+                        <div class="recommendation-meta">
+                            <span class="meta-item"><i class="fas fa-chart-line"></i> {{ translations.growth_advisor.impact }}: {{ translations.growth_advisor.high }}</span>
+                            <span class="meta-item"><i class="fas fa-clock"></i> {{ translations.growth_advisor.effort }}: {{ translations.growth_advisor.low }}</span>
+                            <span class="meta-item"><i class="fas fa-tag"></i> {{ translations.growth_advisor.revenue_potential }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="actions-row">
+                    <button class="primary-btn refresh-btn">
+                        <i class="fas fa-sync-alt"></i> {{ translations.buttons.refresh_recommendations|default('Empfehlungen aktualisieren') }}
+                    </button>
+                    <button class="secondary-btn implement-btn">
+                        <i class="fas fa-check"></i> {{ translations.buttons.mark_as_implemented|default('Als umgesetzt markieren') }}
+                    </button>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3 class="empty-title">{{ translations.growth_advisor.no_data_title|default('Noch nicht genug Daten') }}</h3>
+                    <p class="empty-message">{{ translations.growth_advisor.no_data_message|default('Wir benötigen mehr Daten, um personalisierte Empfehlungen zu generieren.') }}</p>
+                    <p class="empty-submessage">{{ translations.growth_advisor.no_data_submessage|default('Stelle sicher, dass das Tracking-Script auf allen Seiten deines Shops installiert ist.') }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+    
+    <!-- Neue Sektion: Sortimentsanalyse -->
+    <section class="chart-container">
+        <div class="chart-header">
+            <h3 class="chart-title">{{ translations.growth_advisor.assortment_analysis|default('Sortimentsanalyse: Produktkombinationen') }}</h3>
+            <div class="chart-actions">
+                <button class="chart-action-btn">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="chart-content">
+            <div id="product-combinations-chart" style="height: 350px; width: 100%;"></div>
+        </div>
+        
+        <div class="chart-footer">
+            <p>{{ translations.growth_advisor.assortment_analysis_description|default('Diese Analyse zeigt, welche Produkte häufig zusammen gekauft werden. Nutze diese Erkenntnisse für Cross-Selling und Bundle-Angebote.') }}</p>
+        </div>
+    </section>
+    
+    <!-- Neue Sektion: Kundensegmentierung -->
+    <section class="charts-row">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3 class="chart-title">{{ translations.growth_advisor.customer_segments|default('Kundensegmente') }}</h3>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4f46e5;"></div>
+                        {{ translations.growth_advisor.regular_customers|default('Stammkunden') }}
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f97316;"></div>
+                        {{ translations.growth_advisor.new_customers|default('Neukunden') }}
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ef4444;"></div>
+                        {{ translations.growth_advisor.inactive_customers|default('Inaktive Kunden') }}
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #10b981;"></div>
+                        {{ translations.growth_advisor.high_value_customers|default('Hochwertkundschaft') }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-content">
+                <div id="customer-segments-chart" style="height: 300px; width: 100%;"></div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3 class="chart-title">{{ translations.growth_advisor.customer_value_development|default('Kundenwert-Entwicklung') }}</h3>
+            </div>
+            
+            <div class="chart-content">
+                <div id="customer-value-chart" style="height: 300px; width: 100%;"></div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Neue Sektion: Umsatzpotential-Kalkulator -->
+    <section class="kpi-section">
+        <div class="kpi-header">
+            <h2 class="kpi-title">{{ translations.growth_advisor.revenue_potential_calculator|default('Umsatzpotential-Kalkulator') }}</h2>
+            <div class="kpi-period">
+                <button class="what-if-btn" id="calculate-potential">{{ translations.buttons.new_calculation|default('Neu berechnen') }}</button>
+            </div>
+        </div>
+        
+        <div class="what-if-container">
+            <div class="what-if-controls">
+                <div class="what-if-group">
+                    <label for="price-change">{{ translations.growth_advisor.price_change|default('Preisänderung:') }}</label>
+                    <div class="slider-container">
+                        <input type="range" id="price-change" min="-30" max="30" value="0" step="1">
+                        <span class="slider-value">0%</span>
+                    </div>
+                </div>
+                
+                <div class="what-if-group">
+                    <label for="marketing-budget">{{ translations.growth_advisor.marketing_budget|default('Marketing-Budget:') }}</label>
+                    <div class="slider-container">
+                        <input type="range" id="marketing-budget" min="0" max="2000" value="500" step="100">
+                        <span class="slider-value">€500</span>
+                    </div>
+                </div>
+                
+                <div class="what-if-group">
+                    <label for="product-count">{{ translations.growth_advisor.product_variety|default('Produktvielfalt:') }}</label>
+                    <div class="slider-container">
+                        <input type="range" id="product-count" min="-5" max="10" value="0" step="1">
+                        <span class="slider-value">+0 Produkte</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="what-if-results">
+                <div class="result-card">
+                    <div class="result-title">{{ translations.growth_advisor.revenue_forecast|default('Prognose Umsatz') }}</div>
+                    <div class="result-value">€12.450</div>
+                    <div class="result-change trend-up">+12% zum Vormonat</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-title">{{ translations.growth_advisor.profit_forecast|default('Prognose Gewinn') }}</div>
+                    <div class="result-value">€4.120</div>
+                    <div class="result-change trend-up">+8% zum Vormonat</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-title">{{ translations.growth_advisor.roi|default('ROI') }}</div>
+                    <div class="result-value">215%</div>
+                    <div class="result-change trend-up">+15% zum Vormonat</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter-Funktionalität für Empfehlungen
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const recommendationCards = document.querySelectorAll('.recommendation-card');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filter = this.getAttribute('data-filter');
+            
+            // Aktive Klasse umschalten
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Karten filtern
+            recommendationCards.forEach(card => {
+                if (filter === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    const category = card.getAttribute('data-category');
+                    if (category && category.includes(filter)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+        });
+    });
+    
+    // Slider-Funktionalität für Umsatzpotential-Kalkulator
+    const sliders = document.querySelectorAll('input[type="range"]');
+    
+    sliders.forEach(slider => {
+        const valueDisplay = slider.nextElementSibling;
+        
+        slider.addEventListener('input', function() {
+            if (this.id === 'price-change' || this.id === 'product-count') {
+                const prefix = this.id === 'product-count' ? '+' : '';
+                valueDisplay.textContent = `${prefix}${this.value}%`;
+                if (this.id === 'product-count') {
+                    valueDisplay.textContent = `${this.value > 0 ? '+' : ''}${this.value} Produkte`;
+                }
+            } else {
+                valueDisplay.textContent = `€${this.value}`;
+            }
+            
+            // Demo-Berechnung der Ergebnisse simulieren
+            simulateCalculation();
+        });
+    });
+    
+    function simulateCalculation() {
+        const priceChange = parseFloat(document.getElementById('price-change').value);
+        const marketingBudget = parseFloat(document.getElementById('marketing-budget').value);
+        const productCount = parseFloat(document.getElementById('product-count').value);
+        
+        // Einfache Simulation der Berechnungen
+        const baseRevenue = 10000;
+        const baseProfitMargin = 0.3;
+        
+        let revenueMultiplier = 1.0;
+        
+        // Preis-Effekt (vereinfacht)
+        if (priceChange > 0) {
+            revenueMultiplier += (priceChange * 0.005); // Positive Preiselastizität
+        } else {
+            revenueMultiplier += (priceChange * 0.01); // Negative Preiselastizität
+        }
+        
+        // Marketing-Effekt
+        revenueMultiplier += (marketingBudget / 10000);
+        
+        // Produkt-Effekt
+        revenueMultiplier += (productCount * 0.02);
+        
+        // Ergebnisse berechnen
+        const newRevenue = Math.round(baseRevenue * revenueMultiplier);
+        const newProfitMargin = baseProfitMargin - (marketingBudget / baseRevenue / 10);
+        const newProfit = Math.round(newRevenue * newProfitMargin);
+        const roi = Math.round((newProfit / marketingBudget) * 100);
+        
+        // Ergebnisse aktualisieren
+        document.querySelector('.result-value:nth-child(2)').textContent = `€${newRevenue}`;
+        document.querySelector('.result-value:nth-child(5)').textContent = `€${newProfit}`;
+        document.querySelector('.result-value:nth-child(8)').textContent = `${roi}%`;
+        
+        // Änderungen aktualisieren
+        const revenueChange = Math.round((revenueMultiplier - 1) * 100);
+        const profitChange = Math.round(((newProfit / (baseRevenue * baseProfitMargin)) - 1) * 100);
+        const roiChange = Math.round(((roi / 200) - 1) * 100);
+        
+        document.querySelector('.result-change:nth-child(3)').textContent = `${revenueChange > 0 ? '+' : ''}${revenueChange}% zum Vormonat`;
+        document.querySelector('.result-change:nth-child(6)').textContent = `${profitChange > 0 ? '+' : ''}${profitChange}% zum Vormonat`;
+        document.querySelector('.result-change:nth-child(9)').textContent = `${roiChange > 0 ? '+' : ''}${roiChange}% zum Vormonat`;
+        
+        // Trend-Klassen aktualisieren
+        document.querySelectorAll('.result-change').forEach((el, index) => {
+            const changeValue = [revenueChange, profitChange, roiChange][index];
+            el.className = 'result-change ' + (changeValue >= 0 ? 'trend-up' : 'trend-down');
+        });
+    }
+    
+    // Charts rendern, wenn vorhanden
+    if (typeof Chart !== 'undefined') {
+        // Kundensegmente Chart
+        if (document.getElementById('customer-segments-chart')) {
+            const ctx = document.getElementById('customer-segments-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Stammkunden', 'Neukunden', 'Inaktive Kunden', 'Hochwertkundschaft'],
+                    datasets: [{
+                        data: [42, 28, 18, 12],
+                        backgroundColor: ['#4f46e5', '#f97316', '#ef4444', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Kundenwert Chart
+        if (document.getElementById('customer-value-chart')) {
+            const ctx = document.getElementById('customer-value-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Durchschnittlicher Bestellwert',
+                        data: [65, 68, 72, 74, 80, 86],
+                        borderColor: '#4f46e5',
+                        tension: 0.3,
+                        borderWidth: 2
+                    }, {
+                        label: 'Kundenwert pro Monat',
+                        data: [120, 128, 132, 145, 160, 175],
+                        borderColor: '#10b981',
+                        tension: 0.3,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Produktkombinationen Chart (simulierter Heatmap-Style)
+        if (document.getElementById('product-combinations-chart')) {
+            const ctx = document.getElementById('product-combinations-chart').getContext('2d');
+            
+            // Simulierte Daten
+            const data = [];
+            const labels = ['Produkt A', 'Produkt B', 'Produkt C', 'Produkt D', 'Produkt E'];
+            
+            // Matrix der Kombinations-Wahrscheinlichkeiten
+            const combinations = [
+                [0, 0.64, 0.32, 0.18, 0.25],
+                [0.64, 0, 0.45, 0.22, 0.15],
+                [0.32, 0.45, 0, 0.58, 0.24],
+                [0.18, 0.22, 0.58, 0, 0.42],
+                [0.25, 0.15, 0.24, 0.42, 0]
+            ];
+            
+            // Daten für Bubble-Chart aufbereiten
+            for (let i = 0; i < labels.length; i++) {
+                for (let j = 0; j < labels.length; j++) {
+                    if (i !== j) {
+                        data.push({
+                            x: i,
+                            y: j,
+                            r: combinations[i][j] * 25 // Bubble-Größe basierend auf Wahrscheinlichkeit
+                        });
+                    }
+                }
+            }
+            
+            new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        data: data,
+                        backgroundColor: function(context) {
+                            const value = context.raw.r / 25;
+                            const alpha = 0.5 + value * 0.5;
+                            
+                            if (value < 0.3) return `rgba(239, 68, 68, ${alpha})`;
+                            if (value < 0.5) return `rgba(249, 115, 22, ${alpha})`;
+                            return `rgba(16, 185, 129, ${alpha})`;
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'category',
+                            labels: labels,
+                            title: {
+                                display: true,
+                                text: 'Produkte'
+                            }
+                        },
+                        y: {
+                            type: 'category',
+                            labels: labels,
+                            title: {
+                                display: true,
+                                text: 'Wird gekauft mit'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const i = context.parsed.x;
+                                    const j = context.parsed.y;
+                                    const percentage = Math.round(combinations[i][j] * 100);
+                                    return `${labels[i]} wird in ${percentage}% der Fälle zusammen mit ${labels[j]} gekauft`;
+                                }
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Event-Listener für den Export-Button
+    document.getElementById('export-advisor-btn').addEventListener('click', function() {
+        alert('Export der Empfehlungen als PDF wird vorbereitet...');
+    });
+    
+    // Event-Listener für den Refresh-Button
+    document.querySelector('.refresh-btn').addEventListener('click', function() {
+        this.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Aktualisiere...';
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    });
+    
+    // Event-Listener für den Implement-Button
+    document.querySelector('.implement-btn').addEventListener('click', function() {
+        const checkedItems = document.querySelectorAll('.recommendation-card.checked');
+        if (checkedItems.length === 0) {
+            alert('Bitte wähle mindestens eine Empfehlung aus, die du umgesetzt hast.');
+        } else {
+            alert(`${checkedItems.length} Empfehlungen wurden als umgesetzt markiert!`);
+            checkedItems.forEach(card => {
+                card.style.opacity = '0.5';
+                card.classList.remove('checked');
+            });
+        }
+    });
+    
+    // Empfehlungen auswählbar machen
+    document.querySelectorAll('.recommendation-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('.recommendation-meta') && !e.target.closest('button')) {
+                this.classList.toggle('checked');
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

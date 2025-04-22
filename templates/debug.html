@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPulseAI - Debug</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+      background-color: #f7f7f7;
+    }
+    header {
+      background-color: #4b0082;
+      color: white;
+      padding: 1rem;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+    .status-card {
+      background-color: white;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .session-data {
+      background-color: white;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow-x: auto;
+    }
+    .error-box {
+      background-color: #fff0f0;
+      border-left: 5px solid #ff0000;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 0 5px 5px 0;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .status-ok {
+      background-color: #00c853;
+    }
+    .status-warning {
+      background-color: #ffab00;
+    }
+    .status-error {
+      background-color: #ff1744;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 0;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #4b0082;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    .btn:hover {
+      background-color: #3a006b;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ShopPulseAI - Debug Dashboard</h1>
+  </header>
+
+  <div class="status-card">
+    <h2>System Status</h2>
+    
+    <div class="status-item">
+      <span class="status-indicator status-ok"></span>
+      <strong>API Verbindung:</strong> Aktiv
+    </div>
+
+    <div class="status-item">
+      <span class="status-indicator {% if auth_status == 'Authentifiziert' %}status-ok{% else %}status-error{% endif %}"></span>
+      <strong>Authentifizierungsstatus:</strong> {{ auth_status }}
+    </div>
+
+    <div class="status-item">
+      <span class="status-indicator {% if shop %}status-ok{% else %}status-error{% endif %}"></span>
+      <strong>Shop:</strong> {{ shop if shop else 'Nicht gesetzt' }}
+    </div>
+
+    <div class="status-item">
+      <span class="status-indicator {% if host %}status-ok{% else %}status-warning{% endif %}"></span>
+      <strong>Host:</strong> {{ host if host else 'Nicht gesetzt' }}
+    </div>
+
+    <div class="status-item">
+      <span class="status-indicator {% if api_key %}status-ok{% else %}status-error{% endif %}"></span>
+      <strong>API Key:</strong> {{ api_key[:10] + '...' if api_key else 'Nicht gesetzt' }}
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="error-box">
+    <h3>Fehler</h3>
+    <p><strong>Fehlermeldung:</strong> {{ error }}</p>
+    
+    {% if exception_details %}
+    <h4>Details:</h4>
+    <pre>{{ exception_details }}</pre>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="session-data">
+    <h3>Session Daten</h3>
+    <pre>{{ session_data | pprint }}</pre>
+  </div>
+
+  <div class="status-card">
+    <h3>Aktionen</h3>
+    <a href="/dashboard" class="btn">Dashboard anzeigen</a>
+    <a href="/install" class="btn">Installation neu starten</a>
+    <a href="/health" class="btn">Health Check</a>
+  </div>
+</body>
+</html> 

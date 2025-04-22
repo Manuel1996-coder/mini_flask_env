@@ -1,0 +1,539 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Shopify Session Token Validierungselement (früh im DOM) -->
+<div id="shopify-session-token-validation" data-status="pending" style="display: none;"></div>
+
+<!-- Versteckte Daten-Container für Charts -->
+<div id="chart-data" 
+     data-traffic-dates='{{ traffic_dates|tojson if traffic_dates else ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]|tojson }}'
+     data-traffic-pageviews='{{ traffic_data.pageviews|tojson if traffic_data and traffic_data.pageviews else [1200, 1900, 1500, 2700, 2200, 1900, 2600]|tojson }}'
+     data-traffic-visitors='{{ traffic_data.visitors|tojson if traffic_data and traffic_data.visitors else [800, 1200, 900, 1700, 1500, 1300, 1800]|tojson }}'
+     data-device-data='{{ device_data|tojson if device_data else [45, 40, 15]|tojson }}'
+     style="display: none;"></div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ translations.dashboard.title|default('Analytics Dashboard') }}</h1>
+    <p class="page-description">{{ translations.dashboard.overview|default('Übersicht über die wichtigsten Kennzahlen Ihres Shops') }}</p>
+  </div>
+  <div class="page-actions">
+    <div class="dropdown">
+      <select id="period-filter" class="form-select">
+        <option value="7">Letzte 7 Tage</option>
+        <option value="30" selected>Letzte 30 Tage</option>
+        <option value="90">Letzte 90 Tage</option>
+      </select>
+    </div>
+    <button id="exportDashboardBtn" class="btn btn-outline-primary ml-2">
+      <i class="fas fa-download mr-1"></i> {{ translations.buttons.export|default('Exportieren') }}
+    </button>
+  </div>
+</div>
+
+<!-- KPI Section -->
+<section class="kpi-grid">
+  <!-- Pageviews -->
+  <div class="kpi-card">
+    <div class="kpi-icon" style="background-color: var(--primary-600);">
+      <i class="fas fa-eye"></i>
+    </div>
+    <div class="kpi-content">
+      <div class="kpi-label">{{ translations.dashboard.pageviews|default('Seitenaufrufe') }}</div>
+      <div class="kpi-value" id="pageviews-value">{{ total_pageviews|default(0)|int }}</div>
+      <div class="kpi-trend {% if trends.pageviews.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+        <i class="fas fa-{% if trends.pageviews.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+        <span>{{ trends.pageviews.value|default(0) }}%</span>
+        <span>{{ translations.dashboard.vs_previous_period|default('ggü. Vorperiode') }}</span>
+      </div>
+    </div>
+    <svg class="kpi-sparkline" id="pageviews-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+      <path d="M0,30 L10,25 L20,28 L30,20 L40,23 L50,15 L60,18 L70,10 L80,12 L90,5 L100,8" fill="none" stroke="currentColor" stroke-width="2"></path>
+    </svg>
+  </div>
+  
+  <!-- Conversion Rate -->
+  <div class="kpi-card">
+    <div class="kpi-icon" style="background-color: var(--success);">
+      <i class="fas fa-bullseye"></i>
+    </div>
+    <div class="kpi-content">
+      <div class="kpi-label">{{ translations.dashboard.conversion_rate|default('Conversion Rate') }}</div>
+      <div class="kpi-value" id="conversion-value">{{ conversion_rate|default(0) }}%</div>
+      <div class="kpi-trend {% if trends.conversion_rate.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+        <i class="fas fa-{% if trends.conversion_rate.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+        <span>{{ trends.conversion_rate.value|default(0) }}%</span>
+        <span>{{ translations.dashboard.vs_previous_period|default('ggü. Vorperiode') }}</span>
+      </div>
+    </div>
+    <svg class="kpi-sparkline" id="conversion-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+      <path d="M0,20 L10,22 L20,18 L30,15 L40,19 L50,12 L60,16 L70,10 L80,13 L90,8 L100,5" fill="none" stroke="currentColor" stroke-width="2"></path>
+    </svg>
+  </div>
+  
+  <!-- Average Order Value -->
+  <div class="kpi-card">
+    <div class="kpi-icon" style="background-color: var(--secondary-600);">
+      <i class="fas fa-shopping-cart"></i>
+    </div>
+    <div class="kpi-content">
+      <div class="kpi-label">{{ translations.dashboard.avg_order_value|default('Ø Bestellwert') }}</div>
+      <div class="kpi-value" id="aov-value">{{ avg_order_value|default(0)|float|round(2) }}€</div>
+      <div class="kpi-trend {% if trends.avg_order_value.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+        <i class="fas fa-{% if trends.avg_order_value.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+        <span>{{ trends.avg_order_value.value|default(0) }}%</span>
+        <span>{{ translations.dashboard.vs_previous_period|default('ggü. Vorperiode') }}</span>
+      </div>
+    </div>
+    <svg class="kpi-sparkline" id="aov-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+      <path d="M0,20 L10,18 L20,15 L30,17 L40,13 L50,15 L60,10 L70,12 L80,8 L90,10 L100,5" fill="none" stroke="currentColor" stroke-width="2"></path>
+    </svg>
+  </div>
+  
+  <!-- Total Revenue -->
+  <div class="kpi-card">
+    <div class="kpi-icon" style="background-color: var(--info);">
+      <i class="fas fa-euro-sign"></i>
+    </div>
+    <div class="kpi-content">
+      <div class="kpi-label">{{ translations.dashboard.total_revenue|default('Gesamtumsatz') }}</div>
+      <div class="kpi-value" id="revenue-value">{{ total_revenue|default(0)|float|round(2) }}€</div>
+      <div class="kpi-trend {% if trends.total_revenue.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+        <i class="fas fa-{% if trends.total_revenue.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+        <span>{{ trends.total_revenue.value|default(0) }}%</span>
+        <span>{{ translations.dashboard.vs_previous_period|default('ggü. Vorperiode') }}</span>
+      </div>
+    </div>
+    <svg class="kpi-sparkline" id="revenue-sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+      <path d="M0,25 L10,23 L20,20 L30,22 L40,18 L50,15 L60,12 L70,14 L80,8 L90,10 L100,5" fill="none" stroke="currentColor" stroke-width="2"></path>
+    </svg>
+  </div>
+</section>
+
+<!-- Charts Section -->
+<section class="charts-row">
+  <!-- Traffic Chart -->
+  <div class="chart-container">
+    <div class="chart-header">
+      <h2 class="chart-title">{{ translations.dashboard.traffic_overview|default('Traffic-Übersicht') }}</h2>
+      <div class="chart-actions">
+        <button class="btn btn-sm btn-outline refresh-btn" data-target="traffic-chart">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+    </div>
+    <div class="chart-body" id="traffic-chart">
+      <canvas id="trafficChart"></canvas>
+    </div>
+    <div class="chart-footer">
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--primary-600);"></div>
+          <span>{{ translations.dashboard.pageviews|default('Seitenaufrufe') }}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--secondary-600);"></div>
+          <span>{{ translations.dashboard.unique_visitors|default('Eindeutige Besucher') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Devices Chart -->
+  <div class="chart-container">
+    <div class="chart-header">
+      <h2 class="chart-title">{{ translations.dashboard.devices|default('Geräte') }}</h2>
+      <div class="chart-actions">
+        <button class="btn btn-sm btn-outline refresh-btn" data-target="devices-chart">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+    </div>
+    <div class="chart-body" id="devices-chart">
+      <canvas id="devicesChart"></canvas>
+    </div>
+    <div class="chart-footer">
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--primary-500);"></div>
+          <span>{{ translations.dashboard.mobile|default('Mobil') }}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--secondary-500);"></div>
+          <span>{{ translations.dashboard.desktop|default('Desktop') }}</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--warning);"></div>
+          <span>{{ translations.dashboard.tablet|default('Tablet') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI Insights Section -->
+<section class="ai-insights-section">
+  <div class="ai-insights-header">
+    <div class="ai-insights-icon">
+      <i class="fas fa-lightbulb"></i>
+    </div>
+    <h2 class="ai-insights-title">{{ translations.dashboard.ai_insights|default('KI-Erkenntnisse & Empfehlungen') }}</h2>
+  </div>
+  
+  <div class="ai-insights-grid">
+    {% if ai_quick_tips %}
+      {% for tip in ai_quick_tips[:3] %}
+        <div class="ai-insight-card">
+          <h3 class="ai-insight-title">{{ tip.title }}</h3>
+          <p class="ai-insight-content">{{ tip.description }}</p>
+          <div class="ai-insight-actions">
+            <button class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-info-circle me-1"></i> {{ translations.buttons.details|default('Details') }}
+            </button>
+            <button class="btn btn-sm btn-outline-success">
+              <i class="fas fa-check me-1"></i> {{ translations.buttons.apply|default('Anwenden') }}
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <i class="fas fa-lightbulb"></i>
+        </div>
+        <h3 class="empty-title">{{ translations.dashboard.no_insights_yet|default('Noch keine Erkenntnisse verfügbar') }}</h3>
+        <p class="empty-message">{{ translations.dashboard.insights_explanation|default('Mit mehr Daten kann unser KI-System wertvolle Erkenntnisse und Handlungsempfehlungen für Ihren Shop generieren.') }}</p>
+        <button class="btn btn-primary">
+          {{ translations.dashboard.setup_tracking|default('Tracking einrichten') }}
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- Implementation Tasks Table -->
+<section class="implementation-table-section">
+  <div class="implementation-header">
+    <h2 class="implementation-title">{{ translations.dashboard.implementation_tasks|default('Umsetzungsaufgaben') }}</h2>
+    <div class="implementation-actions">
+      <button class="btn btn-outline" id="filterTasksBtn">
+        <i class="fas fa-filter me-2"></i>
+        {{ translations.buttons.filter|default('Filtern') }}
+      </button>
+      <button class="btn btn-outline" id="exportTasksBtn">
+        <i class="fas fa-download me-2"></i>
+        {{ translations.buttons.export|default('Export') }}
+      </button>
+    </div>
+  </div>
+  
+  <div class="implementation-table-container">
+    <table class="implementation-table">
+      <thead>
+        <tr>
+          <th width="15%">{{ translations.growth_advisor.priority|default('Priorität') }}</th>
+          <th width="45%">{{ translations.dashboard.task|default('Aufgabe') }}</th>
+          <th width="15%">{{ translations.growth_advisor.effort|default('Aufwand') }}</th>
+          <th width="15%">{{ translations.growth_advisor.impact|default('Auswirkung') }}</th>
+          <th width="10%">{{ translations.dashboard.actions|default('Aktionen') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if implementation_tasks %}
+          {% for task in implementation_tasks %}
+            <tr>
+              <td>
+                <span class="priority-badge priority-{{ task.priority }}">
+                  {% if task.priority == 'high' %}{{ translations.growth_advisor.high|default('Hoch') }}{% elif task.priority == 'medium' %}{{ translations.growth_advisor.medium|default('Mittel') }}{% else %}{{ translations.growth_advisor.low|default('Niedrig') }}{% endif %}
+                </span>
+              </td>
+              <td>
+                <div class="recommendation-content">
+                  <div class="recommendation-title">{{ task.title }}</div>
+                  <div class="recommendation-description">{{ task.description }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="effort-indicator effort-{{ task.effort }}">
+                  {% for i in range(3) %}
+                    <span class="indicator-dot {% if i < {'high': 3, 'medium': 2, 'low': 1}[task.effort] %}filled{% else %}empty{% endif %}"></span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="impact-indicator impact-{{ task.impact }}">
+                  {% for i in range(3) %}
+                    <span class="indicator-dot {% if i < {'high': 3, 'medium': 2, 'low': 1}[task.impact] %}filled{% else %}empty{% endif %}"></span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn btn-sm btn-outline-primary view-task-btn" data-task-id="{{ loop.index }}">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-success complete-task-btn" data-task-id="{{ loop.index }}">
+                    <i class="fas fa-check"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5">
+              <div class="empty-state-small">
+                <i class="fas fa-clipboard-check"></i>
+                <p>{{ translations.dashboard.no_implementation_tasks|default('Keine Umsetzungsaufgaben verfügbar') }}</p>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Dashboard Footer -->
+<div class="dashboard-footer">
+  <div>{{ translations.dashboard.data_last_updated|default('Daten zuletzt aktualisiert') }}: {{ last_updated|default('Heute, 14:30 Uhr') }}</div>
+  <div class="footer-links">
+    <a href="/help" class="footer-link">{{ translations.navigation.help|default('Hilfe') }}</a>
+    <a href="/feedback" class="footer-link">{{ translations.navigation.feedback|default('Feedback') }}</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Daten aus verstecktem Element laden
+    const chartDataElement = document.getElementById('chart-data');
+    const chartData = {
+      traffic: {
+        dates: JSON.parse(chartDataElement.getAttribute('data-traffic-dates')),
+        pageviews: JSON.parse(chartDataElement.getAttribute('data-traffic-pageviews')),
+        visitors: JSON.parse(chartDataElement.getAttribute('data-traffic-visitors'))
+      },
+      device: JSON.parse(chartDataElement.getAttribute('data-device-data'))
+    };
+
+    // Animated counter for KPI values
+    function animateCounter(element, targetValue, duration = 1500) {
+      const startTime = performance.now();
+      const startValue = 0;
+      
+      // Extract number and unit
+      const valueText = element.textContent;
+      const unit = valueText.replace(/[\d.,]/g, '');
+      const numValue = parseFloat(targetValue);
+      
+      function updateCounter(currentTime) {
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        
+        // Easing function for smoother animation
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        
+        const currentValue = Math.floor(startValue + (numValue - startValue) * easedProgress);
+        element.textContent = currentValue + unit;
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateCounter);
+        } else {
+          element.textContent = targetValue;
+        }
+      }
+      
+      requestAnimationFrame(updateCounter);
+    }
+    
+    // Animate KPI counters
+    const kpiValues = document.querySelectorAll('.kpi-value');
+    kpiValues.forEach(element => {
+      animateCounter(element, element.textContent);
+    });
+    
+    // Traffic Chart
+    const trafficCtx = document.getElementById('trafficChart');
+    if (trafficCtx) {
+      const trafficChart = new Chart(trafficCtx, {
+        type: 'line',
+        data: {
+          labels: chartData.traffic.dates,
+          datasets: [
+            {
+              label: '{{ translations.dashboard.pageviews|default("Seitenaufrufe") }}',
+              data: chartData.traffic.pageviews,
+              borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-600').trim(),
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.4,
+              fill: true
+            },
+            {
+              label: '{{ translations.dashboard.unique_visitors|default("Eindeutige Besucher") }}',
+              data: chartData.traffic.visitors,
+              borderColor: getComputedStyle(document.documentElement).getPropertyValue('--secondary-600').trim(),
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            intersect: false
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Devices Chart
+    const devicesCtx = document.getElementById('devicesChart');
+    if (devicesCtx) {
+      const devicesChart = new Chart(devicesCtx, {
+        type: 'doughnut',
+        data: {
+          labels: [
+            '{{ translations.dashboard.mobile|default("Mobil") }}', 
+            '{{ translations.dashboard.desktop|default("Desktop") }}', 
+            '{{ translations.dashboard.tablet|default("Tablet") }}'
+          ],
+          datasets: [{
+            data: chartData.device,
+            backgroundColor: [
+              getComputedStyle(document.documentElement).getPropertyValue('--primary-500').trim(),
+              getComputedStyle(document.documentElement).getPropertyValue('--secondary-500').trim(),
+              getComputedStyle(document.documentElement).getPropertyValue('--warning').trim()
+            ],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%',
+          plugins: {
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+    
+    // Refresh Button Functionality
+    const refreshBtns = document.querySelectorAll('.refresh-btn');
+    refreshBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const targetContainer = document.getElementById(targetId);
+        
+        if (targetContainer) {
+          // Create and show loading spinner
+          const loadingOverlay = document.createElement('div');
+          loadingOverlay.className = 'chart-loading';
+          loadingOverlay.innerHTML = '<div class="loading-spinner"></div>';
+          targetContainer.style.position = 'relative';
+          targetContainer.appendChild(loadingOverlay);
+          
+          // Simulate refreshing data (replace with actual data refresh)
+          setTimeout(() => {
+            targetContainer.removeChild(loadingOverlay);
+            // Here you would typically update chart data
+          }, 1500);
+        }
+      });
+    });
+    
+    // Task Actions
+    const viewTaskBtns = document.querySelectorAll('.view-task-btn');
+    viewTaskBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const taskId = this.getAttribute('data-task-id');
+        // Show task details (replace with actual implementation)
+        alert('{{ translations.dashboard.task_details|default("Details für Aufgabe") }} ' + taskId);
+      });
+    });
+    
+    const completeTaskBtns = document.querySelectorAll('.complete-task-btn');
+    completeTaskBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const taskId = this.getAttribute('data-task-id');
+        const row = this.closest('tr');
+        
+        // Fade out row
+        row.classList.add('fade-out');
+        
+        // Remove row after animation completes
+        setTimeout(() => {
+          row.remove();
+          
+          // Check if table is empty and show empty state if needed
+          const tbody = document.querySelector('.implementation-table tbody');
+          if (tbody.children.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="5">
+                  <div class="empty-state-small">
+                    <i class="fas fa-clipboard-check"></i>
+                    <p>{{ translations.dashboard.all_tasks_completed|default('Alle Aufgaben erledigt') }}</p>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }
+        }, 500);
+      });
+    });
+    
+    // Export Button
+    document.getElementById('exportDashboardBtn').addEventListener('click', function() {
+      // Implementation for dashboard export
+      alert('{{ translations.dashboard.export_started|default("Export gestartet") }}');
+    });
+    
+    document.getElementById('exportTasksBtn').addEventListener('click', function() {
+      // Implementation for tasks export
+      alert('{{ translations.dashboard.tasks_export_started|default("Export der Aufgaben gestartet") }}');
+    });
+    
+    // Filter Button
+    document.getElementById('filterTasksBtn').addEventListener('click', function() {
+      // Implementation for task filtering
+      alert('{{ translations.dashboard.filter_tasks|default("Aufgaben filtern") }}');
+    });
+  });
+</script>
+{% endblock %} 

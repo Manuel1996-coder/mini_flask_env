@@ -1,0 +1,464 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="header">
+  <h1 class="page-title">{{ translations.price_optimizer.title }} {% if shop_name %}<span style="font-size: 0.65em; font-weight: normal; color: var(--gray-600);">{{ translations.price_optimizer.for }} {{ shop_name }}</span>{% endif %}</h1>
+  <div class="header-actions">
+    {% if products %}
+    <div class="date-filter">
+      <span class="date-filter-icon"><i class="fas fa-box"></i></span>
+      <select id="product-selector" onchange="selectProduct(this.value)">
+        {% for product in products %}
+        <option value="{{ product.id }}" {% if selected_product and selected_product.id == product.id %}selected{% endif %}>
+          {{ product.title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="export-btn">
+      <span class="export-icon"><i class="fas fa-file-export"></i></span>
+      {{ translations.price_optimizer.export }}
+    </button>
+  </div>
+</div>
+
+{% if error %}
+<div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 1rem; margin-bottom: 1rem; border-radius: var(--radius);">
+  <p style="color: #b91c1c; margin: 0;"><strong>{{ translations.price_optimizer.error }}:</strong> {{ error }}</p>
+  <p style="color: #b91c1c; margin-top: 0.5rem; margin-bottom: 0;">{{ translations.price_optimizer.try_again_later }}</p>
+</div>
+{% endif %}
+
+{% if selected_product %}
+<!-- Preis-KI-Dashboard -->
+<section class="kpi-section">
+  <div class="kpi-header">
+    <h2 class="kpi-title">{{ translations.price_optimizer.price_intelligence_dashboard }}</h2>
+    <div class="kpi-period">
+      <i class="fas fa-sync-alt"></i> {{ translations.price_optimizer.last_updated }}: {{ last_updated }}
+    </div>
+  </div>
+  
+  <div class="kpi-grid">
+    <div class="kpi-card primary">
+      <div class="kpi-icon">
+        <i class="fas fa-chart-line"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">{{ translations.price_optimizer.current_price_trends }}</div>
+        <div class="kpi-value">{{ translations.price_optimizer.live }}</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>{{ selected_product.product_type }} {{ translations.price_optimizer.in_focus }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card secondary">
+      <div class="kpi-icon">
+        <i class="fas fa-tags"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">{{ translations.price_optimizer.recommended_price_adjustment }}</div>
+        <div class="kpi-value">€{{ trend_data.current_price }} → €{{ trend_data.recommended_price }}</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>+{{ ((trend_data.recommended_price / trend_data.current_price) * 100 - 100) | round(1) }}% {{ translations.price_optimizer.increase_recommended }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card success">
+      <div class="kpi-icon">
+        <i class="fas fa-money-bill-wave"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">{{ translations.price_optimizer.forecasted_revenue_increase }}</div>
+        <div class="kpi-value">+{{ trend_data.revenue_increase_pct }}%</div>
+        <div class="kpi-trend trend-up">
+          <i class="fas fa-arrow-up"></i> 
+          <span>{{ translations.price_optimizer.ai_optimized_pricing }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-card info">
+      <div class="kpi-icon">
+        <i class="fas fa-store"></i>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">{{ translations.price_optimizer.competitor_analysis }}</div>
+        <div class="kpi-value">{{ competitor_data.count }} {{ translations.price_optimizer.shops }}</div>
+        <div class="kpi-trend">
+          <i class="fas fa-check-circle"></i> 
+          <span>{{ translations.price_optimizer.fully_analyzed }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tabs für zusätzliche Analysen -->
+<section class="tabs-section">
+  <div class="tabs-header">
+    <button class="tab-btn active" data-tab="price-trends">{{ translations.price_optimizer.price_trends }}</button>
+    <button class="tab-btn" data-tab="price-elasticity">{{ translations.price_optimizer.price_elasticity }}</button>
+    <button class="tab-btn" data-tab="revenue-forecast">{{ translations.price_optimizer.revenue_forecast }}</button>
+    <button class="tab-btn" data-tab="competitor-prices">{{ translations.price_optimizer.competitor_prices }}</button>
+  </div>
+  
+  <!-- Detaillierte Preisanalyse -->
+  <section class="charts-row">
+    <div class="chart-container">
+      <div class="chart-header">
+        <h3 class="chart-title">{{ translations.price_optimizer.price_trends_title }}</h3>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #4f46e5;"></div>
+            {{ translations.price_optimizer.your_price }}
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #f97316;"></div>
+            {{ translations.price_optimizer.market_average }}
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #10b981;"></div>
+            {{ translations.price_optimizer.optimal_price }}
+          </div>
+        </div>
+      </div>
+      <div id="price-trend-chart" style="width: 100%; height: 300px;">
+        <!-- Canvas wird per JavaScript eingefügt -->
+      </div>
+    </div>
+    
+    <div class="chart-container">
+      <div class="chart-header">
+        <h3 class="chart-title">{{ translations.price_optimizer.price_elasticity_title }}</h3>
+      </div>
+      <div id="price-elasticity-chart" style="width: 100%; height: 300px;">
+        <!-- Canvas wird per JavaScript eingefügt -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Konkurrenzpreise -->
+  <div class="table-container">
+    <div class="table-header">
+      <h3 class="table-title">{{ translations.price_optimizer.competitor_prices_title }}</h3>
+      <div class="table-actions">
+        <div class="search-box">
+          <span class="search-icon"><i class="fas fa-search"></i></span>
+          <input type="text" class="search-input" placeholder="{{ translations.price_optimizer.search_placeholder }}">
+        </div>
+      </div>
+    </div>
+    
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ translations.price_optimizer.shop }}</th>
+            <th>{{ translations.price_optimizer.product }}</th>
+            <th>{{ translations.price_optimizer.price }}</th>
+            <th>{{ translations.price_optimizer.difference }}</th>
+            <th>{{ translations.price_optimizer.last_change }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>{{ translations.price_optimizer.your_shop }}</strong></td>
+            <td>{{ selected_product.title }}</td>
+            <td><strong>€{{ trend_data.current_price }}</strong></td>
+            <td>-</td>
+            <td>{{ selected_product.updated_at | default("Unbekannt") }}</td>
+          </tr>
+          {% for competitor in competitor_data.competitors[:4] %}
+          <tr>
+            <td>{{ competitor.shop }}</td>
+            <td>{{ selected_product.title }}</td>
+            <td>€{{ competitor.price }}</td>
+            <td class="{% if competitor.price > trend_data.current_price %}trend-up{% else %}trend-down{% endif %}">
+              {% if competitor.price > trend_data.current_price %}+{% endif %}€{{ (competitor.price - trend_data.current_price) | round(2) }}
+            </td>
+            <td>Vor {{ competitor.last_updated }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="pagination">
+      <div class="page-info">{{ translations.price_optimizer.show_from }} {{ competitor_data.count }} {{ translations.price_optimizer.shops }}</div>
+      <div class="page-buttons">
+        <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">4</button>
+        <button class="page-btn">5</button>
+        <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KI-Preisempfehlungen -->
+  <section class="ai-quick-actions">
+    <div class="ai-quick-header">
+      <div class="ai-quick-icon">
+        <i class="fas fa-robot"></i>
+      </div>
+      <h3 class="ai-quick-title">{{ translations.price_optimizer.ai_price_recommendations }}</h3>
+    </div>
+    
+    <div class="ai-quick-list">
+      {% for recommendation in price_recommendations %}
+      <div class="ai-quick-item">
+        <div class="ai-quick-bullet">{{ loop.index }}</div>
+        <div class="ai-quick-content">
+          <div class="ai-quick-tip-title">{{ recommendation.title }}</div>
+          <div class="ai-quick-tip-text">{{ recommendation.description }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+
+{% else %}
+<!-- Keine Produkte gefunden -->
+<section class="advisor-content">
+  <div class="empty-state">
+    <div class="empty-icon">
+      <i class="fas fa-tags"></i>
+    </div>
+    <h2 class="empty-title">{{ translations.price_optimizer.no_products_found }}</h2>
+    <p class="empty-message">{{ translations.price_optimizer.no_products_message }}</p>
+    <p class="empty-submessage">{{ translations.price_optimizer.ensure_app_installed }}</p>
+    
+    <div class="actions-row" style="margin-top: 2rem;">
+      <a href="/install" class="primary-btn">
+        <i class="fas fa-plug"></i> {{ translations.price_optimizer.install_app }}
+      </a>
+      <button class="secondary-btn" onclick="location.reload()">
+        <i class="fas fa-sync"></i> {{ translations.price_optimizer.reload }}
+      </button>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Versteckte Datenhaltung für Charts -->
+<div id="chart-data-container" style="display: none;">
+  {% if trend_data %}
+  <input type="hidden" id="historical-prices" value="{{ trend_data.historical_prices|tojson }}">
+  <input type="hidden" id="market-avg-prices" value="{{ trend_data.market_avg_prices|tojson }}">
+  <input type="hidden" id="optimal-prices" value="{{ trend_data.optimal_prices|tojson }}">
+  <input type="hidden" id="elasticity-data" value="{{ trend_data.elasticity_data|tojson }}">
+  <input type="hidden" id="min-price" value="{{ trend_data.min_price }}">
+  <input type="hidden" id="current-price" value="{{ trend_data.current_price }}">
+  <input type="hidden" id="recommended-price" value="{{ trend_data.recommended_price }}">
+  <input type="hidden" id="max-price" value="{{ trend_data.max_price }}">
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Deaktiviere App Bridge in diesem Fall, um Iframe-Probleme zu vermeiden
+var embedded = false;
+
+// Funktion zum Umleiten bei Produktauswahl
+function selectProduct(productId) {
+  if (productId) {
+    window.location.href = '/price-optimizer?product_id=' + productId;
+  }
+}
+
+// Hilfsfunktion zum Laden der Daten aus versteckten Inputfeldern
+function getChartData(id, defaultValue, isJson) {
+  var element = document.getElementById(id);
+  if (element && element.value) {
+    if (isJson) {
+      try {
+        return JSON.parse(element.value);
+      } catch (e) {
+        console.error("Fehler beim Parsen von", id, e);
+        return defaultValue;
+      }
+    }
+    return element.value;
+  }
+  return defaultValue;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Wir verzichten hier auf die App Bridge Integration, um Einbettungsprobleme zu vermeiden
+  if (!embedded) {
+    console.log("App wird im eigenständigen Modus ausgeführt - keine App Bridge Integration");
+  }
+
+  // Chart-Daten aus versteckten Input-Feldern laden
+  var historicalPrices = getChartData('historical-prices', [120, 125, 130, 128, 135, 140, 145], true);
+  var marketAvgPrices = getChartData('market-avg-prices', [115, 118, 122, 125, 130, 132, 135], true);
+  var optimalPrices = getChartData('optimal-prices', [125, 130, 135, 138, 140, 145, 150], true);
+  var elasticityData = getChartData('elasticity-data', [35, 30, 25, 20, 18, 15], true);
+  var minPrice = parseFloat(getChartData('min-price', 90, false));
+  var currentPrice = parseFloat(getChartData('current-price', 120, false));
+  var recommendedPrice = parseFloat(getChartData('recommended-price', 140, false));
+  var maxPrice = parseFloat(getChartData('max-price', 170, false));
+  
+  // Setze die Charts auf
+  setupCharts(
+    historicalPrices, 
+    marketAvgPrices, 
+    optimalPrices, 
+    elasticityData,
+    minPrice,
+    currentPrice,
+    recommendedPrice,
+    maxPrice
+  );
+});
+
+function setupCharts(historicalPrices, marketAvgPrices, optimalPrices, elasticityData, minPrice, currentPrice, recommendedPrice, maxPrice) {
+  // Preistrenddiagramm
+  var priceTrendCtx = document.createElement('canvas');
+  priceTrendCtx.id = 'price-trend-canvas';
+  
+  var priceTrendChart = document.getElementById('price-trend-chart');
+  if (priceTrendChart) {
+    priceTrendChart.appendChild(priceTrendCtx);
+    
+    new Chart(priceTrendCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul'],
+        datasets: [
+          {
+            label: 'Dein Preis',
+            data: historicalPrices,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'Marktdurchschnitt',
+            data: marketAvgPrices,
+            borderColor: '#f97316',
+            backgroundColor: 'transparent',
+            tension: 0.3,
+            borderDash: [5, 5]
+          },
+          {
+            label: 'Optimaler Preis',
+            data: optimalPrices,
+            borderColor: '#10b981',
+            backgroundColor: 'transparent',
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  // Preiselastizitätsdiagramm
+  var priceElasticityCtx = document.createElement('canvas');
+  priceElasticityCtx.id = 'price-elasticity-canvas';
+  
+  var priceElasticityChart = document.getElementById('price-elasticity-chart');
+  if (priceElasticityChart) {
+    priceElasticityChart.appendChild(priceElasticityCtx);
+    
+    new Chart(priceElasticityCtx, {
+      type: 'line',
+      data: {
+        labels: [
+          '€' + minPrice, 
+          '€' + (currentPrice - 10), 
+          '€' + (currentPrice - 5), 
+          '€' + currentPrice, 
+          '€' + recommendedPrice, 
+          '€' + maxPrice
+        ],
+        datasets: [
+          {
+            label: 'Erwartete Verkäufe',
+            data: elasticityData,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+            tension: 0.4,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return 'Erwartete Verkäufe: ' + context.raw;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Erwartete Verkäufe'
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Preis'
+            },
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  }
+}
+</script>
+{% endblock %} 

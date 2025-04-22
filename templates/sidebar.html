@@ -1,0 +1,34 @@
+<aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fas fa-bolt"></i>
+      </div>
+    </div>
+    
+    <div class="menu-header">{{ translations.navigation.analytics }}</div>
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">
+          <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+          {{ translations.navigation.dashboard }}
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('growth_advisor') }}" class="nav-link {% if request.path == '/growth-advisor' %}active{% endif %}">
+          <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
+          {{ translations.navigation.growth_advisor }}
+        </a>
+      </li>
+    </ul>
+    
+    <div class="menu-header">{{ translations.navigation.configuration }}</div>
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+          <span class="nav-icon"><i class="fas fa-cog"></i></span>
+          {{ translations.navigation.settings }}
+        </a>
+      </li>
+    </ul>
+  </aside>
+  

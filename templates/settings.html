@@ -1,0 +1,176 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ translations.navigation.settings }} - {{ translations.app.name }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h1 class="content-title">{{ translations.navigation.settings }}</h1>
+</div>
+
+<div class="settings-container">
+  <!-- Erfolgsmeldung -->
+  {% if success == True %}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="fas fa-check-circle me-2"></i> {{ translations.settings.settings_saved_message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <!-- Fehlermeldung -->
+  {% if error %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-circle me-2"></i> {{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('settings') }}">
+    <!-- Benachrichtigungs-Einstellungen -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h3 class="card-title">{{ translations.settings.notifications }}</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications" 
+                  {% if app_settings.notifications.email %}checked{% endif %}>
+            <label class="form-check-label" for="email_notifications">{{ translations.settings.email_notifications }}</label>
+          </div>
+          <small class="form-text text-muted">{{ translations.settings.email_notifications_help }}</small>
+        </div>
+        <div class="form-group">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="push_notifications" name="push_notifications" 
+                  {% if app_settings.notifications.push %}checked{% endif %}>
+            <label class="form-check-label" for="push_notifications">{{ translations.settings.push_notifications }}</label>
+          </div>
+          <small class="form-text text-muted">{{ translations.settings.push_notifications_help }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracking-Einstellungen -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h3 class="card-title">{{ translations.settings.tracking }}</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="tracking_enabled" name="tracking_enabled" 
+                  {% if app_settings.tracking.enabled %}checked{% endif %}>
+            <label class="form-check-label" for="tracking_enabled">{{ translations.settings.enable_tracking }}</label>
+          </div>
+          <small class="form-text text-muted">{{ translations.settings.enable_tracking_help }}</small>
+        </div>
+        <div class="form-group mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="anonymize_ip" name="anonymize_ip" 
+                  {% if app_settings.tracking.anonymize_ip %}checked{% endif %}>
+            <label class="form-check-label" for="anonymize_ip">{{ translations.settings.anonymize_ip }}</label>
+          </div>
+          <small class="form-text text-muted">{{ translations.settings.anonymize_ip_help }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Display-Einstellungen -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h3 class="card-title">{{ translations.settings.display }}</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label for="currency">{{ translations.settings.currency }}</label>
+          <select class="form-select" id="currency" name="currency">
+            <option value="EUR" {% if app_settings.display.currency == 'EUR' %}selected{% endif %}>Euro (€)</option>
+            <option value="USD" {% if app_settings.display.currency == 'USD' %}selected{% endif %}>US Dollar ($)</option>
+            <option value="GBP" {% if app_settings.display.currency == 'GBP' %}selected{% endif %}>British Pound (£)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="date_format">{{ translations.settings.date_format }}</label>
+          <select class="form-select" id="date_format" name="date_format">
+            <option value="DD.MM.YYYY" {% if app_settings.display.date_format == 'DD.MM.YYYY' %}selected{% endif %}>DD.MM.YYYY</option>
+            <option value="MM/DD/YYYY" {% if app_settings.display.date_format == 'MM/DD/YYYY' %}selected{% endif %}>MM/DD/YYYY</option>
+            <option value="YYYY-MM-DD" {% if app_settings.display.date_format == 'YYYY-MM-DD' %}selected{% endif %}>YYYY-MM-DD</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- API-Informationen -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h3 class="card-title">{{ translations.settings.api_information }}</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="webhookUrl">{{ translations.settings.webhook_url }}</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="webhookUrl" readonly value="{{ app_settings.api.webhook_url }}">
+            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('webhookUrl')">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+          <small class="form-text text-muted">{{ translations.settings.webhook_url_help }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Speichern Button -->
+    <div class="d-flex justify-content-end mt-4 mb-5">
+      <button type="button" class="btn btn-outline-secondary me-2" onclick="resetForm()">{{ translations.buttons.cancel }}</button>
+      <button type="submit" class="btn btn-primary">{{ translations.buttons.save }}</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function resetForm() {
+    // Formular zurücksetzen
+    document.querySelector('form').reset();
+  }
+  
+  function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    document.execCommand('copy');
+    
+    // Zeige eine kurze Bestätigung
+    const tooltip = document.createElement('div');
+    tooltip.classList.add('copy-tooltip');
+    tooltip.textContent = 'Kopiert!';
+    document.body.appendChild(tooltip);
+    
+    setTimeout(() => {
+      document.body.removeChild(tooltip);
+    }, 1500);
+  }
+</script>
+
+<style>
+  .settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .card-title {
+    margin-bottom: 0;
+    font-size: 1.1rem;
+  }
+  
+  .copy-tooltip {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    z-index: 1000;
+  }
+</style>
+{% endblock %} 

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPulseAI - Installation</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #212529;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-top: 40px;
+    }
+    
+    h1 {
+      color: #2c6ecb;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #2c6ecb;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    .btn:hover {
+      background-color: #2159a9;
+    }
+    
+    .features {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    
+    .feature {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .feature-icon {
+      font-size: 36px;
+      margin-bottom: 15px;
+      color: #2c6ecb;
+    }
+    
+    .info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ShopPulseAI installieren</h1>
+    
+    <div class="info">
+      Bitte gib deine Shopify-Store-URL ein, um die Installation zu starten.
+    </div>
+    
+    {% if error %}
+    <div class="error" style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+      {{ error }}
+    </div>
+    {% endif %}
+    
+    <form action="/install" method="GET">
+      <div class="form-group">
+        <label for="shop">Shopify-Store-URL</label>
+        <input type="text" id="shop" name="shop" placeholder="dein-store.myshopify.com" required>
+        <small style="color: #6c757d; font-size: 0.875rem; margin-top: 5px; display: block;">
+          Format: dein-store.myshopify.com (ohne https:// oder andere Pfade)
+        </small>
+      </div>
+      
+      <button type="submit" class="btn">App installieren</button>
+    </form>
+    
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h3>Analytics-Dashboard</h3>
+        <p>Erhalte wertvolle Einblicke in deine Shop-Performance mit einfach zu verstehenden Metriken.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="feature-icon">💡</div>
+        <h3>KI-Wachstumsberater</h3>
+        <p>Personalisierte Empfehlungen basierend auf deinen Verkaufsdaten.</p>
+      </div>
+      
+      <div class="feature">
+        <div class="feature-icon">💰</div>
+        <h3>Preisoptimierung</h3>
+        <p>Maximiere deinen Umsatz mit datengestützten Preisempfehlungen.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html> 

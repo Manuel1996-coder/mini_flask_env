@@ -1,0 +1,303 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="header">
+    <h1 class="page-title">AI Recommendations</h1>
+    <div class="header-actions">
+      <div class="date-filter">
+        <span class="date-filter-icon"><i class="fas fa-calendar"></i></span>
+        Last 7 days
+      </div>
+      <button class="export-btn">
+        <span class="export-icon"><i class="fas fa-download"></i></span>
+        Export
+      </button>
+    </div>
+  </div>
+  
+  <!-- Summary Cards -->
+  <section class="summary-section">
+    <div class="section-header">
+      <h2 class="section-title">Performance Übersicht</h2>
+    </div>
+    <div class="summary-container">
+      <!-- Summary Card: Page Views -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Page Views</span>
+          <div class="card-icon">
+            <i class="fas fa-eye"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ total_pageviews|default(0) }}</div>
+        <div class="card-trend {% if total_pageviews > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Seitenaufrufe
+        </div>
+      </div>
+  
+      <!-- Summary Card: Total Clicks -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Total Clicks</span>
+          <div class="card-icon">
+            <i class="fas fa-mouse-pointer"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ total_clicks|default(0) }}</div>
+        <div class="card-trend {% if total_clicks > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Klicks
+        </div>
+      </div>
+  
+      <!-- Summary Card: Click Rate -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Click Rate</span>
+          <div class="card-icon">
+            <i class="fas fa-percentage"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ click_rate|default(0) }}%</div>
+        <div class="card-trend {% if click_rate > 2 %}trend-up{% else %}trend-down{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Aktuelle Klickrate
+        </div>
+      </div>
+
+      <!-- Summary Card: Avg. Clicks per Page -->
+      <div class="summary-card">
+        <div class="card-header">
+          <span class="card-title">Durchschnittliche Klicks pro Seite</span>
+          <div class="card-icon">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+        </div>
+        <div class="card-value">{{ avg_clicks_per_page|default(0) }}</div>
+        <div class="card-trend {% if avg_clicks_per_page > 1 %}trend-up{% else %}trend-down{% endif %}">
+          <span class="trend-icon"><i class="fas fa-chart-line"></i></span>
+          Interaktionsrate pro Seite
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- AI-Powered Recommendations -->
+  <section class="ai-recommendations">
+    <div class="ai-header">
+      <div class="ai-icon">
+        <i class="fas fa-robot"></i>
+      </div>
+      <h2 class="ai-title">KI-Empfehlungen</h2>
+    </div>
+    <div class="ai-recommendations-list">
+      {% if gpt_text %}
+        <div class="ai-rec-item">
+          <div class="ai-rec-title">
+            <span class="ai-rec-icon"><i class="fas fa-lightbulb"></i></span>
+            KI-Analyse
+          </div>
+          <p class="ai-rec-text">
+            {{ gpt_text }}
+          </p>
+        </div>
+      {% else %}
+        <div class="ai-rec-item">
+          <div class="ai-rec-title">
+            <span class="ai-rec-icon"><i class="fas fa-lightbulb"></i></span>
+            Keine KI-Empfehlungen verfügbar
+          </div>
+          <p class="ai-rec-text">
+            Sammle mehr Daten für bessere Insights. Die KI benötigt ausreichend Nutzerdaten, um sinnvolle Empfehlungen zu generieren.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+  
+  <!-- Category-specific Recommendations -->
+  <section class="summary-section">
+    <div class="section-header">
+      <h2 class="section-title">Kategorisierte Empfehlungen</h2>
+      <div class="table-actions">
+        <select class="table-filter" id="categoryFilter">
+          <option value="all">Alle Kategorien</option>
+          <option value="conversion">Conversion Rate</option>
+          <option value="ux">User Experience</option>
+          <option value="technical">Technical SEO</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="recommendations-grid">
+      <!-- Conversion Recommendations -->
+      <div class="recommendation-category" data-category="conversion">
+        <div class="category-header">
+          <i class="fas fa-wallet"></i>
+          <h3>Conversion Rate</h3>
+        </div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.conversion %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine Conversion-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- UX Recommendations -->
+      <div class="recommendation-category" data-category="ux">
+        <div class="category-header">
+          <i class="fas fa-magic"></i>
+          <h3>User Experience</h3>
+        </div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.ux %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine UX-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Technical Recommendations -->
+      <div class="recommendation-category" data-category="technical">
+        <div class="category-header">
+          <i class="fas fa-tools"></i>
+          <h3>Technical SEO</h3>
+        </div>
+        <div class="recommendations-list">
+          {% for rec in recommendations_by_category.technical %}
+            <div class="recommendation-card">
+              <div class="rec-header">
+                <span class="rec-title">{{ rec.title }}</span>
+                <span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+              </div>
+              <p class="rec-description">{{ rec.description }}</p>
+              <div class="rec-meta">
+                <span class="rec-impact">Einfluss: {{ rec.impact }}</span>
+                <span class="rec-effort">Aufwand: {{ rec.effort }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="no-recommendations">
+              Keine Technical-Empfehlungen verfügbar
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Implementation Status -->
+  <section class="table-container">
+    <div class="table-header">
+      <h3 class="table-title">Implementierungsstatus</h3>
+      <div class="table-actions">
+        <select class="table-filter" id="statusFilter">
+          <option value="all">Alle Status</option>
+          <option value="high">Hohe Priorität</option>
+          <option value="medium">Mittlere Priorität</option>
+          <option value="low">Niedrige Priorität</option>
+        </select>
+        <div class="search-box">
+          <span class="search-icon"><i class="fas fa-search"></i></span>
+          <input type="text" class="search-input" placeholder="Empfehlungen durchsuchen...">
+        </div>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Priorität</th>
+          <th>Empfehlung</th>
+          <th>Kategorie</th>
+          <th>Einfluss</th>
+          <th>Aufwand</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if recommendations %}
+          {% for rec in recommendations %}
+          <tr>
+            <td><span class="priority-badge priority-{{ rec.priority }}">{{ rec.priority }}</span></td>
+            <td>{{ rec.title }}</td>
+            <td>{{ rec.category }}</td>
+            <td>{{ rec.impact }}</td>
+            <td>{{ rec.effort }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" style="text-align: center;">Keine Empfehlungen verfügbar</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    
+    <div class="pagination">
+      <div class="page-info">Showing 1 to {{ recommendations|length if recommendations else 0 }} of {{ recommendations|length if recommendations else 0 }} entries</div>
+      <div class="page-buttons">
+        <button class="page-btn"><i class="fas fa-chevron-left"></i></button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Kategorie-Filter Funktionalität
+    document.getElementById('categoryFilter').addEventListener('change', function(e) {
+      const selectedCategory = e.target.value;
+      const categories = document.querySelectorAll('.recommendation-category');
+      
+      categories.forEach(category => {
+        if (selectedCategory === 'all' || category.dataset.category === selectedCategory) {
+          category.style.display = 'block';
+        } else {
+          category.style.display = 'none';
+        }
+      });
+    });
+
+    // Status-Filter Funktionalität
+    document.getElementById('statusFilter').addEventListener('change', function(e) {
+      const selectedStatus = e.target.value;
+      const rows = document.querySelectorAll('tbody tr');
+      
+      rows.forEach(row => {
+        const priorityBadge = row.querySelector('.priority-badge');
+        if (selectedStatus === 'all' || priorityBadge.classList.contains(`priority-${selectedStatus}`)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+  </script>
+{% endblock %}

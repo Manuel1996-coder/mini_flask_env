@@ -1,0 +1,471 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="page-header">
+    <h1 class="page-title">{{ translations.dashboard.title|default('Analytics Dashboard') }}</h1>
+    <div class="page-actions">
+      <div class="date-filter-dropdown dropdown">
+        <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="fas fa-calendar me-1"></i>
+          <span>{{ translations.dashboard.last_seven_days|default('Letzte 7 Tage') }}</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="?period=7">{{ translations.dashboard.last_seven_days|default('Letzte 7 Tage') }}</a></li>
+          <li><a class="dropdown-item" href="?period=30">{{ translations.dashboard.last_thirty_days|default('Letzte 30 Tage') }}</a></li>
+          <li><a class="dropdown-item" href="?period=90">{{ translations.dashboard.last_ninety_days|default('Letzte 90 Tage') }}</a></li>
+        </ul>
+      </div>
+      <button class="btn btn-primary btn-sm" id="export-dashboard-btn">
+        <i class="fas fa-download me-1"></i>
+        {{ translations.buttons.export|default('Export') }}
+      </button>
+    </div>
+  </div>
+  
+  <!-- Performance KPIs -->
+  <section class="mb-4">
+    <div class="dashboard-grid">
+      <!-- Page Views -->
+      <div class="dashboard-cell size-3">
+        <div class="kpi-card">
+          <div class="kpi-icon bg-primary">
+            <i class="fas fa-eye"></i>
+          </div>
+          <div class="kpi-content">
+            <div class="kpi-label">{{ translations.dashboard.pageviews }}</div>
+            <div class="kpi-value">{{ total_pageviews|default(0) }}</div>
+            <div class="kpi-trend {% if trends.pageviews.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+              <i class="fas fa-{% if trends.pageviews.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+              <span>{{ trends.pageviews.value }}%</span>
+              <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clicks -->
+      <div class="dashboard-cell size-3">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background-color: var(--secondary-600);">
+            <i class="fas fa-mouse-pointer"></i>
+          </div>
+          <div class="kpi-content">
+            <div class="kpi-label">{{ translations.dashboard.clicks }}</div>
+            <div class="kpi-value">{{ total_clicks|default(0) }}</div>
+            <div class="kpi-trend {% if trends.clicks.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+              <i class="fas fa-{% if trends.clicks.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+              <span>{{ trends.clicks.value }}%</span>
+              <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conversion Rate -->
+      <div class="dashboard-cell size-3">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background-color: var(--success);">
+            <i class="fas fa-bullseye"></i>
+          </div>
+          <div class="kpi-content">
+            <div class="kpi-label">{{ translations.dashboard.conversion_rate }}</div>
+            <div class="kpi-value">{{ conversion_rate|default(0) }}%</div>
+            <div class="kpi-trend {% if trends.conversion_rate.direction == 'up' %}trend-up{% else %}trend-down{% endif %}">
+              <i class="fas fa-{% if trends.conversion_rate.direction == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+              <span>{{ trends.conversion_rate.value }}%</span>
+              <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Duration -->
+      <div class="dashboard-cell size-3">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background-color: var(--info);">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="kpi-content">
+            <div class="kpi-label">{{ translations.dashboard.avg_session_duration }}</div>
+            <div class="kpi-value">{{ avg_session_duration|default(0) }}s</div>
+            <div class="kpi-trend {% if trends.get('session_duration', {}).get('direction') == 'up' %}trend-up{% else %}trend-down{% endif %}">
+              <i class="fas fa-{% if trends.get('session_duration', {}).get('direction') == 'up' %}arrow-up{% else %}arrow-down{% endif %}"></i>
+              <span>{{ trends.get('session_duration', {}).get('value', 0) }}%</span>
+              <span class="trend-label">{{ translations.dashboard.vs_previous_week }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Charts Section -->
+  <section class="mb-4">
+    <div class="dashboard-grid">
+      <!-- Pageviews Chart -->
+      <div class="dashboard-cell size-8">
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3 class="chart-title">{{ translations.dashboard.traffic_overview }}</h3>
+            <div class="chart-actions">
+              <button class="btn btn-sm btn-outline refresh-btn" data-target="traffic-chart-container">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
+          <div id="traffic-chart-container" class="chart-body">
+            <canvas id="trafficChart" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Devices Chart -->
+      <div class="dashboard-cell size-4">
+        <div class="chart-container">
+          <div class="chart-header">
+            <h3 class="chart-title">{{ translations.dashboard.devices }}</h3>
+            <div class="chart-actions">
+              <button class="btn btn-sm btn-outline refresh-btn" data-target="devices-chart-container">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
+          <div id="devices-chart-container" class="chart-body">
+            <canvas id="devicesChart" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- AI Quick Actions -->
+  <section class="mb-4">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="mb-0">
+          <i class="fas fa-lightbulb text-warning me-2"></i>
+          {{ translations.dashboard.ai_quick_actions|default('Intelligente Handlungsempfehlungen') }}
+        </h3>
+        <div class="card-header-actions">
+          <button class="btn btn-sm btn-outline refresh-btn" data-target="ai-recommendations">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body" id="ai-recommendations">
+        {% if ai_quick_tips %}
+          <div class="ai-insights-grid">
+            {% for tip in ai_quick_tips[:3] %}
+              <div class="ai-insight">
+                <div class="ai-insight-title">{{ tip.title }}</div>
+                <div class="ai-insight-content">{{ tip.description }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="empty-title">{{ translations.dashboard.no_tips_yet_title|default('Keine Empfehlungen verfügbar') }}</div>
+            <div class="empty-message">{{ translations.dashboard.no_tips_yet|default('Sammle mehr Daten für personalisierte Handlungsempfehlungen.') }}</div>
+            <button class="btn btn-primary mt-3">
+              {{ translations.dashboard.setup_tracking|default('Tracking einrichten') }}
+            </button>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+  
+  <!-- Implementation Tasks Table -->
+  <section class="mb-4">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="mb-0">
+          <i class="fas fa-tasks text-primary me-2"></i>
+          {{ translations.dashboard.implementation_items }} 
+        </h3>
+        <div class="card-header-actions">
+          <button class="btn btn-sm btn-outline me-2" id="filter-btn">
+            <i class="fas fa-filter me-1"></i> {{ translations.buttons.filter|default('Filter') }}
+          </button>
+          <button class="btn btn-sm btn-outline" id="export-tasks-btn">
+            <i class="fas fa-download me-1"></i> {{ translations.buttons.export }}
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th class="priority-col">{{ translations.growth_advisor.priority }}</th>
+                <th class="recommendation-col">{{ translations.dashboard.recommendation|default('Empfehlung') }}</th>
+                <th class="effort-col">{{ translations.growth_advisor.effort }}</th>
+                <th class="impact-col">{{ translations.growth_advisor.impact }}</th>
+                <th class="actions-col">{{ translations.dashboard.actions|default('Aktionen') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if implementation_tasks %}
+                {% for task in implementation_tasks %}
+                  <tr>
+                    <td class="priority-col">
+                      <span class="badge {% if task.priority == 'high' %}badge-danger{% elif task.priority == 'medium' %}badge-warning{% else %}badge-info{% endif %}">
+                        {% if task.priority == 'high' %}{{ translations.growth_advisor.high }}{% elif task.priority == 'medium' %}{{ translations.growth_advisor.medium }}{% else %}{{ translations.growth_advisor.low }}{% endif %}
+                      </span>
+                    </td>
+                    <td class="recommendation-col">
+                      <div class="recommendation-title">{{ task.title }}</div>
+                      <div class="recommendation-description text-sm text-gray">{{ task.description }}</div>
+                    </td>
+                    <td class="effort-col">
+                      <div class="d-flex align-items-center">
+                        {% if task.effort == 'high' %}
+                          {% set effort_level = 3 %}
+                          <span class="text-danger"><i class="fas fa-circle"></i><i class="fas fa-circle"></i><i class="fas fa-circle"></i></span>
+                        {% elif task.effort == 'medium' %}
+                          {% set effort_level = 2 %}
+                          <span class="text-warning"><i class="fas fa-circle"></i><i class="fas fa-circle"></i><i class="far fa-circle"></i></span>
+                        {% else %}
+                          {% set effort_level = 1 %}
+                          <span class="text-success"><i class="fas fa-circle"></i><i class="far fa-circle"></i><i class="far fa-circle"></i></span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="impact-col">
+                      <div class="d-flex align-items-center">
+                        {% if task.expected_impact == 'high' %}
+                          <span class="text-success"><i class="fas fa-circle"></i><i class="fas fa-circle"></i><i class="fas fa-circle"></i></span>
+                        {% elif task.expected_impact == 'medium' %}
+                          <span class="text-warning"><i class="fas fa-circle"></i><i class="fas fa-circle"></i><i class="far fa-circle"></i></span>
+                        {% else %}
+                          <span class="text-danger"><i class="fas fa-circle"></i><i class="far fa-circle"></i><i class="far fa-circle"></i></span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="actions-col">
+                      <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary view-task-btn" data-task-id="{{ loop.index }}">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success mark-complete-btn" data-task-id="{{ loop.index }}">
+                          <i class="fas fa-check"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="5" class="text-center py-4">
+                    <div class="empty-state-small">
+                      <i class="fas fa-clipboard-check mb-2 text-gray-400" style="font-size: 2rem;"></i>
+                      <p>{{ translations.dashboard.no_implementation_tasks|default('Keine Umsetzungsaufgaben verfügbar.') }}</p>
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% if implementation_tasks and implementation_tasks|length > 10 %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+          <div class="page-info">
+            <span>{{ translations.pagination.showing|default('Zeige') }} 1-10 {{ translations.pagination.of|default('von') }} {{ implementation_tasks|length }}</span>
+          </div>
+          <div class="pagination">
+            <button class="btn btn-sm btn-outline" disabled><i class="fas fa-chevron-left"></i></button>
+            <button class="btn btn-sm btn-primary">1</button>
+            <button class="btn btn-sm btn-outline">2</button>
+            <button class="btn btn-sm btn-outline"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Traffic Chart (Line Chart)
+      const trafficCtx = document.getElementById('trafficChart');
+      if (trafficCtx) {
+        const trafficChart = new Chart(trafficCtx, {
+          type: 'line',
+          data: {
+            labels: {{ traffic_dates|tojson|safe if traffic_dates else '["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]'|safe }},
+            datasets: [
+              {
+                label: '{{ translations.dashboard.pageviews }}',
+                data: {{ traffic_data.pageviews|tojson|safe if traffic_data and traffic_data.pageviews else '[12, 19, 15, 27, 22, 19, 26]'|safe }},
+                borderColor: getComputedStyle(document.body).getPropertyValue('--primary-600'),
+                backgroundColor: hexToRgba(getComputedStyle(document.body).getPropertyValue('--primary-600'), 0.1),
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: '{{ translations.dashboard.unique_visitors }}',
+                data: {{ traffic_data.visitors|tojson|safe if traffic_data and traffic_data.visitors else '[8, 12, 9, 17, 15, 13, 18]'|safe }},
+                borderColor: getComputedStyle(document.body).getPropertyValue('--secondary-600'),
+                backgroundColor: 'transparent',
+                tension: 0.4,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  usePointStyle: true,
+                  boxWidth: 6
+                }
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              intersect: false
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: getComputedStyle(document.body).getPropertyValue('--gray-200')
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Devices Chart (Doughnut)
+      const devicesCtx = document.getElementById('devicesChart');
+      if (devicesCtx) {
+        const devicesChart = new Chart(devicesCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['{{ translations.dashboard.mobile }}', '{{ translations.dashboard.desktop }}', '{{ translations.dashboard.tablet }}'],
+            datasets: [{
+              data: {{ device_data|tojson|safe if device_data else '[45, 40, 15]'|safe }},
+              backgroundColor: [
+                getComputedStyle(document.body).getPropertyValue('--primary-500'),
+                getComputedStyle(document.body).getPropertyValue('--secondary-500'),
+                getComputedStyle(document.body).getPropertyValue('--warning')
+              ],
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  usePointStyle: true,
+                  boxWidth: 6,
+                  padding: 20
+                }
+              }
+            },
+            cutout: '70%'
+          }
+        });
+      }
+      
+      // Hilfsfunktion für RGBA-Konvertierung
+      function hexToRgba(hex, alpha) {
+        hex = hex.trim();
+        if (hex.startsWith('var(')) return 'rgba(59, 130, 246, ' + alpha + ')'; // Fallback to blue
+        if (!hex.startsWith('#')) return 'rgba(59, 130, 246, ' + alpha + ')'; // Fallback to blue
+        
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+      
+      // Exportieren-Funktionalität
+      document.getElementById('export-dashboard-btn').addEventListener('click', function() {
+        alert('{{ translations.dashboard.export_initiated|default("Der Export wurde gestartet. Die Datei wird in Kürze heruntergeladen.") }}');
+        // Hier würde die tatsächliche Export-Logik implementiert werden
+      });
+      
+      // Aufgaben-Ansicht
+      const viewTaskBtns = document.querySelectorAll('.view-task-btn');
+      viewTaskBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const taskId = this.getAttribute('data-task-id');
+          alert(`{{ translations.dashboard.view_task_details|default("Details zur Aufgabe anzeigen") }} ${taskId}`);
+          // Hier würde die Modal-Ansicht für die Aufgabendetails implementiert werden
+        });
+      });
+      
+      // Als erledigt markieren
+      const markCompleteBtns = document.querySelectorAll('.mark-complete-btn');
+      markCompleteBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const taskId = this.getAttribute('data-task-id');
+          const row = this.closest('tr');
+          row.classList.add('fade-out');
+          
+          setTimeout(() => {
+            row.style.display = 'none';
+          }, 500);
+          
+          // Hier würde die tatsächliche API-Anfrage implementiert werden
+        });
+      });
+      
+      // Skeleton Loader Demo
+      const refreshBtns = document.querySelectorAll('.refresh-btn');
+      refreshBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const targetId = this.getAttribute('data-target');
+          const targetContainer = document.getElementById(targetId);
+          
+          if (targetContainer) {
+            // Speichere den ursprünglichen Inhalt
+            const originalContent = targetContainer.innerHTML;
+            
+            // Bestimme den Datentyp
+            let dataType = 'default';
+            if (targetId.includes('chart')) {
+              dataType = 'chart';
+            } else if (targetId === 'ai-recommendations') {
+              dataType = 'ai-insights';
+            }
+            
+            // Zeige Skeleton Loader
+            targetContainer.setAttribute('data-loading', 'true');
+            targetContainer.setAttribute('data-type', dataType);
+            
+            // Simuliere Ladezeit
+            setTimeout(() => {
+              // Stelle den ursprünglichen Inhalt wieder her
+              targetContainer.innerHTML = originalContent;
+              targetContainer.removeAttribute('data-loading');
+            }, 1500);
+          }
+        });
+      });
+    });
+  </script>
+{% endblock %}
