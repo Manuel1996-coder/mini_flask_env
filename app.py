@@ -258,6 +258,22 @@ def load_translations(language='en'):
     
     return translations.get(language, translations['en'])
 
+def get_translations():
+    """
+    Gibt das globale translations Dictionary zurück.
+    Stellt sicher, dass Übersetzungen geladen sind.
+    
+    Returns:
+        dict: Das translations Dictionary mit allen verfügbaren Sprachen
+    """
+    global translations
+    
+    # Wenn translations leer ist, lade die Übersetzungen
+    if not translations or not translations.get('en') or not translations.get('de'):
+        load_translations()
+        
+    return translations
+
 def get_user_language():
     """Ermittelt die Sprache des Benutzers basierend auf Cookie, Session oder Browser-Einstellungen."""
     # Versuche zuerst die Sprache aus der Session zu lesen
@@ -1295,6 +1311,42 @@ def settings():
         print(f"❌ Fehler auf der Einstellungsseite: {e}")
         flash('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.', 'error')
         return redirect(url_for('dashboard'))
+
+def generate_ai_quick_tips():
+    """
+    Generiert KI-basierte Handlungsempfehlungen für Shop-Optimierung.
+    
+    Returns:
+        list: Liste von Dictionaries mit Tipps
+    """
+    try:
+        # Hier könnte in Zukunft eine echte KI-Anbindung erfolgen
+        # Aktuell verwenden wir statische Beispieltipps
+        tips = [
+            {
+                "title": "Produktbeschreibungen optimieren",
+                "text": "Füge mehr Details und USPs zu deinen Top-5-Produkten hinzu, um die Conversion Rate zu steigern."
+            },
+            {
+                "title": "Mobilen Checkout vereinfachen",
+                "text": "63% deiner Abbrüche erfolgen im Checkout auf Mobilgeräten. Reduziere die Anzahl der Formularfelder."
+            },
+            {
+                "title": "E-Mail-Marketing automatisieren",
+                "text": "Erstelle automatisierte Abandoned-Cart E-Mails, um 15% mehr Umsatz zu generieren."
+            },
+            {
+                "title": "SEO-Meta-Tags prüfen",
+                "text": "Aktualisiere die Meta-Beschreibungen deiner Kategorie-Seiten für bessere Sichtbarkeit."
+            }
+        ]
+        return tips
+    except Exception as e:
+        print(f"❌ Fehler beim Generieren der KI-Tipps: {e}")
+        return [
+            {"title": "Produkt-Beschreibungen optimieren", "text": "Füge mehr Details und Nutzen hinzu."},
+            {"title": "Meta-Tags prüfen", "text": "Stelle sicher, dass alle Produkte SEO-optimierte Meta-Beschreibungen haben."}
+        ]
 
 # Haupt-Ausführung
 if __name__ == '__main__':
