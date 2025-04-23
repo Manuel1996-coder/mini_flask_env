@@ -1481,10 +1481,28 @@ def settings():
             }
         })
         
-        return render_template('settings.html', settings=settings)
+        # Shop aus der Session laden
+        shop = session.get('shop')
+        shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
+        
+        # Übersetzungen für die aktuelle Sprache laden
+        translations_data = get_translations()
+        user_language = session.get('language', 'de')
+        translations = translations_data.get(user_language, translations_data.get('de'))
+        
+        return render_template('settings.html', 
+                               settings=settings,
+                               shop=shop,
+                               shop_name=shop_name,
+                               translations=translations,
+                               user_language=user_language,
+                               app_version='1.2.1',
+                               title="Settings")
         
     except Exception as e:
         print(f"❌ Fehler auf der Einstellungsseite: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.', 'error')
         return redirect(url_for('dashboard'))
 
