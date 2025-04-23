@@ -1606,6 +1606,71 @@ def auth_check():
         response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         return response
 
+@app.route('/growth-advisor')
+def growth_advisor():
+    try:
+        # Prüfe, ob ein Shop in der Session ist
+        if 'shop' not in session:
+            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
+            return redirect('/install')
+            
+        # Shop aus der Session laden
+        shop = session.get('shop')
+        
+        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
+        access_token = session.get('access_token')
+        
+        # Tracking-Daten aktualisieren durch Neuladen
+        tracking_data = load_tracking_data()
+        
+        # Wenn kein Shop in der Session gefunden wurde, versuche einen Shop aus den Tracking-Daten zu verwenden
+        if not shop:
+            all_shops = list(tracking_data.keys())
+            
+            if all_shops:
+                shop = all_shops[0]
+                print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
+            else:
+                shop = "test-shop.example.com"
+                print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
+        
+        # Shopify-Daten laden
+        shop_data = get_shop_data(shop)
+        
+        # Growth Advisor Empfehlungen generieren
+        recommendations = generate_growth_advisor_recommendations(shop_data)
+        
+        # Metadaten für die Seite
+        meta = {
+            'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
+            'shop': shop,
+            'pageviews': len(shop_data.get('pageviews', [])),
+            'clicks': len(shop_data.get('clicks', []))
+        }
+        
+        # Holen der Übersetzungen für die aktuelle Sprache
+        translations = get_translations()
+        user_language = session.get('language', 'de')
+        shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
+        app_version = '1.2.1'
+        
+        # Render Template
+        return render_template('growth_advisor.html',
+                              shop=shop,
+                              shop_name=shop_name,
+                              meta=meta,
+                              recommendations=recommendations,
+                              translations=translations[user_language],
+                              user_language=user_language,
+                              app_version=app_version,
+                              title="Growth Advisor")
+                              
+    except Exception as e:
+        print(f"Fehler im Growth Advisor: {e}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('dashboard'))
+
 # Fallback-Logging-Funktion
 def log(message, level="info"):
     """
@@ -1635,6 +1700,115 @@ def log(message, level="info"):
     except (NameError, AttributeError):
         # Falls der Logger nicht verfügbar ist, nur print verwenden
         pass
+
+def generate_growth_advisor_recommendations(shop_data):
+    """
+    Generiert KI-basierte, priorisierte Handlungsempfehlungen basierend auf Shop-Daten.
+    
+    Args:
+        shop_data (dict): Daten des Shops mit Tracking-Informationen
+        
+    Returns:
+        list: Liste von Empfehlungsdictionaries mit category, priority, title, description, expected_impact und effort
+    """
+    try:
+        # In einer realen Anwendung würden hier komplexe Analysen durchgeführt
+        # Für MVP stellen wir statische Empfehlungen bereit
+        
+        # Aktuelle Zeit für saisonale Empfehlungen
+        current_month = datetime.datetime.now().month
+        
+        # Standard-Empfehlungen
+        recommendations = [
+            {
+                'category': 'SEO-Optimierung',
+                'priority': 'hoch',
+                'title': 'Meta-Beschreibungen für Top-Produkte verbessern',
+                'description': 'Füge detaillierte, keyword-reiche Meta-Beschreibungen für deine 10 meistbesuchten Produkte hinzu.',
+                'expected_impact': 'mittel',
+                'effort': 'niedrig'
+            },
+            {
+                'category': 'Conversion-Optimierung',
+                'priority': 'mittel',
+                'title': 'Call-to-Action-Buttons optimieren',
+                'description': 'Teste verschiedene Farben und Texte für deine "In den Warenkorb"-Buttons, um die Conversion-Rate zu erhöhen.',
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            },
+            {
+                'category': 'Usability',
+                'priority': 'hoch',
+                'title': 'Mobile Ansicht verbessern',
+                'description': 'Optimiere die Ladezeit und Navigation für mobile Geräte, da 68% deiner Nutzer von Mobilgeräten kommen.',
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
+            },
+            {
+                'category': 'Marketing',
+                'priority': 'mittel',
+                'title': 'Email-Marketing-Kampagne starten',
+                'description': 'Erstelle eine automatisierte Email-Sequenz für Kunden, die ihren Warenkorb verlassen haben.',
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
+            }
+        ]
+        
+        # Saisonale Empfehlungen basierend auf dem aktuellen Monat
+        if 3 <= current_month <= 5:  # Frühling
+            recommendations.append({
+                'category': 'Saisonales Marketing',
+                'priority': 'hoch',
+                'title': 'Frühlings-Kollektion hervorheben',
+                'description': 'Erstelle einen speziellen Banner für die Startseite, der deine Frühlings-Produkte bewirbt.',
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
+        elif 6 <= current_month <= 8:  # Sommer
+            recommendations.append({
+                'category': 'Saisonales Marketing',
+                'priority': 'hoch',
+                'title': 'Sommer-Sale planen',
+                'description': 'Plane einen speziellen Sommer-Sale für Juli und bewerbe ihn in sozialen Medien.',
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
+        elif 9 <= current_month <= 11:  # Herbst
+            recommendations.append({
+                'category': 'Saisonales Marketing',
+                'priority': 'hoch',
+                'title': 'Back-to-School Kampagne',
+                'description': 'Erstelle spezielle Angebote für die Back-to-School-Saison und bewerbe sie per E-Mail.',
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
+            })
+        elif current_month == 12 or current_month <= 2:  # Winter
+            recommendations.append({
+                'category': 'Saisonales Marketing',
+                'priority': 'hoch',
+                'title': 'Winterangebote prominent platzieren',
+                'description': 'Gestalte die Startseite mit Winter- und Feiertagsthemen und hebe saisonale Angebote hervor.',
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
+        
+        return recommendations
+    except Exception as e:
+        print(f"❌ Fehler beim Generieren der Growth-Advisor-Empfehlungen: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Fallback-Empfehlungen bei Fehler
+        return [
+            {
+                'category': 'Allgemein',
+                'priority': 'mittel',
+                'title': 'Shop-Performance analysieren',
+                'description': 'Installiere Analytics-Tools, um deine Shop-Performance besser zu verstehen.',
+                'expected_impact': 'mittel',
+                'effort': 'niedrig'
+            }
+        ]
 
 # Haupt-Ausführung
 if __name__ == '__main__':

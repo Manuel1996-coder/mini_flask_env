@@ -9,20 +9,16 @@
 
 <div class="settings-container">
   <!-- Erfolgsmeldung -->
-  {% if success == True %}
-  <div class="alert alert-success alert-dismissible fade show" role="alert">
-    <i class="fas fa-check-circle me-2"></i> {{ translations.settings.settings_saved_message }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
-  {% endif %}
-
-  <!-- Fehlermeldung -->
-  {% if error %}
-  <div class="alert alert-danger alert-dismissible fade show" role="alert">
-    <i class="fas fa-exclamation-circle me-2"></i> {{ error }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  </div>
-  {% endif %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          <i class="fas fa-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %} me-2"></i> {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
   <form method="POST" action="{{ url_for('settings') }}">
     <!-- Benachrichtigungs-Einstellungen -->
@@ -33,19 +29,27 @@
       <div class="card-body">
         <div class="form-group mb-3">
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="email_notifications" name="email_notifications" 
-                  {% if app_settings.notifications.email %}checked{% endif %}>
-            <label class="form-check-label" for="email_notifications">{{ translations.settings.email_notifications }}</label>
+            <input class="form-check-input" type="checkbox" id="enable_notifications" name="enable_notifications" 
+                  {% if settings.notification.enabled %}checked{% endif %}>
+            <label class="form-check-label" for="enable_notifications">{{ translations.settings.email_notifications }}</label>
           </div>
           <small class="form-text text-muted">{{ translations.settings.email_notifications_help }}</small>
         </div>
+        
+        <div class="form-group mb-3">
+          <label for="notification_email">E-Mail-Adresse</label>
+          <input type="email" class="form-control" id="notification_email" name="notification_email" 
+                value="{{ settings.notification.email }}">
+          <small class="form-text text-muted">E-Mail-Adresse für Benachrichtigungen</small>
+        </div>
+        
         <div class="form-group">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="push_notifications" name="push_notifications" 
-                  {% if app_settings.notifications.push %}checked{% endif %}>
-            <label class="form-check-label" for="push_notifications">{{ translations.settings.push_notifications }}</label>
-          </div>
-          <small class="form-text text-muted">{{ translations.settings.push_notifications_help }}</small>
+          <label for="notification_frequency">Häufigkeit</label>
+          <select class="form-select" id="notification_frequency" name="notification_frequency">
+            <option value="daily" {% if settings.notification.frequency == 'daily' %}selected{% endif %}>Täglich</option>
+            <option value="weekly" {% if settings.notification.frequency == 'weekly' %}selected{% endif %}>Wöchentlich</option>
+            <option value="monthly" {% if settings.notification.frequency == 'monthly' %}selected{% endif %}>Monatlich</option>
+          </select>
         </div>
       </div>
     </div>
@@ -58,19 +62,25 @@
       <div class="card-body">
         <div class="form-group mb-3">
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="tracking_enabled" name="tracking_enabled" 
-                  {% if app_settings.tracking.enabled %}checked{% endif %}>
-            <label class="form-check-label" for="tracking_enabled">{{ translations.settings.enable_tracking }}</label>
+            <input class="form-check-input" type="checkbox" id="enable_tracking" name="enable_tracking" 
+                  {% if settings.tracking.enabled %}checked{% endif %}>
+            <label class="form-check-label" for="enable_tracking">{{ translations.settings.enable_tracking }}</label>
           </div>
           <small class="form-text text-muted">{{ translations.settings.enable_tracking_help }}</small>
         </div>
         <div class="form-group mb-3">
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="anonymize_ip" name="anonymize_ip" 
-                  {% if app_settings.tracking.anonymize_ip %}checked{% endif %}>
-            <label class="form-check-label" for="anonymize_ip">{{ translations.settings.anonymize_ip }}</label>
+            <input class="form-check-input" type="checkbox" id="track_pageviews" name="track_pageviews" 
+                  {% if settings.tracking.track_pageviews %}checked{% endif %}>
+            <label class="form-check-label" for="track_pageviews">Seitenaufrufe verfolgen</label>
           </div>
-          <small class="form-text text-muted">{{ translations.settings.anonymize_ip_help }}</small>
+        </div>
+        <div class="form-group mb-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="track_clicks" name="track_clicks" 
+                  {% if settings.tracking.track_clicks %}checked{% endif %}>
+            <label class="form-check-label" for="track_clicks">Klicks verfolgen</label>
+          </div>
         </div>
       </div>
     </div>
@@ -82,19 +92,17 @@
       </div>
       <div class="card-body">
         <div class="form-group mb-3">
-          <label for="currency">{{ translations.settings.currency }}</label>
-          <select class="form-select" id="currency" name="currency">
-            <option value="EUR" {% if app_settings.display.currency == 'EUR' %}selected{% endif %}>Euro (€)</option>
-            <option value="USD" {% if app_settings.display.currency == 'USD' %}selected{% endif %}>US Dollar ($)</option>
-            <option value="GBP" {% if app_settings.display.currency == 'GBP' %}selected{% endif %}>British Pound (£)</option>
+          <label for="theme">Design</label>
+          <select class="form-select" id="theme" name="theme">
+            <option value="light" {% if settings.display.theme == 'light' %}selected{% endif %}>Hell</option>
+            <option value="dark" {% if settings.display.theme == 'dark' %}selected{% endif %}>Dunkel</option>
           </select>
         </div>
         <div class="form-group">
-          <label for="date_format">{{ translations.settings.date_format }}</label>
-          <select class="form-select" id="date_format" name="date_format">
-            <option value="DD.MM.YYYY" {% if app_settings.display.date_format == 'DD.MM.YYYY' %}selected{% endif %}>DD.MM.YYYY</option>
-            <option value="MM/DD/YYYY" {% if app_settings.display.date_format == 'MM/DD/YYYY' %}selected{% endif %}>MM/DD/YYYY</option>
-            <option value="YYYY-MM-DD" {% if app_settings.display.date_format == 'YYYY-MM-DD' %}selected{% endif %}>YYYY-MM-DD</option>
+          <label for="language">Sprache</label>
+          <select class="form-select" id="language" name="language">
+            <option value="de" {% if settings.display.language == 'de' %}selected{% endif %}>Deutsch</option>
+            <option value="en" {% if settings.display.language == 'en' %}selected{% endif %}>Englisch</option>
           </select>
         </div>
       </div>
@@ -106,11 +114,17 @@
         <h3 class="card-title">{{ translations.settings.api_information }}</h3>
       </div>
       <div class="card-body">
-        <div class="form-group">
-          <label for="webhookUrl">{{ translations.settings.webhook_url }}</label>
+        <div class="form-group mb-3">
+          <label for="api_key">API-Schlüssel</label>
           <div class="input-group">
-            <input type="text" class="form-control" id="webhookUrl" readonly value="{{ app_settings.api.webhook_url }}">
-            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('webhookUrl')">
+            <input type="text" class="form-control" id="api_key" name="api_key" value="{{ settings.api.key }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="webhook_url">{{ translations.settings.webhook_url }}</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="webhook_url" name="webhook_url" value="{{ settings.api.webhook_url }}">
+            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('webhook_url')">
               <i class="fas fa-copy"></i>
             </button>
           </div>
