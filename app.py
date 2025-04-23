@@ -876,11 +876,14 @@ def register_webhooks(shop, access_token):
         
         # Liste der Webhooks, die registriert werden sollen
         webhooks_to_register = [
+            # App-Webhooks
             "APP_UNINSTALLED",
             "SHOP_UPDATE",
-            "CUSTOMERS_CREATE",
-            "CUSTOMERS_UPDATE",
-            "CUSTOMERS_DELETE"
+            
+            # GDPR Compliance Webhooks
+            "CUSTOMERS_DATA_REQUEST",
+            "CUSTOMERS_REDACT",
+            "SHOP_REDACT"
         ]
         
         # Vollständige Basis-URL mit HTTPS abrufen
@@ -1836,3 +1839,171 @@ if __name__ == '__main__':
     
     print(f"🚀 Starte ShopPulseAI auf Port {port} mit Debug={debug}")
     app.run(host='0.0.0.0', port=port, debug=debug)
+
+# GDPR Compliance Webhooks
+@app.route('/webhook/customers/data_request', methods=['POST'])
+def customer_data_request():
+    """Handler für GDPR Datenanfragen"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Datenanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        customer_email = webhook_data.get('customer', {}).get('email')
+        
+        if shop_domain and customer_email:
+            # Hier würden Sie die Kundendaten sammeln und bereitstellen
+            print(f"GDPR Datenanfrage für Kunde {customer_email} von Shop {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"Fehler im customers/data_request Webhook: {e}")
+        return 'Internal Server Error', 500
+
+@app.route('/webhook/customers/redact', methods=['POST'])
+def customer_redact():
+    """Handler für GDPR Kundendaten-Löschung"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Löschanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        customer_email = webhook_data.get('customer', {}).get('email')
+        
+        if shop_domain and customer_email:
+            # Hier würden Sie die Kundendaten löschen
+            print(f"GDPR Löschanfrage für Kunde {customer_email} von Shop {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"Fehler im customers/redact Webhook: {e}")
+        return 'Internal Server Error', 500
+
+@app.route('/webhook/shop/redact', methods=['POST'])
+def shop_redact():
+    """Handler für GDPR Shop-Daten-Löschung"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Shop-Löschanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        
+        if shop_domain:
+            # Hier würden Sie alle Shop-bezogenen Daten löschen
+            print(f"GDPR Shop-Löschanfrage für Shop {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"Fehler im shop/redact Webhook: {e}")
+        return 'Internal Server Error', 500
+
+@app.route('/webhook/app/uninstalled', methods=['POST'])
+def app_uninstalled_webhook():
+    """Handler für app/uninstalled Webhook"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        # Verifiziere die HMAC-Signatur
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die App-Deinstallation
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        
+        if shop_domain:
+            # Lösche diesen Shop aus der Session, falls er aktiv ist
+            if 'shop' in session and session['shop'] == shop_domain:
+                session.clear()
+                
+            # Optional: Lösche Tracking-Daten oder andere gespeicherte Informationen
+            print(f"✅ App wurde deinstalliert von Shop: {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"❌ Fehler im app/uninstalled Webhook: {e}")
+        return 'Internal Server Error', 500
+
+@app.route('/webhook/shop/update', methods=['POST'])
+def shop_update_webhook():
+    """Handler für shop/update Webhook"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite das Shop-Update
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain') or webhook_data.get('domain')
+        
+        if shop_domain:
+            # Aktualisiere Shop-Informationen in der Datenbank
+            print(f"✅ Shop wurde aktualisiert: {shop_domain}")
+            
+        return '', 200
+    except Exception as e:
+        print(f"❌ Fehler im shop/update Webhook: {e}")
+        return 'Internal Server Error', 500
