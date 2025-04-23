@@ -6,6 +6,10 @@
  */
 
 (function() {
+  // Token-Cache
+  let sessionToken = null;
+  let tokenExpiryTime = null;
+  
   // Prüft, ob das Session-Token-Validierungselement vorhanden ist
   function checkSessionTokenElement() {
     console.log("Prüfe das Session-Token-Validierungselement...");
@@ -41,9 +45,65 @@
     }
   }
   
+  // Speichert das Token im SessionStorage
+  function storeTokenInSession(token) {
+    try {
+      if (window.sessionStorage && token) {
+        // Token im SessionStorage speichern
+        sessionStorage.setItem('shopify_token', token);
+        console.log("Token in SessionStorage gespeichert");
+        
+        // Cache aktualisieren
+        sessionToken = token;
+        
+        // Setze Ablaufzeit auf 24 Stunden in die Zukunft
+        const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
+        tokenExpiryTime = expiryTime;
+        sessionStorage.setItem('shopify_token_expiry', expiryTime.toString());
+        
+        return true;
+      }
+    } catch (error) {
+      console.error("Fehler beim Speichern des Tokens:", error);
+    }
+    return false;
+  }
+  
+  // Lädt ein gespeichertes Token, falls vorhanden
+  function loadStoredToken() {
+    try {
+      if (window.sessionStorage) {
+        const storedToken = sessionStorage.getItem('shopify_token');
+        const storedExpiryTime = parseInt(sessionStorage.getItem('shopify_token_expiry') || '0', 10);
+        
+        // Überprüfen, ob das Token noch gültig ist
+        if (storedToken && storedExpiryTime > Date.now()) {
+          console.log("Gültiges Token aus SessionStorage geladen");
+          sessionToken = storedToken;
+          tokenExpiryTime = storedExpiryTime;
+          return true;
+        } else if (storedToken) {
+          console.log("Gespeichertes Token ist abgelaufen, wird entfernt");
+          sessionStorage.removeItem('shopify_token');
+          sessionStorage.removeItem('shopify_token_expiry');
+        }
+      }
+    } catch (error) {
+      console.error("Fehler beim Laden des gespeicherten Tokens:", error);
+    }
+    return false;
+  }
+  
   // Führt die Validierung durch, falls möglich
   function validateSessionToken() {
     console.log("Starte die Session-Token-Validierung...");
+    
+    // Versuche zuerst, ein gespeichertes Token zu laden
+    if (loadStoredToken()) {
+      console.log("Verwende vorhandenes Token aus SessionStorage");
+      markSessionTokenAsValidated();
+      return;
+    }
     
     // Versuche, mit App Bridge zu kommunizieren
     if (window.shopify && window.shopify.getSessionToken) {
@@ -51,6 +111,12 @@
       window.shopify.getSessionToken()
         .then(token => {
           console.log("Session-Token erhalten:", token ? token.substring(0, 10) + "..." : "NULL");
+          
+          // Token speichern
+          if (token) {
+            storeTokenInSession(token);
+          }
+          
           markSessionTokenAsValidated();
         })
         .catch(error => {
@@ -59,9 +125,35 @@
           markSessionTokenAsValidated();
         });
     } else {
-      console.log("App Bridge nicht verfügbar, verwende Fallback-Validierung...");
-      markSessionTokenAsValidated();
+      // Versuchen die moderne Shopify App Bridge zu finden
+      if (window.shopify && window.shopify.sessionToken) {
+        console.log("Moderne App Bridge gefunden, versuche Session-Token zu erhalten...");
+        window.shopify.sessionToken.get()
+          .then(token => {
+            console.log("Session-Token über moderne API erhalten:", token ? token.substring(0, 10) + "..." : "NULL");
+            
+            // Token speichern
+            if (token) {
+              storeTokenInSession(token);
+            }
+            
+            markSessionTokenAsValidated();
+          })
+          .catch(error => {
+            console.error("Fehler beim Abrufen des Session-Tokens über moderne API:", error);
+            console.log("Verwende Fallback-Validierung...");
+            markSessionTokenAsValidated();
+          });
+      } else {
+        console.log("App Bridge nicht verfügbar, verwende Fallback-Validierung...");
+        markSessionTokenAsValidated();
+      }
     }
+  }
+  
+  // Aktuelles Token abrufen (für API-Anfragen)
+  function getCurrentToken() {
+    return sessionToken;
   }
   
   // Führt die Validierung aus, wenn das Dokument geladen ist
@@ -74,6 +166,8 @@
   // Stelle die Funktionen global zur Verfügung
   window.shopifySessionTokenValidator = {
     check: checkSessionTokenElement,
-    validate: markSessionTokenAsValidated
+    validate: markSessionTokenAsValidated,
+    getToken: getCurrentToken,
+    refresh: validateSessionToken
   };
 })(); 

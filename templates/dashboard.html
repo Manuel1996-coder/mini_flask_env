@@ -290,6 +290,21 @@
 {% block scripts %}
   {{ super() }}
   <script>
+    // Alle Template-Daten in einem einzelnen JSON-Objekt konsolidieren
+    var chartData = {{ {
+      'trafficDates': traffic_dates if traffic_dates else ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+      'pageviewsData': traffic_data.pageviews if traffic_data and traffic_data.pageviews else [12, 19, 15, 27, 22, 19, 26],
+      'visitorsData': traffic_data.visitors if traffic_data and traffic_data.visitors else [8, 12, 9, 17, 15, 13, 18],
+      'deviceData': device_data if device_data else [45, 40, 15],
+      'labels': {
+        'mobile': translations.dashboard.mobile|default("Mobil"),
+        'desktop': translations.dashboard.desktop|default("Desktop"),
+        'tablet': translations.dashboard.tablet|default("Tablet"),
+        'pageviews': translations.dashboard.pageviews|default("Seitenaufrufe"),
+        'visitors': translations.dashboard.unique_visitors|default("Besucher")
+      }
+    }|tojson|safe }};
+    
     document.addEventListener('DOMContentLoaded', function() {
       // Traffic Chart (Line Chart)
       const trafficCtx = document.getElementById('trafficChart');
@@ -297,19 +312,19 @@
         const trafficChart = new Chart(trafficCtx, {
           type: 'line',
           data: {
-            labels: {{ traffic_dates|tojson|safe if traffic_dates else '["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]'|safe }},
+            labels: chartData.trafficDates,
             datasets: [
               {
-                label: '{{ translations.dashboard.pageviews }}',
-                data: {{ traffic_data.pageviews|tojson|safe if traffic_data and traffic_data.pageviews else '[12, 19, 15, 27, 22, 19, 26]'|safe }},
+                label: chartData.labels.pageviews,
+                data: chartData.pageviewsData,
                 borderColor: getComputedStyle(document.body).getPropertyValue('--primary-600'),
                 backgroundColor: hexToRgba(getComputedStyle(document.body).getPropertyValue('--primary-600'), 0.1),
                 tension: 0.4,
                 fill: true
               },
               {
-                label: '{{ translations.dashboard.unique_visitors }}',
-                data: {{ traffic_data.visitors|tojson|safe if traffic_data and traffic_data.visitors else '[8, 12, 9, 17, 15, 13, 18]'|safe }},
+                label: chartData.labels.visitors,
+                data: chartData.visitorsData,
                 borderColor: getComputedStyle(document.body).getPropertyValue('--secondary-600'),
                 backgroundColor: 'transparent',
                 tension: 0.4,
@@ -360,9 +375,9 @@
         const devicesChart = new Chart(devicesCtx, {
           type: 'doughnut',
           data: {
-            labels: ['{{ translations.dashboard.mobile }}', '{{ translations.dashboard.desktop }}', '{{ translations.dashboard.tablet }}'],
+            labels: [chartData.labels.mobile, chartData.labels.desktop, chartData.labels.tablet],
             datasets: [{
-              data: {{ device_data|tojson|safe if device_data else '[45, 40, 15]'|safe }},
+              data: chartData.deviceData,
               backgroundColor: [
                 getComputedStyle(document.body).getPropertyValue('--primary-500'),
                 getComputedStyle(document.body).getPropertyValue('--secondary-500'),

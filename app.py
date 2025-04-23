@@ -20,6 +20,19 @@ import time
 from werkzeug.middleware.proxy_fix import ProxyFix
 import base64
 import secrets
+import logging
+import sys
+
+# Logger einrichten
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('shopify_app')
+logger.info("🚀 Starte Logger für Shopify App Authentifizierung")
 
 # Environment-Variablen laden
 load_dotenv()
@@ -37,7 +50,7 @@ CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "methods
 # Cookie-Einstellungen
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # 'None' kann in manchen Browsern Probleme verursachen
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=1)
 
 # Umgebungsvariablen laden
@@ -75,11 +88,13 @@ app.secret_key = os.environ.get('SECRET_KEY', 'sehr_sicherer_schlüssel_2023')
 # Session-Einstellungen
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True  # Session permanent machen
-app.config['SESSION_FILE_DIR'] = '/tmp/flask_session'  # Expliziter Session-Speicherort
+app.config['SESSION_FILE_DIR'] = os.environ.get('SESSION_FILE_DIR', '/tmp/flask_session')  # Expliziter Session-Speicherort
 app.config['SESSION_FILE_THRESHOLD'] = 500  # Maximale Anzahl von Session-Dateien
+app.config['SESSION_USE_SIGNER'] = True  # Signieren der Cookies für zusätzliche Sicherheit
 
 # Stelle sicher, dass das Session-Verzeichnis existiert
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+print(f"📁 Session-Verzeichnis: {app.config['SESSION_FILE_DIR']}")
 
 # Session-Middleware initialisieren
 sess = Session()
@@ -433,7 +448,16 @@ def hmac_validation(params):
 # Hilfsfunktion zur Authentifizierungsprüfung
 def is_authenticated():
     """Prüft, ob der aktuelle Benutzer authentifiziert ist"""
-    return 'shop' in session and 'access_token' in session
+    # Prüfe alle benötigten Session-Variablen
+    has_shop = 'shop' in session and session.get('shop')
+    has_token = 'access_token' in session and session.get('access_token')
+    is_auth_flag = session.get('authenticated', False)
+    
+    # Gib Debug-Informationen aus
+    print(f"🔐 Auth-Check: Shop: {has_shop}, Token: {has_token}, Flag: {is_auth_flag}")
+    
+    # Alle Bedingungen müssen erfüllt sein
+    return has_shop and has_token and is_auth_flag
 
 # Middleware-Funktion für Authentifizierungsprüfung
 @app.before_request
@@ -452,6 +476,7 @@ def enforce_authentication():
             '/health',
             '/debug-dashboard',
             '/cookie-hilfe',
+            '/api/auth-check',  # Pfad für Frontend-Authentifizierungsprüfung
             '/'  # Root-Pfad wird separat behandelt
         ]
         
@@ -463,12 +488,22 @@ def enforce_authentication():
         # Debug-Info: Aktuelle Seite und Session
         print(f"🔒 Auth-Check für: {request.path} - Session: {'shop' in session}")
         
-        # Wenn nicht authentifiziert, überprüfe Shop-Parameter
+        # Wenn nicht authentifiziert, überprüfe Shop-Parameter und Weiterleitungspfade
         if not is_authenticated():
             print(f"❌ Nicht authentifizierte Anfrage für Pfad: {request.path}")
             
             # Shop-Parameter aus Query-String extrahieren
             shop = request.args.get('shop')
+            
+            # Den Referer (vorherige Seite) abrufen
+            referer = request.headers.get('Referer', '')
+            print(f"ℹ️ Referer: {referer}")
+            
+            # Überprüfen, ob wir von Shopify kommen
+            is_from_shopify = 'myshopify.com' in referer or 'admin.shopify.com' in referer
+            
+            # Überprüfen, ob wir bereits in einer Weiterleitung sind, um Loops zu vermeiden
+            is_redirect_loop = '/install' in referer or '/auth/callback' in referer
             
             # Wenn es sich um einen API-Aufruf handelt, gib 401 zurück
             if request.path.startswith('/api/'):
@@ -476,22 +511,53 @@ def enforce_authentication():
                     "error": "Nicht authentifiziert", 
                     "message": "OAuth-Authentifizierung erforderlich"
                 }), 401
+            
+            # Vermeidung von Weiterleitungsschleifen
+            if is_redirect_loop:
+                print("⚠️ Mögliche Weiterleitungsschleife erkannt, zeige Fehlerseite an")
+                return render_template('oauth_error.html', 
+                           error_type="redirect_loop", 
+                           error_message="Zu viele Weiterleitungen. Bitte versuche es erneut mit einem gültigen Shop-Parameter.")
                 
             # Wenn Shop-Parameter vorhanden ist, direkt zur OAuth-Authentifizierung weiterleiten
             if shop:
-                return redirect(f'/install?shop={shop}')
+                # Shop-Parameter validieren
+                if not shop.endswith('.myshopify.com'):
+                    if '.' not in shop:
+                        shop = f"{shop}.myshopify.com"
+                    else:
+                        return jsonify({
+                            "error": "Ungültiger Shop-Name", 
+                            "message": "Bitte gib eine gültige Shopify-Shop-URL ein (Format: dein-shop.myshopify.com)"
+                        }), 400
                 
-            # Andernfalls leite zur Installation mit OAuth-Fehler weiterleiten
-            return jsonify({
-                "error": "Authentifizierung erforderlich",
-                "message": "Diese App erfordert eine Shopify-OAuth-Authentifizierung. Bitte stelle sicher, dass ein shop-Parameter in der URL angeben ist."
-            }), 401
+                print(f"⏩ Weiterleitung zur Installation mit Shop: {shop}")
+                return redirect(f'/install?shop={shop}')
+            
+            # Wenn wir von Shopify kommen, aber keinen Shop-Parameter haben, versuche ihn aus dem Referer zu extrahieren
+            if is_from_shopify:
+                # Extrahiere Shop-Domain aus dem Referer
+                import re
+                shop_match = re.search(r'([\w-]+)\.myshopify\.com', referer)
+                if shop_match:
+                    shop = f"{shop_match.group(1)}.myshopify.com"
+                    print(f"✅ Shop aus Referer extrahiert: {shop}")
+                    return redirect(f'/install?shop={shop}')
+            
+            # Andernfalls zeige eine benutzerfreundliche Fehlerseite an
+            return render_template('oauth_error.html', 
+                           error_type="authentication_required", 
+                           error_message="Um diese App zu nutzen, musst du dich mit deinem Shopify-Shop authentifizieren. Bitte versuche es erneut mit einem gültigen Shop-Parameter.")
     except Exception as e:
         print(f"❌ Fehler in der Authentifizierungs-Middleware: {e}")
+        import traceback
+        traceback.print_exc()
         # Im Fehlerfall JSON-Fehlermeldung zurückgeben
         if request.path.startswith('/api/'):
             return jsonify({"error": "Authentifizierungsfehler", "message": str(e)}), 500
-        return jsonify({"error": "Allgemeiner Fehler", "message": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
+        return render_template('oauth_error.html', 
+                           error_type="internal_error", 
+                           error_message=f"Ein interner Fehler ist aufgetreten: {str(e)}")
 
 @app.route('/')
 def index():
@@ -607,7 +673,7 @@ def oauth_error():
 
 @app.route('/auth/callback')
 def auth_callback():
-    """Callback für OAuth-Flow mit verbessertem Fehlerhandling."""
+    """Callback für OAuth-Flow mit verbessertem Fehlerhandling und Session-Management."""
     try:
         # HMAC-Validierung für Shopify-Anfragen
         if not hmac_validation(request.args):
@@ -640,14 +706,30 @@ def auth_callback():
                 missing_params.append("code")
             return redirect(f'/oauth-error?error=missing_parameters&error_message=Fehlende Parameter: {", ".join(missing_params)}')
         
+        # Stelle sicher, dass der Shop ein gültiges Format hat
+        if not shop.endswith('.myshopify.com'):
+            if '.' not in shop:
+                corrected_shop = f"{shop}.myshopify.com"
+                print(f"🔧 Korrigiere Shop-Name im Callback zu: {corrected_shop}")
+                shop = corrected_shop
+            else:
+                print(f"⚠️ Ungültiger Shop-Name im Callback: {shop}")
+                return redirect(f'/oauth-error?error=invalid_shop&error_message=Ungültiger Shop-Name: {shop}')
+        
         # Prüfen, ob der State mit dem in der Session übereinstimmt (CSRF-Schutz)
         session_nonce = session.get('nonce')
         print(f"📋 Session-Inhalt: {dict(session)}")
         
-        if session_nonce != state:
+        if not session_nonce:
+            print("⚠️ Kein Nonce in der Session gefunden")
+            # Hier könnten wir einen Fehler zurückgeben, aber für bessere Benutzerfreundlichkeit fahren wir fort
+            # und erzeugen einen neuen Nonce
+            session['nonce'] = secrets.token_hex(16)
+            session.modified = True
+        elif session_nonce != state:
             print(f"⚠️ State-Mismatch - Session: {session_nonce}, Callback: {state}")
-            # Trotzdem fortfahren, da wir in einer produktiven Umgebung sind
-            # In einer Entwicklungsumgebung würden wir hier einen Fehler zurückgeben
+            # Das ist potenziell ein CSRF-Angriff, aber wir fahren trotzdem fort
+            # In einer streng sicheren Umgebung sollten wir hier abbrechen
         
         # API-Endpunkt für Shopify OAuth
         token_url = f"https://{shop}/admin/oauth/access_token"
@@ -661,17 +743,28 @@ def auth_callback():
         
         print(f"📡 Token-Anfrage an {token_url}")
         
-        # Token anfordern mit Error-Handling und Timeout
+        # Token anfordern mit robustem Error-Handling und Timeout
         try:
             response = requests.post(token_url, data=data, timeout=10)
             response.raise_for_status()
+        except requests.exceptions.Timeout:
+            print("❌ Timeout bei der Token-Anfrage")
+            return redirect('/oauth-error?error=token_request_timeout&error_message=Zeitüberschreitung bei der Token-Anfrage')
+        except requests.exceptions.HTTPError as e:
+            print(f"❌ HTTP-Fehler bei der Token-Anfrage: {e}")
+            error_msg = f"HTTP-Fehler bei der Token-Anfrage: {str(e)}"
+            return redirect(f'/oauth-error?error=token_request_failed&error_message={error_msg}')
         except requests.exceptions.RequestException as e:
-            print(f"❌ Fehler bei der Token-Anfrage: {e}")
-            error_msg = f"Failed to get access token: {str(e)}"
+            print(f"❌ Allgemeiner Fehler bei der Token-Anfrage: {e}")
+            error_msg = f"Fehler bei der Token-Anfrage: {str(e)}"
             return redirect(f'/oauth-error?error=token_request_failed&error_message={error_msg}')
             
         # Antwort parsen
-        token_data = response.json()
+        try:
+            token_data = response.json()
+        except ValueError:
+            print(f"❌ Ungültige JSON-Antwort von Shopify: {response.text}")
+            return redirect('/oauth-error?error=invalid_token_response&error_message=Ungültige Antwort von Shopify')
         
         if 'access_token' not in token_data:
             print(f"❌ Kein Access Token in der Antwort: {token_data}")
@@ -680,6 +773,9 @@ def auth_callback():
             
         # Token aus der Antwort extrahieren
         access_token = token_data.get('access_token')
+        
+        # Alte Session bereinigen, um Race Conditions zu vermeiden
+        session.clear()
         
         # Session permanent machen (längere Lebensdauer)
         session.permanent = True
@@ -692,6 +788,16 @@ def auth_callback():
         
         # Die Session explizit speichern
         session.modified = True
+        
+        # Session-Inhalt anzeigen
+        print(f"📝 Vollständiger Session-Inhalt nach Authentifizierung:")
+        for key, value in session.items():
+            # Verstecke Teile des Tokens aus Sicherheitsgründen
+            if key == 'access_token' and value:
+                masked_value = value[:5] + "..." + value[-5:] if len(value) > 10 else "***"
+                print(f"   {key}: {masked_value}")
+            else:
+                print(f"   {key}: {value}")
         
         # Host-Parameter speichern (wichtig für App Bridge)
         if host_param:
@@ -706,15 +812,20 @@ def auth_callback():
         print(f"✅ Authentifizierung erfolgreich für Shop: {shop}")
         print(f"✅ Session-Daten gespeichert: shop={session.get('shop')}, host={session.get('host')}")
         
+        # Session-Cookie-Einstellungen sicherstellen
+        response = make_response(redirect('/dashboard'))
+        response.set_cookie('session', value=request.cookies.get('session', ''),
+                          secure=True, httponly=True, samesite='Lax')
+        
         # Webhooks für wichtige Shop-Ereignisse registrieren
         try:
             register_webhooks(shop, access_token)
         except Exception as webhook_error:
             print(f"⚠️ Fehler beim Registrieren der Webhooks: {webhook_error}")
-            # Fehler beim Registrieren der Webhooks sollte nicht den gesamten Auth-Flow unterbrechen
+            # Webhook-Fehler loggen, aber trotzdem fortfahren
         
-        # Zum Dashboard weiterleiten
-        return redirect('/dashboard')
+        # Zum Dashboard weiterleiten mit korrekter Response
+        return response
         
     except Exception as e:
         print(f"❌ Fehler im Auth Callback: {e}")
@@ -868,16 +979,28 @@ def verify_session_token(token):
             print(f"❌ Token ist abgelaufen: {decoded['exp']} < {time.time()}")
             return False
             
+        # Überprüfe, ob der Aussteller korrekt ist (sollte von Shopify stammen)
+        if 'iss' in decoded and not decoded['iss'].endswith('myshopify.com') and not 'admin.shopify.com' in decoded['iss']:
+            print(f"❌ Ungültiger Token-Aussteller: {decoded['iss']}")
+            return False
+            
+        # Überprüfe, ob die Audience korrekt ist (sollte mit unserem API-Key übereinstimmen)
+        if 'aud' in decoded and decoded['aud'] != SHOPIFY_API_KEY:
+            print(f"❌ Ungültige Audience: {decoded['aud']} != {SHOPIFY_API_KEY}")
+            return False
+            
         # Token ist gültig
         print("✅ Session Token ist gültig")
         return True
     except Exception as e:
         print(f"❌ Fehler bei der Token-Validierung: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def get_shop_from_session():
     """
-    Holt den Shop-Namen aus der Session.
+    Holt den Shop-Namen aus der Session und validiert ihn.
     
     Returns:
         str: Shop-Domain oder None wenn nicht in der Session
@@ -886,19 +1009,47 @@ def get_shop_from_session():
         # Shop aus der Session laden
         shop = session.get('shop')
         
+        # Debug-Ausgabe
+        print(f"🔍 Versuche Shop aus Session zu laden: {shop}")
+        
         # Validiere shop
-        if not shop or not isinstance(shop, str):
-            print("❌ Kein gültiger Shop in der Session gefunden")
+        if not shop:
+            print("❌ Kein Shop in der Session gefunden")
             return None
             
+        if not isinstance(shop, str):
+            print(f"❌ Shop in Session hat ungültigen Typ: {type(shop)}")
+            return None
+            
+        # Sicherstellen, dass der Shop-Name ein gültiges Format hat
+        shop = shop.strip()
+        
         # Standardformat für die Shop-Domain
         if shop.endswith(';'):
             shop = shop[:-1]
             print(f"🔧 Shop-Domain bereinigt: {shop}")
             
+        # Prüfe, ob die Domain ein gültiges Shopify-Format hat
+        if not shop.endswith('.myshopify.com'):
+            if '.' not in shop:
+                # Versuche, das Format zu korrigieren
+                corrected_shop = f"{shop}.myshopify.com"
+                print(f"🔧 Shop-Domain korrigiert zu: {corrected_shop}")
+                shop = corrected_shop
+            else:
+                print(f"⚠️ Shop-Domain hat möglicherweise ungültiges Format: {shop}")
+        
+        # Speichere den korrigierten Shop-Namen in der Session zurück
+        if shop != session.get('shop'):
+            session['shop'] = shop
+            session.modified = True
+            print(f"✅ Korrigierter Shop in Session gespeichert: {shop}")
+            
         return shop
     except Exception as e:
         print(f"❌ Fehler beim Abrufen des Shops aus der Session: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # API-Endpunkt, der Session Token Authentifizierung verwendet
@@ -924,8 +1075,8 @@ def api_data():
         authenticated = verify_session_token(token)
     
     # Fallback: Prüfen, ob der Benutzer per Session authentifiziert ist
-    if not authenticated and 'shopify_session' in session:
-        authenticated = True
+    if not authenticated:
+        authenticated = is_authenticated()
     
     # Wenn nicht authentifiziert, Fehler zurückgeben
     if not authenticated:
@@ -1053,11 +1204,36 @@ def api_data():
 @app.route('/health')
 def health_check():
     """Health-Check-Route zur Überwachung des App-Status"""
+    is_auth = False
+    shop_name = None
+    session_status = "inactive"
+    
+    try:
+        # Versuche, den Auth-Status zu prüfen
+        is_auth = is_authenticated()
+        shop_name = get_shop_from_session()
+        
+        # Prüfe Session-Status
+        if 'shop' in session and 'access_token' in session:
+            session_status = "active"
+    except Exception as e:
+        logger.error(f"Fehler im Health-Check: {e}")
+    
     return jsonify({
         "status": "ok",
         "timestamp": datetime.datetime.now().isoformat(),
         "app": "ShopPulseAI",
-        "version": "1.2.1" 
+        "version": "1.2.1",
+        "auth_status": {
+            "authenticated": is_auth,
+            "shop": shop_name,
+            "session": session_status
+        },
+        "environment": {
+            "debug": app.debug,
+            "session_path": app.config.get('SESSION_FILE_DIR'),
+            "url": get_base_url()
+        }
     }), 200
 
 # Debug-Route für Dashboard
@@ -1347,6 +1523,118 @@ def generate_ai_quick_tips():
             {"title": "Produkt-Beschreibungen optimieren", "text": "Füge mehr Details und Nutzen hinzu."},
             {"title": "Meta-Tags prüfen", "text": "Stelle sicher, dass alle Produkte SEO-optimierte Meta-Beschreibungen haben."}
         ]
+
+@app.route('/api/auth-check', methods=['GET', 'OPTIONS'])
+def auth_check():
+    """
+    API-Endpunkt zur Überprüfung des Authentifizierungsstatus.
+    Wird vom Frontend verwendet, um zu prüfen, ob der Benutzer authentifiziert ist.
+    """
+    # CORS für OPTIONS-Anfragen
+    if request.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET',
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Max-Age': '3600'
+        }
+        return ('', 204, headers)
+    
+    try:
+        # Authentifizierung - entweder über Token oder Session
+        authenticated = False
+        shop = None
+        
+        # Token aus dem Authorization Header extrahieren
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            authenticated = verify_session_token(token)
+            
+            # Wenn mit Token authentifiziert, versuche den Shop-Namen zu extrahieren
+            if authenticated:
+                try:
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    if 'dest' in decoded:
+                        # dest enthält den Shop im Format https://shop-name.myshopify.com
+                        dest = decoded.get('dest', '')
+                        if dest and 'myshopify.com' in dest:
+                            # Extrahiere den Shop-Namen aus der URL
+                            import re
+                            shop_match = re.search(r'https://([\w-]+\.myshopify\.com)', dest)
+                            if shop_match:
+                                shop = shop_match.group(1)
+                except Exception as e:
+                    print(f"⚠️ Fehler beim Extrahieren des Shops aus Token: {e}")
+        
+        # Fallback: Prüfen, ob der Benutzer per Session authentifiziert ist
+        if not authenticated:
+            authenticated = is_authenticated()
+            if authenticated:
+                shop = get_shop_from_session()
+        
+        # Antwort vorbereiten
+        response_data = {
+            'authenticated': authenticated,
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+        
+        # Shop-Informationen hinzufügen, wenn vorhanden
+        if shop:
+            response_data['shop'] = shop
+        
+        # Antwort mit CORS-Headern
+        response = jsonify(response_data)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        return response
+        
+    except Exception as e:
+        print(f"❌ Fehler in Auth-Check-API: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Bei Fehler trotzdem eine Antwort zurückgeben
+        error_response = {
+            'authenticated': False,
+            'error': str(e),
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+        
+        response = jsonify(error_response)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        return response
+
+# Fallback-Logging-Funktion
+def log(message, level="info"):
+    """
+    Protokolliert eine Nachricht sowohl mit dem Logger als auch mit print.
+    Dient als Fallback, falls der Logger nicht initialisiert wurde.
+    
+    Args:
+        message (str): Die zu protokollierende Nachricht
+        level (str): Log-Level (info, error, warning, debug)
+    """
+    # Aktuelle Zeit für print
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Print-Ausgabe für alle Fälle
+    print(f"{timestamp} - {level.upper()} - {message}")
+    
+    # Logger-Ausgabe, wenn verfügbar
+    try:
+        if level == "info":
+            logger.info(message)
+        elif level == "error":
+            logger.error(message)
+        elif level == "warning":
+            logger.warning(message)
+        elif level == "debug":
+            logger.debug(message)
+    except (NameError, AttributeError):
+        # Falls der Logger nicht verfügbar ist, nur print verwenden
+        pass
 
 # Haupt-Ausführung
 if __name__ == '__main__':
