@@ -764,11 +764,6 @@ def register_webhooks(shop, access_token):
             "APP_UNINSTALLED",
             "SHOP_UPDATE",
             
-            # GDPR-konforme Webhooks (für Shopify App Store erforderlich)
-            "CUSTOMERS_DATA_REQUEST", 
-            "CUSTOMERS_REDACT",
-            "SHOP_REDACT",
-            
             # Business-relevante Events
             "CUSTOMERS_CREATE",
             "CUSTOMERS_UPDATE",
@@ -809,17 +804,8 @@ def register_webhooks(shop, access_token):
             """
             
             # Webhook-URL basierend auf dem Topic
-            # Standardisierte URL-Pfade für GDPR-Webhooks
-            if topic == "CUSTOMERS_DATA_REQUEST":
-                webhook_url = f"{base_url}/webhook/customers/data_request"
-            elif topic == "CUSTOMERS_REDACT":
-                webhook_url = f"{base_url}/webhook/customers/redact"
-            elif topic == "SHOP_REDACT":
-                webhook_url = f"{base_url}/webhook/shop/redact"
-            else:
-                # Für alle anderen Webhooks
-                topic_path = topic.lower().replace("_", "/")
-                webhook_url = f"{base_url}/webhook/{topic_path}"
+            topic_path = topic.lower().replace("_", "/")
+            webhook_url = f"{base_url}/webhook/{topic_path}"
             
             print(f"🔄 Registriere Webhook für {topic} mit URL: {webhook_url}")
             
@@ -863,6 +849,71 @@ def register_webhooks(shop, access_token):
                 print(f"❌ Exception beim Registrieren des Webhooks für {topic}: {hook_error}")
                 webhook_results["failed"] += 1
                 webhook_results["details"][topic] = f"exception: {str(hook_error)}"
+        
+        # GDPR Webhooks manuell über die REST API registrieren
+        # Diese haben spezielle Formatanforderungen und werden nicht über GraphQL registriert
+        print("🔄 Registriere GDPR-Webhooks über REST API...")
+        
+        # GDPR Webhook-Endpunkte entsprechend Shopify Anforderungen
+        gdpr_webhooks = [
+            {
+                "topic": "customers/data_request",
+                "address": f"{base_url}/webhook/customers/data_request",
+                "format": "json",
+                "description": "GDPR customer data request"
+            },
+            {
+                "topic": "customers/redact",
+                "address": f"{base_url}/webhook/customers/redact",
+                "format": "json",
+                "description": "GDPR customer data erasure"
+            },
+            {
+                "topic": "shop/redact",
+                "address": f"{base_url}/webhook/shop/redact",
+                "format": "json",
+                "description": "GDPR shop data erasure"
+            }
+        ]
+        
+        # REST API für GDPR Webhooks verwenden
+        rest_headers = {
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json'
+        }
+        
+        for gdpr_hook in gdpr_webhooks:
+            try:
+                rest_url = f"https://{shop}/admin/api/2024-01/webhooks.json"
+                
+                payload = {
+                    "webhook": gdpr_hook
+                }
+                
+                print(f"🔄 Registriere GDPR Webhook für {gdpr_hook['topic']} mit URL: {gdpr_hook['address']}")
+                
+                response = requests.post(
+                    rest_url,
+                    json=payload,
+                    headers=rest_headers,
+                    verify=certifi.where()
+                )
+                
+                if response.status_code in [201, 200]: # 201 Created or 200 OK
+                    print(f"✅ GDPR Webhook für {gdpr_hook['topic']} erfolgreich registriert")
+                    webhook_results["success"] += 1
+                else:
+                    # Bei Fehlern wie "bereits registriert" trotzdem als Erfolg werten
+                    error_data = response.json()
+                    if "errors" in error_data and "Address has already been taken" in str(error_data["errors"]):
+                        print(f"ℹ️ GDPR Webhook für {gdpr_hook['topic']} bereits registriert")
+                        webhook_results["success"] += 1
+                    else:
+                        print(f"❌ Fehler beim Registrieren des GDPR Webhooks für {gdpr_hook['topic']}: {response.status_code} - {response.text}")
+                        webhook_results["failed"] += 1
+            except Exception as e:
+                print(f"❌ Exception beim Registrieren des GDPR Webhooks für {gdpr_hook['topic']}: {e}")
+                webhook_results["failed"] += 1
         
         print(f"📊 Webhook-Registrierung abgeschlossen: {webhook_results['success']} erfolgreich, {webhook_results['failed']} fehlgeschlagen")
         return webhook_results["success"] > 0
@@ -1107,19 +1158,27 @@ def debug_dashboard():
         # Prüfe, ob ein Shop in der Session ist
         shop = session.get('shop')
         
+        # Host-Parameter und Access Token
+        host = request.args.get('host', '')
+        access_token = session.get('access_token')
+        
+        # Sicheres Laden der Übersetzungen
+        try:
+            user_language = get_user_language()
+            translations_data = translations.get(user_language, translations.get('en', {}))
+        except Exception as trans_error:
+            print(f"⚠️ Fehler beim Laden der Übersetzungen: {trans_error}")
+            translations_data = {}
+            user_language = 'en'
+        
         # Wenn kein Shop in der Session, auf die Startseite umleiten
         if not shop:
             return render_template('debug.html', 
                                error="Kein Shop in der Session gefunden",
                                session_data=dict(session),
-                               auth_status="Nicht authentifiziert")
-        
-        # Host-Parameter und Access Token
-        host = request.args.get('host', '')
-        access_token = session.get('access_token')
-        
-        user_language = get_user_language()
-        translations_data = get_translations()
+                               auth_status="Nicht authentifiziert",
+                               user_language=user_language,
+                               translations=translations_data)
         
         return render_template('debug.html',
                            shop=shop,
@@ -1128,12 +1187,18 @@ def debug_dashboard():
                            auth_status="Authentifiziert" if access_token else "Kein Token",
                            session_data=dict(session),
                            user_language=user_language,
-                           translations=translations_data.get(user_language, {}))
+                           translations=translations_data)
     except Exception as e:
+        print(f"❌ Fehler in der Debug-Dashboard-Route: {e}")
+        import traceback
+        traceback.print_exc()
+        
         return render_template('debug.html',
                            error=str(e),
                            exception_details=traceback.format_exc(),
-                           session_data=dict(session))
+                           session_data=dict(session),
+                           user_language='en',
+                           translations={})
 
 @app.route('/dashboard')
 def dashboard():
@@ -1208,8 +1273,8 @@ def dashboard():
             api_key = SHOPIFY_API_KEY
 
             # Holen der Übersetzungen für die aktuelle Sprache
-            translations = get_translations()
-            user_language = session.get('language', 'de')
+            user_language = get_user_language()
+            translations_data = translations.get(user_language, translations.get('en', {}))
             shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
             app_version = '1.2.1'
             
@@ -1236,7 +1301,7 @@ def dashboard():
                 last_updated=last_updated,
                 ai_quick_tips=ai_quick_tips,
                 implementation_tasks=implementation_tasks,
-                translations=translations[user_language],
+                translations=translations_data,
                 shop_name=shop_name,
                 user_language=user_language,
                 app_version=app_version,
@@ -1247,15 +1312,23 @@ def dashboard():
             import traceback
             traceback.print_exc()
             
+            # Sichere Sprachverarbeitung
+            try:
+                user_language = get_user_language()
+                translations_data = translations.get(user_language, translations.get('en', {}))
+            except:
+                user_language = 'en'
+                translations_data = {}
+            
             # Vereinfachte Version des Dashboards mit Mindestdaten rendern
             return render_template('dashboard.html',
                                shop=shop,
                                host=host,
                                api_key=SHOPIFY_API_KEY,
                                error=f"Fehler beim Laden der Daten: {data_error}",
-                               translations=get_translations().get(get_user_language(), {}),
+                               translations=translations_data,
                                shop_name=shop.replace('.myshopify.com', '') if shop else 'Shop',
-                               user_language=get_user_language(),
+                               user_language=user_language,
                                app_version='1.2.1',
                                title="Dashboard - Fehler")
     except Exception as e:
@@ -1462,6 +1535,52 @@ def shop_data_redact():
         import traceback
         traceback.print_exc()
         return 'Internal server error', 500
+
+def get_translations(language=None):
+    """Gibt die Übersetzungen für die angegebene Sprache zurück."""
+    global translations
+    
+    if language is None:
+        language = get_user_language()
+        
+    # Stelle sicher, dass die Sprache existiert, sonst verwende Englisch
+    if language not in translations:
+        language = 'en'
+        
+    return translations
+
+def generate_ai_quick_tips():
+    """Generiert KI-basierte Schnelltipps für Shop-Optimierungen"""
+    try:
+        # In einer realen Anwendung würden hier OpenAI-API-Calls gemacht
+        # Für MVP stellen wir statische Tipps bereit
+        tips = [
+            {
+                "title": "Produkt-Beschreibungen optimieren", 
+                "text": "Fügen Sie mehr Details und Nutzen hinzu, um Ihre Conversion-Rate zu verbessern."
+            },
+            {
+                "title": "Meta-Tags prüfen", 
+                "text": "Stellen Sie sicher, dass alle Produkte SEO-optimierte Meta-Beschreibungen haben."
+            },
+            {
+                "title": "Mobile Ansicht testen", 
+                "text": "Überprüfen Sie die Ladezeit und Benutzerfreundlichkeit Ihrer Seite auf Mobilgeräten."
+            },
+            {
+                "title": "Email-Marketing einrichten", 
+                "text": "Erstellen Sie automatisierte Emails für verlassene Warenkörbe und Follow-ups nach Käufen."
+            }
+        ]
+        
+        return tips
+    except Exception as e:
+        print(f"❌ Fehler beim Generieren der KI-Tipps: {e}")
+        # Fallback-Tipps bei Fehler
+        return [
+            {"title": "Produkt-Beschreibungen optimieren", "text": "Fügen Sie mehr Details und Nutzen hinzu."},
+            {"title": "Meta-Tags prüfen", "text": "Stellen Sie sicher, dass alle Produkte SEO-optimierte Meta-Beschreibungen haben."}
+        ]
 
 # Haupt-Ausführung
 if __name__ == '__main__':
