@@ -23,6 +23,11 @@ import secrets
 import logging
 import sys
 
+# Eigene Module importieren
+import shopify_api
+from data_models import ShopMetrics, DataAnalyzer, add_tracking_event, get_shop_tracking_data
+from growth_advisor import GrowthAdvisor
+
 # Logger einrichten
 logging.basicConfig(
     level=logging.DEBUG,
@@ -43,6 +48,9 @@ TRACKING_DATA_FILE = 'tracking_data.json'
 # Flask App konfigurieren
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+# Shopify API initialisieren
+shopify_api.init_app(app)
 
 # CORS für alle Routen und Origins erlauben
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Authorization", "Content-Type"]}})
@@ -761,7 +769,7 @@ def auth_callback():
             
         # Antwort parsen
         try:
-            token_data = response.json()
+        token_data = response.json()
         except ValueError:
             print(f"❌ Ungültige JSON-Antwort von Shopify: {response.text}")
             return redirect('/oauth-error?error=invalid_token_response&error_message=Ungültige Antwort von Shopify')
@@ -1058,353 +1066,578 @@ def get_shop_from_session():
 # API-Endpunkt, der Session Token Authentifizierung verwendet
 @app.route('/api/data', methods=['GET', 'OPTIONS'])
 def api_data():
+    """API-Endpunkt für Dashboard-Daten"""
     # CORS für OPTIONS-Anfragen
     if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-            'Access-Control-Max-Age': '3600'
-        }
-        return ('', 204, headers)
-        
-    # Authentifizierung - entweder über Token oder Session
-    authenticated = False
-    
-    # Token aus dem Authorization Header extrahieren
-    auth_header = request.headers.get('Authorization', '')
-    if auth_header.startswith('Bearer '):
-        token = auth_header.replace('Bearer ', '')
-        authenticated = verify_session_token(token)
-    
-    # Fallback: Prüfen, ob der Benutzer per Session authentifiziert ist
-    if not authenticated:
-        authenticated = is_authenticated()
-    
-    # Wenn nicht authentifiziert, Fehler zurückgeben
-    if not authenticated:
-        return jsonify({'error': 'Unauthorized', 'success': False}), 401
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+        return response
     
     try:
-        # Shop aus der Session laden
-        shop = get_shop_from_session()
-        
-        if not shop:
-            return jsonify({
-                'error': 'No shop found in session',
-                'success': False
-            }), 400
+        # Authentifizierung prüfen
+        shop_domain = get_shop_from_session()
+        if not shop_domain:
+            return jsonify({"error": "Nicht authentifiziert"}), 401
             
-        # Versuch, echte Daten aus Shopify zu laden
+        # Access Token abrufen
         access_token = session.get('access_token')
+        if not access_token:
+            return jsonify({"error": "Kein Access Token vorhanden"}), 401
         
-        # Tracking-Daten laden
-        tracking_data = load_tracking_data() or {}
+        # Datentyp aus Query-Parameter abrufen
+        data_type = request.args.get('type', 'sales')
+        period = int(request.args.get('period', 30))
         
-        # Shop-Daten laden
-        shop_data = None
-        if access_token:
+        # Shop-Metriken laden
+        shop_metrics = ShopMetrics(shop_domain)
+        
+        # Daten basierend auf dem angeforderten Typ abrufen
+        if data_type == 'sales':
+            # Tatsächliche Verkaufsdaten abrufen, wenn verfügbar
+            daily_revenue = shop_metrics.get_time_series_data('daily_revenue', period)
+            if daily_revenue:
+                return jsonify({"data": daily_revenue, "is_real": True})
+            
+            # Andernfalls simulierte Daten zurückgeben
+            return jsonify({"data": generate_sales_data(period), "is_real": False})
+            
+        elif data_type == 'orders':
+            # Tatsächliche Bestelldaten abrufen, wenn verfügbar
+            daily_orders = shop_metrics.get_time_series_data('daily_orders', period)
+            if daily_orders:
+                return jsonify({"data": daily_orders, "is_real": True})
+            
+            # Andernfalls simulierte Daten zurückgeben
+            return jsonify({"data": generate_order_data(period), "is_real": False})
+            
+        elif data_type == 'traffic':
+            # Tatsächliche Traffic-Daten abrufen, wenn verfügbar
+            daily_pageviews = shop_metrics.get_time_series_data('daily_pageviews', period)
+            daily_visitors = shop_metrics.get_time_series_data('daily_visitors', period)
+            
+            if daily_pageviews and daily_visitors:
+                return jsonify({
+                    "pageviews": daily_pageviews,
+                    "visitors": daily_visitors,
+                    "is_real": True
+                })
+            
+            # Andernfalls simulierte Daten zurückgeben
+            return jsonify({
+                "pageviews": generate_pageview_data(period),
+                "visitors": generate_visitor_data(period),
+                "is_real": False
+            })
+            
+        elif data_type == 'devices':
+            # Tatsächliche Gerätedaten abrufen, wenn verfügbar
+            device_stats = shop_metrics.metrics.get('device_stats', {})
+            if device_stats:
+                devices_data = [{"name": device, "value": count} for device, count in device_stats.items()]
+                return jsonify({"data": devices_data, "is_real": True})
+            
+            # Andernfalls simulierte Daten zurückgeben
+            return jsonify({
+                "data": [
+                    {"name": "Desktop", "value": random.randint(40, 70)},
+                    {"name": "Mobile", "value": random.randint(20, 50)},
+                    {"name": "Tablet", "value": random.randint(5, 15)}
+                ],
+                "is_real": False
+            })
+            
+        elif data_type == 'products':
             try:
-                shop_data = get_shop_data(shop)
-                print(f"✅ Echte Shop-Daten für {shop} geladen")
-            except Exception as e:
-                print(f"❌ Fehler beim Laden der Shop-Daten: {e}")
+                # Tatsächliche Produktdaten von der Shopify API abrufen
+                products = shopify_api.get_products(shop_domain, access_token, limit=10)
+                product_edges = products.get('edges', [])
                 
-        # Wenn keine Shop-Daten verfügbar sind, Beispieldaten verwenden
-        if not shop_data:
-            print("⚠️ Keine echten Daten verfügbar, verwende Beispieldaten")
-            traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-            traffic_data = {
-                'pageviews': [450, 520, 480, 630, 580, 520, 680],
-                'visitors': [320, 380, 350, 450, 420, 380, 480]
-            }
-            device_data = [45, 40, 15]  # Prozent: Mobil, Desktop, Tablet
-        else:
-            # Echte Daten aus Shopify formatieren
-            # Diese würden normalerweise aus Analytics oder anderen Quellen kommen
-            try:
-                # Falls wir Tracking-Daten haben, diese verwenden
-                if tracking_data and 'pageviews' in tracking_data:
-                    # Letzten 7 Tage extrahieren oder weniger, falls nicht genügend Daten
-                    dates = list(tracking_data.get('dates', {}).keys())[-7:]
-                    pageviews = [tracking_data.get('pageviews', {}).get(date, 0) for date in dates]
-                    visitors = [tracking_data.get('visitors', {}).get(date, 0) for date in dates]
+                if product_edges:
+                    # Daten für die Anzeige formatieren
+                    formatted_products = []
+                    for product in product_edges:
+                        node = product.get('node', {})
+                        
+                        # Hauptbild und Preis aus der ersten Variante extrahieren
+                        image_url = None
+                        if node.get('images', {}).get('edges'):
+                            image_url = node['images']['edges'][0]['node']['url']
+                        
+                        price = None
+                        if node.get('variants', {}).get('edges'):
+                            price = node['variants']['edges'][0]['node']['price']
+                        
+                        formatted_products.append({
+                            "id": node.get('id'),
+                            "title": node.get('title'),
+                            "handle": node.get('handle'),
+                            "image": image_url,
+                            "price": price,
+                            "inventory": node.get('totalInventory', 0)
+                        })
                     
-                    # Formatieren für das Dashboard
-                    traffic_dates = dates
-                    traffic_data = {
-                        'pageviews': pageviews,
-                        'visitors': visitors
-                    }
-                    
-                    # Geräteverteilung berechnen
-                    devices = tracking_data.get('devices', {})
-                    total_devices = sum(devices.values())
-                    if total_devices > 0:
-                        device_data = [
-                            int(devices.get('mobile', 0) / total_devices * 100),
-                            int(devices.get('desktop', 0) / total_devices * 100),
-                            int(devices.get('tablet', 0) / total_devices * 100)
-                        ]
-                    else:
-                        device_data = [33, 33, 34]  # Gleichmäßige Verteilung als Fallback
-                else:
-                    # Fallback auf Beispieldaten, wenn keine Tracking-Daten vorhanden
-                    traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-                    traffic_data = {
-                        'pageviews': [450, 520, 480, 630, 580, 520, 680],
-                        'visitors': [320, 380, 350, 450, 420, 380, 480]
-                    }
-                    device_data = [45, 40, 15]
+                    return jsonify({"data": formatted_products, "is_real": True})
+                
+                # Wenn keine Produkte gefunden wurden, simulierte Daten zurückgeben
+                return jsonify({"data": generate_product_data(), "is_real": False})
+                
             except Exception as e:
-                print(f"❌ Fehler beim Formatieren der echten Daten: {e}")
-                # Fallback auf Beispieldaten bei Fehler
-                traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-                traffic_data = {
-                    'pageviews': [450, 520, 480, 630, 580, 520, 680],
-                    'visitors': [320, 380, 350, 450, 420, 380, 480]
-                }
-                device_data = [45, 40, 15]
+                logger.error(f"Fehler beim Abrufen von Produktdaten: {e}")
+                return jsonify({"data": generate_product_data(), "is_real": False})
+                
+        elif data_type == 'customers':
+            try:
+                # Tatsächliche Kundendaten von der Shopify API abrufen
+                customers = shopify_api.get_customers(shop_domain, access_token, limit=10)
+                customer_edges = customers.get('edges', [])
+                
+                if customer_edges:
+                    # Daten für die Anzeige formatieren
+                    formatted_customers = []
+                    for customer in customer_edges:
+                        node = customer.get('node', {})
+                        
+                        formatted_customers.append({
+                            "id": node.get('id'),
+                            "name": f"{node.get('firstName', '')} {node.get('lastName', '')}".strip(),
+                            "email": node.get('email'),
+                            "orders_count": node.get('ordersCount', 0),
+                            "total_spent": node.get('totalSpent', {}).get('amount', '0')
+                        })
+                    
+                    return jsonify({"data": formatted_customers, "is_real": True})
+                
+                # Wenn keine Kunden gefunden wurden, simulierte Daten zurückgeben
+                return jsonify({"data": generate_customer_data(), "is_real": False})
+                
+            except Exception as e:
+                logger.error(f"Fehler beim Abrufen von Kundendaten: {e}")
+                return jsonify({"data": generate_customer_data(), "is_real": False})
+                
+        elif data_type == 'recommendations':
+            # Wachstumsempfehlungen abrufen
+            try:
+                # Shop-Daten für Empfehlungen sammeln
+                shop_data = {}
+                
+                # Metriken laden
+                data_analyzer = DataAnalyzer(shop_metrics)
+                
+                # Empfehlungen generieren
+                growth_advisor = GrowthAdvisor(shop_metrics, shop_data)
+                recommendations = growth_advisor.generate_recommendations()
+                
+                return jsonify({"data": recommendations, "is_real": True})
+                
+            except Exception as e:
+                logger.error(f"Fehler beim Generieren von Empfehlungen: {e}")
+                # Simulierte Empfehlungen zurückgeben
+                return jsonify({"data": generate_growth_advisor_recommendations({}), "is_real": False})
         
-        # API-Antwort mit den Daten
-        api_response = {
-            'success': True,
-            'trafficDates': traffic_dates,
-            'trafficData': traffic_data,
-            'deviceData': device_data,
-            'timestamp': datetime.datetime.now().isoformat(),
-            'dataSource': 'real' if shop_data else 'example',
-            'message': 'Echte Daten geladen' if shop_data else 'Beispieldaten verwendet'
-        }
-        
-        # Antwort mit CORS-Headern
-        response = jsonify(api_response)
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
+        # Standardantwort für unbekannte Datentypen
+        return jsonify({"error": f"Unbekannter Datentyp: {data_type}"}), 400
         
     except Exception as e:
-        print(f"❌ Fehler in API-Daten-Endpunkt: {e}")
-        # Bei Fehler trotzdem Beispieldaten zurückgeben
-        fallback_response = {
-            'success': True,  # Trotzdem True für Frontend-Kompatibilität
-            'trafficDates': ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
-            'trafficData': {
-                'pageviews': [450, 520, 480, 630, 580, 520, 680],
-                'visitors': [320, 380, 350, 450, 420, 380, 480]
-            },
-            'deviceData': [45, 40, 15],
-            'timestamp': datetime.datetime.now().isoformat(),
-            'dataSource': 'fallback',
-            'error': str(e),
-            'message': 'Fehler aufgetreten, Fallback-Daten verwendet'
-        }
-        
-        response = jsonify(fallback_response)
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
-
-# Health-Check-Route für zuverlässige Deployments
-@app.route('/health')
-def health_check():
-    """Health-Check-Route zur Überwachung des App-Status"""
-    is_auth = False
-    shop_name = None
-    session_status = "inactive"
-    
-    try:
-        # Versuche, den Auth-Status zu prüfen
-        is_auth = is_authenticated()
-        shop_name = get_shop_from_session()
-        
-        # Prüfe Session-Status
-        if 'shop' in session and 'access_token' in session:
-            session_status = "active"
-    except Exception as e:
-        logger.error(f"Fehler im Health-Check: {e}")
-    
-    return jsonify({
-        "status": "ok",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "app": "ShopPulseAI",
-        "version": "1.2.1",
-        "auth_status": {
-            "authenticated": is_auth,
-            "shop": shop_name,
-            "session": session_status
-        },
-        "environment": {
-            "debug": app.debug,
-            "session_path": app.config.get('SESSION_FILE_DIR'),
-            "url": get_base_url()
-        }
-    }), 200
-
-# Debug-Route für Dashboard
-@app.route('/debug-dashboard')
-def debug_dashboard():
-    """Vereinfachte Dashboard-Version für Debugging"""
-    try:
-        # Prüfe, ob ein Shop in der Session ist
-        shop = session.get('shop')
-        
-        # Wenn kein Shop in der Session, auf die Startseite umleiten
-        if not shop:
-            return render_template('debug.html', 
-                               error="Kein Shop in der Session gefunden",
-                               session_data=dict(session),
-                               auth_status="Nicht authentifiziert")
-        
-        # Host-Parameter und Access Token
-        host = request.args.get('host', '')
-        access_token = session.get('access_token')
-        
-        user_language = get_user_language()
-        translations_data = get_translations()
-        
-        return render_template('debug.html',
-                           shop=shop,
-                           host=host,
-                           api_key=SHOPIFY_API_KEY,
-                           auth_status="Authentifiziert" if access_token else "Kein Token",
-                           session_data=dict(session),
-                           user_language=user_language,
-                           translations=translations_data.get(user_language, {}))
-    except Exception as e:
-        return render_template('debug.html',
-                           error=str(e),
-                           exception_details=traceback.format_exc(),
-                           session_data=dict(session))
+        logger.error(f"API-Fehler: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/dashboard')
 def dashboard():
+    """Dashboard-Seite mit dynamischen Daten aus Shopify API."""
+    
+    # Authentifizierung prüfen und Shop-Domain holen
+    shop_domain = get_shop_from_session()
+    if not shop_domain:
+        return redirect('/install')
+    
+    # Access Token abrufen
+    access_token = session.get('access_token')
+    if not access_token:
+        return redirect('/install')
+    
+    # Benutzersprache abrufen und Übersetzungen laden
+    user_language = get_user_language()
+    translations = get_translations().get(user_language, {})
+
+    # Zeitraum aus Query-Parameter lesen, Standardwert ist 7 Tage
     try:
-        # Die allgemeine Authentifizierungsprüfung wird bereits durch 
-        # die Middleware enforce_authentication() sichergestellt
+        period = int(request.args.get('period', 7))
+    except ValueError:
+        period = 7
+    
+    # Metriken und Analyse abrufen
+    shop_metrics = ShopMetrics(shop_domain)
+    data_analyzer = DataAnalyzer(shop_metrics)
+    
+    # Tatsächliche Shop-Daten von der Shopify API abrufen
+    shopinfo = None
+    products = []
+    orders = []
+    customers = []
+    
+    try:
+        # Shop-Informationen abrufen
+        shopinfo = shopify_api.get_shop_info(shop_domain, access_token)
         
-        # Shop aus der Session laden
-        shop = session.get('shop')
+        # Produkte, Bestellungen und Kunden abrufen
+        products = shopify_api.get_products(shop_domain, access_token, limit=25)
+        orders = shopify_api.get_orders(shop_domain, access_token, limit=25)
         
-        # Host-Parameter EXAKT von Shopify verwenden (wichtig für App Bridge)
-        host = request.args.get('host', '')
+        # Nur wenn die Daten einen 'edges'-Schlüssel haben
+        product_edges = products.get('edges', [])
+        order_edges = orders.get('edges', [])
         
-        # Wenn kein Shop in der Session, direkt auf die Debug-Seite umleiten
-        if not shop:
-            print("❌ Kein Shop in der Session für Dashboard gefunden")
-            return redirect('/debug-dashboard')
+        # Kundendaten nur laden, wenn genügend Zeit und API-Limits verfügbar sind
+        customers = shopify_api.get_customers(shop_domain, access_token, limit=25)
+        customer_edges = customers.get('edges', [])
         
-        # Debugging
-        print(f"Dashboard Route - Host: {host}, Shop: {shop}")
-
-        # Sicheres Laden der Daten mit Fallbacks für jede mögliche Fehlerquelle
-        try:
-            traffic_dates = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-            traffic_data = {
-                'pageviews': [450, 520, 480, 630, 580, 520, 680],
-                'visitors': [320, 380, 350, 450, 420, 380, 480]
+        # Tracking-Daten für den Shop laden
+        shop_tracking = get_shop_tracking_data(shop_domain)
+        
+        # Metriken aktualisieren
+        if product_edges:
+            shop_metrics.update_product_metrics(product_edges)
+        
+        if order_edges:
+            shop_metrics.update_revenue_metrics(order_edges)
+        
+        if customer_edges:
+            shop_metrics.update_customer_metrics(customer_edges)
+        
+        if shop_tracking:
+            shop_metrics.update_traffic_metrics(shop_tracking)
+        
+        # Speichern Sie ein Tracking-Ereignis für diesen Dashboard-Aufruf
+        add_tracking_event(shop_domain, 'pageviews', {
+            'page': 'dashboard',
+            'visitor_id': str(uuid.uuid4()),  # Im Produktionseinsatz würde ein konsistenter Benutzer-Identifikator verwendet
+            'timestamp': datetime.datetime.now().isoformat(),
+            'device': request.user_agent.platform or 'unknown'
+        })
+        
+        # Überprüfen, ob wir echte Daten haben oder Simulationen verwenden müssen
+        has_real_products = bool(product_edges)
+        has_real_orders = bool(order_edges)
+        has_real_customers = bool(customer_edges)
+        
+        # Daten für Dashboard basierend auf echten oder simulierten Daten vorbereiten
+        if has_real_orders:
+            # Tatsächliche Verkaufsdaten verwenden
+            daily_revenue = shop_metrics.get_time_series_data('daily_revenue', period)
+            sales_data = [{"date": item["date"], "value": item["value"]} for item in daily_revenue]
+            total_sales = sum(item["value"] for item in daily_revenue)
+            
+            daily_orders = shop_metrics.get_time_series_data('daily_orders', period)
+            orders_data = [{"date": item["date"], "value": item["value"]} for item in daily_orders]
+            total_orders = sum(item["value"] for item in orders_data)
+            
+            # Durchschnittlichen Bestellwert berechnen
+            if total_orders > 0:
+                avg_order_value = total_sales / total_orders
+            else:
+                avg_order_value = 0
+        else:
+            # Simulierte Daten verwenden, wenn keine echten verfügbar sind
+            # (Vorhandener Code für simulierte Daten)
+            # - Hier kann der vorhandene Simulationscode bleiben -
+            sales_data = generate_sales_data(period)
+            total_sales = sum(item["value"] for item in sales_data)
+            orders_data = generate_order_data(period)
+            total_orders = sum(item["value"] for item in orders_data)
+            avg_order_value = total_sales / total_orders if total_orders > 0 else 0
+        
+        # Traffic-Daten aus tracking_data oder Simulation
+        pageviews = shop_metrics.get_time_series_data('daily_pageviews', period)
+        if pageviews:
+            total_pageviews = sum(item["value"] for item in pageviews)
+            pageviews_data = [{"date": item["date"], "value": item["value"]} for item in pageviews]
+        else:
+            # Simulierte Pageview-Daten
+            pageviews_data = generate_pageview_data(period)
+            total_pageviews = sum(item["value"] for item in pageviews_data)
+        
+        # Besucher-Daten aus tracking_data oder Simulation
+        visitors = shop_metrics.get_time_series_data('daily_visitors', period)
+        if visitors:
+            total_visitors = sum(item["value"] for item in visitors)
+            visitors_data = [{"date": item["date"], "value": item["value"]} for item in visitors]
+        else:
+            # Simulierte Besucherdaten
+            visitors_data = generate_visitor_data(period)
+            total_visitors = sum(item["value"] for item in visitors_data)
+        
+        # Trends berechnen
+        trends = {
+            "sales": calculate_trend(sales_data),
+            "orders": calculate_trend(orders_data),
+            "pageviews": calculate_trend(pageviews_data),
+            "visitors": calculate_trend(visitors_data),
+            "conversion_rate": {
+                "value": calculate_conversion_trend(visitors_data, orders_data),
+                "direction": "up" if calculate_conversion_trend(visitors_data, orders_data) > 0 else "down"
+            },
+            "session_duration": {"value": 5, "direction": "up"}  # Platzhalter
+        }
+        
+        # Konversionsrate berechnen
+        conversion_rate = (total_orders / total_pageviews * 100) if total_pageviews > 0 else 0
+        
+        # AI-generierte Empfehlungen
+        shop_data = {
+            "products": product_edges,
+            "orders": order_edges,
+            "customers": customer_edges
+        }
+        
+        # Wachstumsberater initialisieren und Empfehlungen generieren
+        growth_advisor = GrowthAdvisor(shop_metrics, shop_data)
+        
+        # AI-Quick-Tips generieren
+        ai_quick_tips = growth_advisor.generate_personalized_tips(shop_data, shop_tracking) or generate_ai_quick_tips()
+        
+        # Device-Statistik
+        device_stats = shop_metrics.metrics.get('device_stats', {})
+        if device_stats:
+            devices_data = [{"name": device, "value": count} for device, count in device_stats.items()]
+        else:
+            # Simulierte Gerätedaten
+            devices_data = [
+                {"name": "Desktop", "value": random.randint(40, 70)},
+                {"name": "Mobile", "value": random.randint(20, 50)},
+                {"name": "Tablet", "value": random.randint(5, 15)}
+            ]
+        
+        # Implementierungsaufgaben
+        implementation_items = generate_implementation_tasks()
+        
+        # Zeitperiode als Text
+        period_text = {
+            7: translations.get("dashboard", {}).get("last_seven_days", "Letzte 7 Tage"),
+            30: translations.get("dashboard", {}).get("last_thirty_days", "Letzte 30 Tage"),
+            90: translations.get("dashboard", {}).get("last_ninety_days", "Letzte 90 Tage")
+        }.get(period, f"Letzte {period} Tage")
+        
+        # Dashboard-Daten an das Template übergeben
+        return render_template('dashboard.html',
+            translations=translations,
+            shop_domain=shop_domain,
+            shop_info=shopinfo,
+            period=period,
+            period_text=period_text,
+            sales_data=json.dumps(sales_data),
+            orders_data=json.dumps(orders_data),
+            pageviews_data=json.dumps(pageviews_data),
+            visitors_data=json.dumps(visitors_data),
+            devices_data=json.dumps(devices_data),
+            total_sales=round(total_sales, 2),
+            total_orders=total_orders,
+            total_pageviews=total_pageviews,
+            total_clicks=total_orders,  # Vorläufig Klicks mit Bestellungen gleichsetzen
+            avg_order_value=round(avg_order_value, 2),
+            conversion_rate=round(conversion_rate, 2),
+            trends=trends,
+            ai_quick_tips=ai_quick_tips,
+            implementation_items=implementation_items,
+            has_real_data={
+                "products": has_real_products,
+                "orders": has_real_orders,
+                "customers": has_real_customers
             }
-            device_data = [45, 40, 15]  # Prozent: Mobil, Desktop, Tablet
-            
-            trends = {
-                'pageviews': {'direction': 'up', 'value': 15},
-                'clicks': {'direction': 'up', 'value': 12},
-                'conversion_rate': {'direction': 'up', 'value': 8},
-                'session_duration': {'direction': 'down', 'value': 5},
-                'unique_pages': {'direction': 'up', 'value': 10},
-                'avg_order_value': {'direction': 'up', 'value': 7},
-                'total_revenue': {'direction': 'up', 'value': 22}
-            }
-            
-            # Alle direkten Werte, die im Template verwendet werden
-            total_pageviews = 1200
-            total_clicks = 450
-            conversion_rate = 4.5
-            avg_session_duration = 78
-            unique_pages = 25
-            avg_order_value = 87.50
-            total_revenue = 3150.75
-            last_updated = datetime.datetime.now().strftime('%d.%m.%Y, %H:%M Uhr')
-
-            # KI-generierte Handlungsempfehlungen mit Fehlerabsicherung
-            try:
-                ai_quick_tips = generate_ai_quick_tips()
-            except Exception as tips_error:
-                print(f"❌ Fehler beim Generieren der KI-Tipps: {tips_error}")
-                ai_quick_tips = [
-                    {"title": "Produkt-Beschreibungen optimieren", "text": "Fügen Sie mehr Details und Nutzen hinzu."},
-                    {"title": "Meta-Tags prüfen", "text": "Stellen Sie sicher, dass alle Produkte SEO-optimierte Meta-Beschreibungen haben."}
-                ]
-
-            # Priorisierte Umsetzungsaufgaben mit Fehlerabsicherung
-            try:
-                implementation_tasks = generate_implementation_tasks()
-            except Exception as tasks_error:
-                print(f"❌ Fehler beim Generieren der Aufgaben: {tasks_error}")
-                implementation_tasks = [
-                    {"id": 1, "title": "Tracking-Code einbinden", "priority": "Hoch", "type": "Technisch"},
-                    {"id": 2, "title": "Produktbewertungen aktivieren", "priority": "Mittel", "type": "Marketing"}
-                ]
-
-            # Shopify API Key für App Bridge
-            api_key = SHOPIFY_API_KEY
-
-            # Holen der Übersetzungen für die aktuelle Sprache
-            translations = get_translations()
-            user_language = session.get('language', 'de')
-            shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
-            app_version = '1.2.1'
-            
-            print(f"📊 Rendern des Dashboards für Shop: {shop}")
-            print(f"🌐 API-Key: {api_key[:5]}... Host: {host}")
-            print(f"🔤 Sprache: {user_language}")
-            
-            return render_template(
-                'dashboard.html',
-                shop=shop,
-                host=host,
-                api_key=api_key,
-                traffic_dates=traffic_dates,
-                traffic_data=traffic_data,
-                device_data=device_data,
-                trends=trends,
-                total_pageviews=total_pageviews,
-                total_clicks=total_clicks,
-                conversion_rate=conversion_rate,
-                avg_session_duration=avg_session_duration,
-                unique_pages=unique_pages,
-                avg_order_value=avg_order_value,
-                total_revenue=total_revenue,
-                last_updated=last_updated,
-                ai_quick_tips=ai_quick_tips,
-                implementation_tasks=implementation_tasks,
-                translations=translations[user_language],
-                shop_name=shop_name,
-                user_language=user_language,
-                app_version=app_version,
-                title="Dashboard"
-            )
-        except Exception as data_error:
-            print(f"❌ Fehler beim Laden der Dashboard-Daten: {data_error}")
-            import traceback
-            traceback.print_exc()
-            
-            # Vereinfachte Version des Dashboards mit Mindestdaten rendern
-            return render_template('dashboard.html',
-                               shop=shop,
-                               host=host,
-                               api_key=SHOPIFY_API_KEY,
-                               error=f"Fehler beim Laden der Daten: {data_error}",
-                               translations=get_translations().get(get_user_language(), {}),
-                               shop_name=shop.replace('.myshopify.com', '') if shop else 'Shop',
-                               user_language=get_user_language(),
-                               app_version='1.2.1',
-                               title="Dashboard - Fehler")
+        )
     except Exception as e:
-        print(f"❌ Fataler Fehler in der Dashboard-Route: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Fehler beim Laden des Dashboards: {e}")
+        # Fallback auf simulierte Daten bei API-Fehlern
+        return render_template('dashboard.html',
+            translations=translations,
+            shop_domain=shop_domain,
+            error=str(e),
+            period=period,
+            period_text=f"Letzte {period} Tage",
+            sales_data=json.dumps(generate_sales_data(period)),
+            orders_data=json.dumps(generate_order_data(period)),
+            pageviews_data=json.dumps(generate_pageview_data(period)),
+            visitors_data=json.dumps(generate_visitor_data(period)),
+            devices_data=json.dumps([
+                {"name": "Desktop", "value": 60},
+                {"name": "Mobile", "value": 30},
+                {"name": "Tablet", "value": 10}
+            ]),
+            total_sales=random.randint(5000, 10000),
+            total_orders=random.randint(100, 200),
+            total_pageviews=random.randint(2000, 5000),
+            total_clicks=random.randint(500, 1000),
+            avg_order_value=random.randint(50, 100),
+            conversion_rate=random.randint(2, 5),
+            trends={
+                "sales": {"value": random.randint(1, 10), "direction": "up"},
+                "orders": {"value": random.randint(1, 10), "direction": "up"},
+                "pageviews": {"value": random.randint(1, 10), "direction": "up"},
+                "visitors": {"value": random.randint(1, 10), "direction": "up"},
+                "conversion_rate": {"value": random.randint(1, 5), "direction": "up"},
+                "session_duration": {"value": random.randint(1, 5), "direction": "up"}
+            },
+            ai_quick_tips=generate_ai_quick_tips(),
+            implementation_items=generate_implementation_tasks(),
+            has_real_data={
+                "products": False,
+                "orders": False,
+                "customers": False
+            },
+            is_simulation=True
+        )
+
+@app.route('/growth-advisor')
+def growth_advisor():
+    """Growth Advisor zeigt personalisierte Wachstumsempfehlungen an"""
+    
+    # Authentifizierung prüfen und Shop-Domain holen
+    shop_domain = get_shop_from_session()
+    if not shop_domain:
+        return redirect('/install')
+    
+    # Access Token abrufen
+    access_token = session.get('access_token')
+    if not access_token:
+        return redirect('/install')
+    
+    # Benutzersprache abrufen und Übersetzungen laden
+    user_language = get_user_language()
+    translations = get_translations().get(user_language, {})
+    
+    try:
+        # Shop-Informationen und Daten abrufen
+        shopinfo = shopify_api.get_shop_info(shop_domain, access_token)
+        products = shopify_api.get_products(shop_domain, access_token, limit=25)
+        orders = shopify_api.get_orders(shop_domain, access_token, limit=25)
+        customers = shopify_api.get_customers(shop_domain, access_token, limit=25)
         
-        # Bei einem unkontrollierbaren Fehler zur Debug-Seite umleiten
-        return redirect('/debug-dashboard?error=' + str(e))
+        # Nur wenn die Daten einen 'edges'-Schlüssel haben
+        product_edges = products.get('edges', [])
+        order_edges = orders.get('edges', [])
+        customer_edges = customers.get('edges', [])
+        
+        # Tracking-Daten für den Shop laden
+        shop_tracking = get_shop_tracking_data(shop_domain)
+        
+        # Metriken laden
+        shop_metrics = ShopMetrics(shop_domain)
+        data_analyzer = DataAnalyzer(shop_metrics)
+        
+        # Shop-Daten für den Growth Advisor sammeln
+        shop_data = {
+            "products": product_edges,
+            "orders": order_edges,
+            "customers": customer_edges
+        }
+        
+        # Kundensegmentierung durchführen
+        customer_segments = data_analyzer.segment_customers(customer_edges, order_edges)
+        
+        # Growth Advisor initialisieren
+        advisor = GrowthAdvisor(shop_metrics, shop_data)
+        
+        # Wachstumsempfehlungen generieren
+        revenue_insights = advisor.get_revenue_insights(30)
+        customer_insights = advisor.get_customer_insights(customer_edges, order_edges)
+        product_insights = advisor.get_product_insights(product_edges, order_edges)
+        
+        # A/B-Test-Ideen generieren
+        ab_test_ideas = advisor.generate_ab_test_ideas(shop_data)
+        
+        # Personalisierte Empfehlungen mit KI generieren
+        ai_recommendations = advisor.get_ai_recommendations(shop_domain, shop_data, customer_segments)
+        
+        # Überprüfen, ob wir echte Daten haben oder Simulationen verwenden müssen
+        has_real_products = bool(product_edges)
+        has_real_orders = bool(order_edges)
+        has_real_customers = bool(customer_edges)
+        
+        # Wenn keine echten Daten verfügbar sind, Simulationsdaten verwenden
+        if not (has_real_products or has_real_orders or has_real_customers):
+            # Diese vordefinierten Empfehlungen werden nur angezeigt, wenn keine echten Daten verfügbar sind
+            ai_recommendations = [
+                {
+                    "id": "rec1",
+                    "title": "Verbessern Sie Ihre Produktbeschreibungen",
+                    "description": "Detaillierte und ansprechende Produktbeschreibungen können die Konversionsrate erhöhen.",
+                    "implementation_steps": [
+                        "Identifizieren Sie die 10 meistbesuchten Produkte",
+                        "Fügen Sie detailliertere Produktspezifikationen hinzu",
+                        "Beschreiben Sie die Vorteile und Anwendungsfälle"
+                    ],
+                    "expected_impact": "Mittel bis Hoch"
+                },
+                {
+                    "id": "rec2",
+                    "title": "Optimieren Sie Ihren Checkout-Prozess",
+                    "description": "Ein vereinfachter Checkout kann Abbrüche reduzieren und den Umsatz steigern.",
+                    "implementation_steps": [
+                        "Analysieren Sie die aktuellen Abbruchraten",
+                        "Reduzieren Sie die Anzahl der erforderlichen Felder",
+                        "Bieten Sie Gastcheckout an"
+                    ],
+                    "expected_impact": "Hoch"
+                },
+                {
+                    "id": "rec3",
+                    "title": "Starten Sie ein E-Mail-Marketing-Programm",
+                    "description": "Automatisierte E-Mail-Kampagnen können verlassene Warenkörbe zurückgewinnen und Wiederholungskäufe fördern.",
+                    "implementation_steps": [
+                        "Wählen Sie ein E-Mail-Marketing-Tool",
+                        "Erstellen Sie eine Willkommens-E-Mail-Serie",
+                        "Implementieren Sie Kampagnen für verlassene Warenkörbe"
+                    ],
+                    "expected_impact": "Mittel"
+                }
+            ]
+        
+        # Speichern Sie ein Tracking-Ereignis für diesen Growth-Advisor-Aufruf
+        add_tracking_event(shop_domain, 'pageviews', {
+            'page': 'growth_advisor',
+            'visitor_id': str(uuid.uuid4()),
+            'timestamp': datetime.datetime.now().isoformat(),
+            'device': request.user_agent.platform or 'unknown'
+        })
+        
+        # Template rendern
+        return render_template('growth_advisor.html',
+            translations=translations,
+            shop_domain=shop_domain,
+            shop_info=shopinfo,
+            revenue_insights=revenue_insights,
+            customer_insights=customer_insights,
+            product_insights=product_insights,
+            customer_segments=customer_segments,
+            ab_test_ideas=ab_test_ideas,
+            recommendations=ai_recommendations,
+            has_real_data={
+                "products": has_real_products,
+                "orders": has_real_orders,
+                "customers": has_real_customers
+            }
+        )
+    except Exception as e:
+        logger.error(f"Fehler beim Laden des Growth Advisors: {e}")
+        # Fallback-Empfehlungen bei API-Fehlern
+        return render_template('growth_advisor.html',
+            translations=translations,
+            shop_domain=shop_domain,
+            error=str(e),
+            revenue_insights={"status": "error", "message": "Fehler beim Laden der Umsatzdaten"},
+            customer_insights={"status": "error", "message": "Fehler beim Laden der Kundendaten"},
+            product_insights={"status": "error", "message": "Fehler beim Laden der Produktdaten"},
+            customer_segments={},
+            ab_test_ideas=[],
+            recommendations=generate_growth_advisor_recommendations({}),
+            has_real_data={
+                "products": False,
+                "orders": False,
+                "customers": False
+            },
+            is_simulation=True
+        )
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
@@ -1610,7 +1843,7 @@ def auth_check():
         response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         return response
         
-    except Exception as e:
+        except Exception as e:
         print(f"❌ Fehler in Auth-Check-API: {e}")
         import traceback
         traceback.print_exc()
@@ -1626,71 +1859,6 @@ def auth_check():
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         return response
-
-@app.route('/growth-advisor')
-def growth_advisor():
-    try:
-        # Prüfe, ob ein Shop in der Session ist
-        if 'shop' not in session:
-            print("❌ Kein Shop in der Session gefunden - Weiterleitung zur Installation")
-            return redirect('/install')
-            
-        # Shop aus der Session laden
-        shop = session.get('shop')
-        
-        # Access token aus der Session holen (kann für den Lese-Zugriff null sein)
-        access_token = session.get('access_token')
-        
-        # Tracking-Daten aktualisieren durch Neuladen
-        tracking_data = load_tracking_data()
-        
-        # Wenn kein Shop in der Session gefunden wurde, versuche einen Shop aus den Tracking-Daten zu verwenden
-        if not shop:
-            all_shops = list(tracking_data.keys())
-            
-            if all_shops:
-                shop = all_shops[0]
-                print(f"Growth Advisor: Verwende ersten verfügbaren Shop: {shop} für Demo-Modus")
-            else:
-                shop = "test-shop.example.com"
-                print(f"Growth Advisor: Keine Shops gefunden, verwende Default-Shop: {shop}")
-        
-        # Shopify-Daten laden
-        shop_data = get_shop_data(shop)
-        
-        # Growth Advisor Empfehlungen generieren
-        recommendations = generate_growth_advisor_recommendations(shop_data)
-        
-        # Metadaten für die Seite
-        meta = {
-            'last_analysis': datetime.datetime.now().strftime('%d.%m.%Y %H:%M'),
-            'shop': shop,
-            'pageviews': len(shop_data.get('pageviews', [])),
-            'clicks': len(shop_data.get('clicks', []))
-        }
-        
-        # Holen der Übersetzungen für die aktuelle Sprache
-        translations = get_translations()
-        user_language = session.get('language', 'de')
-        shop_name = shop.replace('.myshopify.com', '') if shop else 'Shop'
-        app_version = '1.2.1'
-        
-        # Render Template
-        return render_template('growth_advisor.html',
-                              shop=shop,
-                              shop_name=shop_name,
-                              meta=meta,
-                              recommendations=recommendations,
-                              translations=translations[user_language],
-                              user_language=user_language,
-                              app_version=app_version,
-                              title="Growth Advisor")
-                              
-    except Exception as e:
-        print(f"Fehler im Growth Advisor: {e}")
-        import traceback
-        traceback.print_exc()
-        return redirect(url_for('dashboard'))
 
 # Fallback-Logging-Funktion
 def log(message, level="info"):
@@ -1743,19 +1911,19 @@ def generate_growth_advisor_recommendations(shop_data):
         recommendations = [
             {
                 'category': 'SEO-Optimierung',
-                'priority': 'hoch',
+        'priority': 'hoch',
                 'title': 'Meta-Beschreibungen für Top-Produkte verbessern',
                 'description': 'Füge detaillierte, keyword-reiche Meta-Beschreibungen für deine 10 meistbesuchten Produkte hinzu.',
                 'expected_impact': 'mittel',
-                'effort': 'niedrig'
+        'effort': 'niedrig'
             },
             {
                 'category': 'Conversion-Optimierung',
-                'priority': 'mittel',
+        'priority': 'mittel',
                 'title': 'Call-to-Action-Buttons optimieren',
                 'description': 'Teste verschiedene Farben und Texte für deine "In den Warenkorb"-Buttons, um die Conversion-Rate zu erhöhen.',
-                'expected_impact': 'hoch',
-                'effort': 'niedrig'
+        'expected_impact': 'hoch',
+        'effort': 'niedrig'
             },
             {
                 'category': 'Usability',
@@ -1767,33 +1935,33 @@ def generate_growth_advisor_recommendations(shop_data):
             },
             {
                 'category': 'Marketing',
-                'priority': 'mittel',
+        'priority': 'mittel',
                 'title': 'Email-Marketing-Kampagne starten',
                 'description': 'Erstelle eine automatisierte Email-Sequenz für Kunden, die ihren Warenkorb verlassen haben.',
-                'expected_impact': 'hoch',
-                'effort': 'mittel'
+        'expected_impact': 'hoch',
+        'effort': 'mittel'
             }
         ]
-        
+    
         # Saisonale Empfehlungen basierend auf dem aktuellen Monat
         if 3 <= current_month <= 5:  # Frühling
-            recommendations.append({
+    recommendations.append({
                 'category': 'Saisonales Marketing',
-                'priority': 'hoch',
+        'priority': 'hoch',
                 'title': 'Frühlings-Kollektion hervorheben',
                 'description': 'Erstelle einen speziellen Banner für die Startseite, der deine Frühlings-Produkte bewirbt.',
-                'expected_impact': 'hoch',
-                'effort': 'niedrig'
-            })
+        'expected_impact': 'hoch',
+        'effort': 'niedrig'
+    })
         elif 6 <= current_month <= 8:  # Sommer
-            recommendations.append({
+    recommendations.append({
                 'category': 'Saisonales Marketing',
                 'priority': 'hoch',
                 'title': 'Sommer-Sale planen',
                 'description': 'Plane einen speziellen Sommer-Sale für Juli und bewerbe ihn in sozialen Medien.',
-                'expected_impact': 'hoch',
-                'effort': 'niedrig'
-            })
+        'expected_impact': 'hoch',
+                        'effort': 'niedrig'
+                    })
         elif 9 <= current_month <= 11:  # Herbst
             recommendations.append({
                 'category': 'Saisonales Marketing',
@@ -1804,24 +1972,24 @@ def generate_growth_advisor_recommendations(shop_data):
                 'effort': 'mittel'
             })
         elif current_month == 12 or current_month <= 2:  # Winter
-            recommendations.append({
-                'category': 'Saisonales Marketing',
-                'priority': 'hoch',
+        recommendations.append({
+            'category': 'Saisonales Marketing',
+            'priority': 'hoch',
                 'title': 'Winterangebote prominent platzieren',
                 'description': 'Gestalte die Startseite mit Winter- und Feiertagsthemen und hebe saisonale Angebote hervor.',
-                'expected_impact': 'hoch',
-                'effort': 'niedrig'
-            })
-        
-        return recommendations
+            'expected_impact': 'hoch',
+            'effort': 'niedrig'
+        })
+    
+    return recommendations
     except Exception as e:
         print(f"❌ Fehler beim Generieren der Growth-Advisor-Empfehlungen: {e}")
         import traceback
         traceback.print_exc()
         
         # Fallback-Empfehlungen bei Fehler
-        return [
-            {
+    return [
+        {
                 'category': 'Allgemein',
                 'priority': 'mittel',
                 'title': 'Shop-Performance analysieren',
@@ -1845,7 +2013,7 @@ if __name__ == '__main__':
 def customer_data_request():
     """Handler für GDPR Datenanfragen"""
     try:
-        # Verifiziere den Webhook
+    # Verifiziere den Webhook
         hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
         if not hmac_header:
             return 'HMAC validation failed', 401
