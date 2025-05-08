@@ -139,11 +139,19 @@
     <pre>{{ session_data | pprint }}</pre>
   </div>
 
-  <div class="status-card">
-    <h3>Aktionen</h3>
-    <a href="/dashboard" class="btn">Dashboard anzeigen</a>
-    <a href="/install" class="btn">Installation neu starten</a>
-    <a href="/health" class="btn">Health Check</a>
-  </div>
+  {% if shop %}
+    <div class="status-card">
+      <h3>Aktionen</h3>
+      <a href="/dashboard?shop={{ shop }}" class="btn">Dashboard anzeigen</a>
+      <a href="/install" class="btn">Installation neu starten</a>
+      <a href="/health" class="btn">Health Check</a>
+    </div>
+  {% else %}
+    <div class="status-card">
+      <h3>Aktionen</h3>
+      <a href="/install" class="btn">Installation neu starten</a>
+      <a href="/health" class="btn">Health Check</a>
+    </div>
+  {% endif %}
 </body>
 </html> 

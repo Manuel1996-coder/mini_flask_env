@@ -465,7 +465,7 @@ def enforce_authentication():
             # Wenn Shop-Parameter vorhanden ist, direkt zur OAuth-Authentifizierung weiterleiten
             if shop:
                 return redirect(f'/install?shop={shop}')
-                
+            
             # Andernfalls leite zur Installation mit OAuth-Fehler weiterleiten
             return jsonify({
                 "error": "Authentifizierung erforderlich",
@@ -663,7 +663,7 @@ def auth_callback():
             return redirect(f'/oauth-error?error=token_request_failed&error_message={error_msg}')
             
         # Antwort parsen
-        token_data = response.json()
+            token_data = response.json()
         
         if 'access_token' not in token_data:
             print(f"❌ Kein Access Token in der Antwort: {token_data}")
@@ -817,19 +817,19 @@ def register_webhooks(shop, access_token):
             
             try:
                 # GraphQL-Aufruf durchführen mit certifi für SSL-Verifizierung
-                response = requests.post(
-                    url,
-                    json={'query': mutation, 'variables': variables},
+            response = requests.post(
+                url,
+                json={'query': mutation, 'variables': variables},
                     headers=headers,
                     verify=certifi.where()
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if 'errors' not in result and 'data' in result:
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'errors' not in result and 'data' in result:
                         user_errors = result.get('data', {}).get('webhookSubscriptionCreate', {}).get('userErrors', [])
                         if not user_errors:
-                            print(f"✅ Webhook für {topic} erfolgreich registriert")
+                    print(f"✅ Webhook für {topic} erfolgreich registriert")
                             webhook_results["success"] += 1
                             webhook_results["details"][topic] = "success"
                         else:
@@ -837,12 +837,12 @@ def register_webhooks(shop, access_token):
                             print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {error_msg}")
                             webhook_results["failed"] += 1
                             webhook_results["details"][topic] = f"error: {error_msg}"
-                    else:
-                        print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {result.get('errors')}")
+                else:
+                    print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {result.get('errors')}")
                         webhook_results["failed"] += 1
                         webhook_results["details"][topic] = f"error: {result.get('errors')}"
-                else:
-                    print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {response.status_code} - {response.text}")
+            else:
+                print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {response.status_code} - {response.text}")
                     webhook_results["failed"] += 1
                     webhook_results["details"][topic] = f"error: HTTP {response.status_code}"
             except Exception as hook_error:
@@ -980,7 +980,7 @@ def get_shop_from_session():
         if not shop or not isinstance(shop, str):
             print("❌ Kein gültiger Shop in der Session gefunden")
             return None
-            
+        
         # Standardformat für die Shop-Domain
         if shop.endswith(';'):
             shop = shop[:-1]
@@ -1026,7 +1026,7 @@ def api_data():
         shop = get_shop_from_session()
         
         if not shop:
-            return jsonify({
+                return jsonify({
                 'error': 'No shop found in session',
                 'success': False
             }), 400
@@ -1117,8 +1117,8 @@ def api_data():
         response = jsonify(api_response)
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response
-        
-    except Exception as e:
+                
+            except Exception as e:
         print(f"❌ Fehler in API-Daten-Endpunkt: {e}")
         # Bei Fehler trotzdem Beispieldaten zurückgeben
         fallback_response = {
@@ -1160,11 +1160,11 @@ def debug_dashboard():
         
         # Host-Parameter und Access Token
         host = request.args.get('host', '')
-        access_token = session.get('access_token')
-        
+    access_token = session.get('access_token')
+    
         # Sicheres Laden der Übersetzungen
         try:
-            user_language = get_user_language()
+    user_language = get_user_language()
             translations_data = translations.get(user_language, translations.get('en', {}))
         except Exception as trans_error:
             print(f"⚠️ Fehler beim Laden der Übersetzungen: {trans_error}")
@@ -1229,7 +1229,7 @@ def dashboard():
             }
             device_data = [45, 40, 15]  # Prozent: Mobil, Desktop, Tablet
             
-            trends = {
+        trends = {
                 'pageviews': {'direction': 'up', 'value': 15},
                 'clicks': {'direction': 'up', 'value': 12},
                 'conversion_rate': {'direction': 'up', 'value': 8},
@@ -1290,7 +1290,7 @@ def dashboard():
                 traffic_dates=traffic_dates,
                 traffic_data=traffic_data,
                 device_data=device_data,
-                trends=trends,
+            trends=trends,
                 total_pageviews=total_pageviews,
                 total_clicks=total_clicks,
                 conversion_rate=conversion_rate,
@@ -1299,7 +1299,7 @@ def dashboard():
                 avg_order_value=avg_order_value,
                 total_revenue=total_revenue,
                 last_updated=last_updated,
-                ai_quick_tips=ai_quick_tips,
+            ai_quick_tips=ai_quick_tips,
                 implementation_tasks=implementation_tasks,
                 translations=translations_data,
                 shop_name=shop_name,
@@ -1314,7 +1314,7 @@ def dashboard():
             
             # Sichere Sprachverarbeitung
             try:
-                user_language = get_user_language()
+    user_language = get_user_language()
                 translations_data = translations.get(user_language, translations.get('en', {}))
             except:
                 user_language = 'en'
@@ -1428,7 +1428,7 @@ def settings():
 def customer_data_request():
     """Handler für GDPR Datenanfragen"""
     try:
-        # Verifiziere den Webhook
+    # Verifiziere den Webhook
         hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
         if not hmac_header:
             return 'HMAC validation failed', 401
@@ -1453,7 +1453,7 @@ def customer_data_request():
         
         # Hier würden die Kundendaten gesammelt und zurückgegeben werden
         # Im Produktionscode würden wir Daten aus der Datenbank abrufen
-        
+            
         return '', 200
         
     except Exception as e:
@@ -1491,7 +1491,7 @@ def customer_data_redact():
         
         # Hier würden die Kundendaten gelöscht werden
         # Im Produktionscode würden wir Daten aus der Datenbank löschen
-        
+            
         return '', 200
         
     except Exception as e:
@@ -1527,7 +1527,7 @@ def shop_data_redact():
         
         # Hier würden alle Shop-bezogenen Daten gelöscht werden
         # Im Produktionscode würden wir alle Shopdaten aus der Datenbank löschen
-        
+            
         return '', 200
         
     except Exception as e:
