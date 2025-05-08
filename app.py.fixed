@@ -1860,7 +1860,6 @@ def auth_check():
         response.headers.add('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         return response
 
-# Fallback-Logging-Funktion
 def log(message, level="info"):
     """
     Protokolliert eine Nachricht sowohl mit dem Logger als auch mit print.
@@ -1935,33 +1934,33 @@ def generate_growth_advisor_recommendations(shop_data):
             },
             {
                 'category': 'Marketing',
-        'priority': 'mittel',
+                'priority': 'mittel',
                 'title': 'Email-Marketing-Kampagne starten',
                 'description': 'Erstelle eine automatisierte Email-Sequenz für Kunden, die ihren Warenkorb verlassen haben.',
-        'expected_impact': 'hoch',
-        'effort': 'mittel'
+                'expected_impact': 'hoch',
+                'effort': 'mittel'
             }
         ]
     
         # Saisonale Empfehlungen basierend auf dem aktuellen Monat
         if 3 <= current_month <= 5:  # Frühling
-    recommendations.append({
+            recommendations.append({
                 'category': 'Saisonales Marketing',
-        'priority': 'hoch',
+                'priority': 'hoch',
                 'title': 'Frühlings-Kollektion hervorheben',
                 'description': 'Erstelle einen speziellen Banner für die Startseite, der deine Frühlings-Produkte bewirbt.',
-        'expected_impact': 'hoch',
-        'effort': 'niedrig'
-    })
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
         elif 6 <= current_month <= 8:  # Sommer
-    recommendations.append({
+            recommendations.append({
                 'category': 'Saisonales Marketing',
                 'priority': 'hoch',
                 'title': 'Sommer-Sale planen',
                 'description': 'Plane einen speziellen Sommer-Sale für Juli und bewerbe ihn in sozialen Medien.',
-        'expected_impact': 'hoch',
-                        'effort': 'niedrig'
-                    })
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
         elif 9 <= current_month <= 11:  # Herbst
             recommendations.append({
                 'category': 'Saisonales Marketing',
@@ -1972,24 +1971,25 @@ def generate_growth_advisor_recommendations(shop_data):
                 'effort': 'mittel'
             })
         elif current_month == 12 or current_month <= 2:  # Winter
-        recommendations.append({
-            'category': 'Saisonales Marketing',
-            'priority': 'hoch',
+            recommendations.append({
+                'category': 'Saisonales Marketing',
+                'priority': 'hoch',
                 'title': 'Winterangebote prominent platzieren',
                 'description': 'Gestalte die Startseite mit Winter- und Feiertagsthemen und hebe saisonale Angebote hervor.',
-            'expected_impact': 'hoch',
-            'effort': 'niedrig'
-        })
-    
-    return recommendations
+                'expected_impact': 'hoch',
+                'effort': 'niedrig'
+            })
+        
+        return recommendations
+        
     except Exception as e:
         print(f"❌ Fehler beim Generieren der Growth-Advisor-Empfehlungen: {e}")
         import traceback
         traceback.print_exc()
         
         # Fallback-Empfehlungen bei Fehler
-    return [
-        {
+        return [
+            {
                 'category': 'Allgemein',
                 'priority': 'mittel',
                 'title': 'Shop-Performance analysieren',
@@ -2038,9 +2038,6 @@ def customer_data_request():
             print(f"GDPR Datenanfrage für Kunde {customer_email} von Shop {shop_domain}")
             
         return '', 200
-    except Exception as e:
-        print(f"Fehler im customers/data_request Webhook: {e}")
-        return 'Internal Server Error', 500
 
 @app.route('/webhook/customers/redact', methods=['POST'])
 def customer_redact():
