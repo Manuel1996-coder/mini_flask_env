@@ -769,7 +769,7 @@ def auth_callback():
             
         # Antwort parsen
         try:
-        token_data = response.json()
+            token_data = response.json()
         except ValueError:
             print(f"❌ Ungültige JSON-Antwort von Shopify: {response.text}")
             return redirect('/oauth-error?error=invalid_token_response&error_message=Ungültige Antwort von Shopify')
