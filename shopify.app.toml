@@ -1,0 +1,22 @@
+# This file contains the information about your Shopify app
+name = "ShopPulseAI"
+client_id = "${SHOPIFY_API_KEY}"
+application_url = "${HOST}"
+embedded = true
+
+[build]
+dev_command = "npm run dev"
+build_command = "npm run build"
+
+[access_scopes]
+# Required scopes as specified
+scopes = "read_products,write_products,read_orders"
+
+[auth]
+redirect_urls = ["${HOST}/auth/callback"]
+
+[webhooks]
+api_version = "2023-10"
+
+[pos]
+embedded = false 
