@@ -20,6 +20,7 @@ import time
 from werkzeug.middleware.proxy_fix import ProxyFix
 import base64
 import secrets
+import certifi
 
 # Environment-Variablen laden
 load_dotenv()
@@ -647,7 +648,14 @@ def auth_callback():
         
         # Token anfordern mit Error-Handling und Timeout
         try:
-            response = requests.post(token_url, data=data, timeout=10)
+            # Mit expliziter Verwendung des certifi SSL-Zertifikatspakets
+            response = requests.post(
+                token_url, 
+                data=data, 
+                timeout=10, 
+                verify=certifi.where()
+            )
+            print("✅ Token-Anfrage mit certifi SSL-Zertifikaten durchgeführt")
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             print(f"❌ Fehler bei der Token-Anfrage: {e}")
@@ -747,17 +755,35 @@ def register_webhooks(shop, access_token):
             'Content-Type': 'application/json'
         }
         
-        # Liste der Webhooks, die registriert werden sollen
-        webhooks_to_register = [
-            "APP_UNINSTALLED",
-            "SHOP_UPDATE",
-            "CUSTOMERS_CREATE",
-            "CUSTOMERS_UPDATE",
-            "CUSTOMERS_DELETE"
-        ]
-        
         # Vollständige Basis-URL mit HTTPS abrufen
         base_url = get_base_url()
+        
+        # Liste der Webhooks, die registriert werden sollen
+        webhooks_to_register = [
+            # App-spezifische Events
+            "APP_UNINSTALLED",
+            "SHOP_UPDATE",
+            
+            # GDPR-konforme Webhooks (für Shopify App Store erforderlich)
+            "CUSTOMERS_DATA_REQUEST", 
+            "CUSTOMERS_REDACT",
+            "SHOP_REDACT",
+            
+            # Business-relevante Events
+            "CUSTOMERS_CREATE",
+            "CUSTOMERS_UPDATE",
+            "CUSTOMERS_DELETE",
+            "ORDERS_CREATE",
+            "PRODUCTS_UPDATE"
+        ]
+        
+        webhook_results = {
+            "success": 0,
+            "failed": 0,
+            "details": {}
+        }
+        
+        print(f"🔄 Beginne mit der Registrierung von {len(webhooks_to_register)} Webhooks...")
         
         # Registriere jeden Webhook
         for topic in webhooks_to_register:
@@ -783,8 +809,17 @@ def register_webhooks(shop, access_token):
             """
             
             # Webhook-URL basierend auf dem Topic
-            topic_path = topic.lower().replace("_", "/")
-            webhook_url = f"{base_url}/webhook/{topic_path}"
+            # Standardisierte URL-Pfade für GDPR-Webhooks
+            if topic == "CUSTOMERS_DATA_REQUEST":
+                webhook_url = f"{base_url}/webhook/customers/data_request"
+            elif topic == "CUSTOMERS_REDACT":
+                webhook_url = f"{base_url}/webhook/customers/redact"
+            elif topic == "SHOP_REDACT":
+                webhook_url = f"{base_url}/webhook/shop/redact"
+            else:
+                # Für alle anderen Webhooks
+                topic_path = topic.lower().replace("_", "/")
+                webhook_url = f"{base_url}/webhook/{topic_path}"
             
             print(f"🔄 Registriere Webhook für {topic} mit URL: {webhook_url}")
             
@@ -794,23 +829,43 @@ def register_webhooks(shop, access_token):
                 "callbackUrl": webhook_url
             }
             
-            # GraphQL-Aufruf durchführen
-            response = requests.post(
-                url,
-                json={'query': mutation, 'variables': variables},
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                if 'errors' not in result and 'data' in result:
-                    print(f"✅ Webhook für {topic} erfolgreich registriert")
-                else:
-                    print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {result.get('errors')}")
-            else:
-                print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {response.status_code} - {response.text}")
+            try:
+                # GraphQL-Aufruf durchführen mit certifi für SSL-Verifizierung
+                response = requests.post(
+                    url,
+                    json={'query': mutation, 'variables': variables},
+                    headers=headers,
+                    verify=certifi.where()
+                )
                 
-        return True
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'errors' not in result and 'data' in result:
+                        user_errors = result.get('data', {}).get('webhookSubscriptionCreate', {}).get('userErrors', [])
+                        if not user_errors:
+                            print(f"✅ Webhook für {topic} erfolgreich registriert")
+                            webhook_results["success"] += 1
+                            webhook_results["details"][topic] = "success"
+                        else:
+                            error_msg = user_errors[0].get('message', 'Unbekannter Fehler')
+                            print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {error_msg}")
+                            webhook_results["failed"] += 1
+                            webhook_results["details"][topic] = f"error: {error_msg}"
+                    else:
+                        print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {result.get('errors')}")
+                        webhook_results["failed"] += 1
+                        webhook_results["details"][topic] = f"error: {result.get('errors')}"
+                else:
+                    print(f"❌ Fehler beim Registrieren des Webhooks für {topic}: {response.status_code} - {response.text}")
+                    webhook_results["failed"] += 1
+                    webhook_results["details"][topic] = f"error: HTTP {response.status_code}"
+            except Exception as hook_error:
+                print(f"❌ Exception beim Registrieren des Webhooks für {topic}: {hook_error}")
+                webhook_results["failed"] += 1
+                webhook_results["details"][topic] = f"exception: {str(hook_error)}"
+        
+        print(f"📊 Webhook-Registrierung abgeschlossen: {webhook_results['success']} erfolgreich, {webhook_results['failed']} fehlgeschlagen")
+        return webhook_results["success"] > 0
     except Exception as e:
         print(f"❌ Fehler beim Registrieren der Webhooks: {e}")
         import traceback
@@ -1295,6 +1350,118 @@ def settings():
         print(f"❌ Fehler auf der Einstellungsseite: {e}")
         flash('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.', 'error')
         return redirect(url_for('dashboard'))
+
+@app.route('/webhook/customers/data_request', methods=['POST'])
+def customer_data_request():
+    """Handler für GDPR Datenanfragen"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Datenanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        customer_email = webhook_data.get('customer', {}).get('email')
+        customer_id = webhook_data.get('customer', {}).get('id')
+        
+        print(f"📋 GDPR Datenanfrage für Kunde {customer_email} (ID: {customer_id}) von Shop {shop_domain}")
+        
+        # Hier würden die Kundendaten gesammelt und zurückgegeben werden
+        # Im Produktionscode würden wir Daten aus der Datenbank abrufen
+        
+        return '', 200
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der GDPR Datenanfrage: {e}")
+        import traceback
+        traceback.print_exc()
+        return 'Internal server error', 500
+
+@app.route('/webhook/customers/redact', methods=['POST'])
+def customer_data_redact():
+    """Handler für GDPR Datenlöschung"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Datenlöschungsanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        customer_email = webhook_data.get('customer', {}).get('email')
+        customer_id = webhook_data.get('customer', {}).get('id')
+        
+        print(f"🗑️ GDPR Datenlöschungsanfrage für Kunde {customer_email} (ID: {customer_id}) von Shop {shop_domain}")
+        
+        # Hier würden die Kundendaten gelöscht werden
+        # Im Produktionscode würden wir Daten aus der Datenbank löschen
+        
+        return '', 200
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der GDPR Datenlöschung: {e}")
+        import traceback
+        traceback.print_exc()
+        return 'Internal server error', 500
+
+@app.route('/webhook/shop/redact', methods=['POST'])
+def shop_data_redact():
+    """Handler für GDPR Shop-Datenlöschung"""
+    try:
+        # Verifiziere den Webhook
+        hmac_header = request.headers.get('X-Shopify-Hmac-Sha256')
+        if not hmac_header:
+            return 'HMAC validation failed', 401
+
+        data = request.get_data()
+        calculated_hmac = hmac.new(
+            SHOPIFY_API_SECRET.encode('utf-8'),
+            data,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hmac, hmac_header):
+            return 'HMAC validation failed', 401
+
+        # Verarbeite die Shop-Datenlöschungsanfrage
+        webhook_data = request.json
+        shop_domain = webhook_data.get('shop_domain')
+        
+        print(f"🗑️ GDPR Shop-Datenlöschungsanfrage für Shop {shop_domain}")
+        
+        # Hier würden alle Shop-bezogenen Daten gelöscht werden
+        # Im Produktionscode würden wir alle Shopdaten aus der Datenbank löschen
+        
+        return '', 200
+        
+    except Exception as e:
+        print(f"❌ Fehler bei der GDPR Shop-Datenlöschung: {e}")
+        import traceback
+        traceback.print_exc()
+        return 'Internal server error', 500
 
 # Haupt-Ausführung
 if __name__ == '__main__':
