@@ -1,12 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import {
-  AppProvider,
+  AppProvider as ShopifyAppProvider,
   NavigationMenu,
 } from '@shopify/app-bridge-react';
-import { PolarisProvider } from '@shopify/polaris';
 import '@shopify/polaris/build/esm/styles.css';
-import enTranslations from '@shopify/polaris/locales/en.json';
 import Dashboard from './pages/Dashboard';
 
 function App() {
@@ -29,8 +27,8 @@ function App() {
   };
   
   return (
-    <PolarisProvider i18n={enTranslations}>
-      <AppProvider config={config}>
+    <div>
+      <ShopifyAppProvider config={config}>
         <Router>
           <Routes>
             {/* Main dashboard route */}
@@ -53,8 +51,8 @@ function App() {
             ]}
           />
         </Router>
-      </AppProvider>
-    </PolarisProvider>
+      </ShopifyAppProvider>
+    </div>
   );
 }
 

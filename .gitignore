@@ -1,5 +1,9 @@
-# Dependency directory
+# Node.js dependencies
 node_modules/
+
+# Build output
+/dist/
+/build/
 
 # Environment variables
 .env
@@ -8,32 +12,32 @@ node_modules/
 .env.test.local
 .env.production.local
 
-# Build directories
-dist/
-build/
-out/
-
-# SQLite database files
-*.sqlite
-*.sqlite3
-
 # Log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs
-*.log
 
 # Editor directories and files
-.idea/
-.vscode/*
-!.vscode/extensions.json
-.DS_Store
+.idea
+.vscode
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# macOS
+.DS_Store
+
+# SQLite database files
+*.sqlite
+*.sqlite3
+
+# Cache files
+.cache/
+
+# Personal notes
+/notes/
 
 # Testing
 coverage/
@@ -43,7 +47,6 @@ test-results/
 
 # Caching
 .eslintcache
-.cache/
 .npm/
 .temp/
 .parcel-cache/
