@@ -51,6 +51,11 @@
 
       const urlParams = new URLSearchParams(window.location.search);
       console.log('URL Search Params:', window.location.search);
+      
+      // Log all URL parameters for debugging
+      urlParams.forEach((value, key) => {
+        console.log(`Parameter: ${key} = ${value}`);
+      });
 
       const shop = urlParams.get('shop');
       const hmac = urlParams.get('hmac');
@@ -60,12 +65,16 @@
       console.log('HMAC Parameter:', hmac);
       console.log('Host Parameter:', host);
 
+      // Display all parameters for debugging
+      debugMessageEl.textContent = `URL Parameters: ${window.location.search}`;
+
       // Wichtig: Shopify sendet 'shop', 'hmac', 'host', und 'timestamp' beim ersten Installieren.
       // 'host' ist besonders wichtig für embedded apps und App Bridge.
-      if (shop && hmac && host) {
-        alert('Shopify-Parameter erkannt! Versuche Weiterleitung zu /api/auth.\nShop: ' + shop + '\nHMAC: ' + hmac + '\nHost: ' + host);
+      if (shop || hmac || host) {
+        const message = `Shopify-Parameter gefunden!\nShop: ${shop || 'fehlt'}\nHMAC: ${hmac || 'fehlt'}\nHost: ${host || 'fehlt'}`;
+        alert(message);
         debugMessageEl.textContent = 'Shopify-Parameter erkannt (' + shop + '). Leite weiter zu /api/auth...';
-        console.log('Detected Shopify parameters (shop, hmac, host). Redirecting to /api/auth...');
+        console.log('Detected Shopify parameters. Redirecting to /api/auth...');
         
         // Alle Parameter an /api/auth weitergeben
         const redirectTo = '/api/auth?' + window.location.search.substring(1);

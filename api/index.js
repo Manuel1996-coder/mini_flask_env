@@ -242,15 +242,21 @@ app.get('/api/health', (req, res) => {
 
 // Start the OAuth process
 app.get('/api/auth', (req, res) => {
-  console.log(`Auth request received with query:`, req.query);
+  console.log(`==== AUTH START ====`);
+  console.log(`Auth request received with query:`, JSON.stringify(req.query));
+  console.log(`Cookies:`, JSON.stringify(req.cookies));
+  console.log(`Headers:`, JSON.stringify(req.headers));
+  
   const shop = req.query.shop;
   
   if (!shop) {
+    console.error(`Missing shop parameter in request:`, JSON.stringify(req.query));
     return res.status(400).json({ error: 'Missing shop parameter' });
   }
   
   // Shopify requires myshopify.com domain
   if (!shop.includes('myshopify.com')) {
+    console.error(`Invalid shop domain: ${shop}. Must be a myshopify.com domain.`);
     return res.status(400).json({ error: 'Invalid shop domain. Must be a myshopify.com domain.' });
   }
   
@@ -258,9 +264,11 @@ app.get('/api/auth', (req, res) => {
   
   // Generate a nonce for CSRF protection
   const nonce = generateNonce();
+  console.log(`Generated nonce: ${nonce}`);
   
   // Store nonce in cookie
   res.setHeader('Set-Cookie', `shopify_nonce=${nonce}; Path=/; HttpOnly; SameSite=None; Secure`);
+  console.log(`Set nonce cookie`);
   
   // Build the authorization URL
   const redirectUrl = `https://${shop}/admin/oauth/authorize?` +
@@ -278,17 +286,21 @@ app.get('/api/auth', (req, res) => {
 
 // Handle the OAuth callback
 app.get('/api/auth/callback', async (req, res) => {
-  console.log(`Received OAuth callback from Shopify`);
+  console.log(`==== AUTH CALLBACK ====`);
+  console.log(`Received OAuth callback from Shopify with query:`, JSON.stringify(req.query));
+  console.log(`Cookies:`, JSON.stringify(req.cookies));
   
   const { shop, code, state, hmac } = req.query;
   
   if (!shop || !code || !hmac) {
-    console.error('Missing required parameters:', req.query);
+    console.error('Missing required parameters:', JSON.stringify(req.query));
     return res.status(400).json({ error: 'Required parameters missing' });
   }
   
   // Get the nonce from cookie
   const nonce = req.cookies?.shopify_nonce;
+  console.log(`Nonce from cookie: ${nonce}, State from query: ${state}`);
+  
   if (!nonce || state !== nonce) {
     console.error(`State validation failed. Expected: ${nonce}, Got: ${state}`);
     return res.status(403).json({ error: 'Invalid state parameter' });
@@ -296,7 +308,10 @@ app.get('/api/auth/callback', async (req, res) => {
   
   try {
     // Verify the HMAC
-    if (!verifyHmac(req.query)) {
+    const hmacValid = verifyHmac(req.query);
+    console.log(`HMAC validation result: ${hmacValid}`);
+    
+    if (!hmacValid) {
       console.error('HMAC validation failed');
       return res.status(403).json({ error: 'HMAC validation failed' });
     }
@@ -324,6 +339,7 @@ app.get('/api/auth/callback', async (req, res) => {
       `shopifyAccessToken=${accessToken}; Path=/; HttpOnly; SameSite=None; Secure`,
       `shopifyShop=${shop}; Path=/; HttpOnly; SameSite=None; Secure`
     ]);
+    console.log(`Set cookies for shop and token`);
     
     // Redirect to the app
     const redirectUrl = `/dashboard?shop=${shop}`;
