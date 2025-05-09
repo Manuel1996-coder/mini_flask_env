@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopify App Dashboard</title>
+  
+  <!-- Shopify App Bridge von CDN laden -->
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.7/app-bridge.js"></script>
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f6f6f7;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      color: #212b36;
+    }
+    p {
+      color: #6d7175;
+      line-height: 1.5;
+    }
+    .info {
+      background-color: #f4f6f8;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Shopify App Dashboard</h1>
+    <p>Die OAuth-Autorisierung wurde erfolgreich abgeschlossen.</p>
+    <div id="shop-info"></div>
+    
+    <div class="info">
+      <p>Diese minimale App erfüllt die grundlegenden Anforderungen für den Shopify App Store:</p>
+      <ul>
+        <li>OAuth-Authentifizierung</li>
+        <li>App Bridge Integration</li>
+        <li>Embedded App-Modus</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const shopInfoEl = document.getElementById('shop-info');
+      
+      // Shop-Parameter aus URL auslesen
+      const params = new URLSearchParams(window.location.search);
+      const shop = params.get('shop');
+      const host = params.get('host');
+      
+      if (shop) {
+        shopInfoEl.innerHTML = `<p>Verbunden mit Shop: <strong>${shop}</strong></p>`;
+      }
+      
+      // App Bridge initialisieren
+      if (host) {
+        try {
+          // API-Key vom Server holen
+          fetch('/api/shopify/api-key')
+            .then(response => response.json())
+            .then(data => {
+              if (!data.apiKey) {
+                throw new Error('API-Key nicht gefunden');
+              }
+              
+              // App Bridge initialisieren
+              const app = window.shopify.createApp({
+                apiKey: data.apiKey,
+                host: host,
+                forceRedirect: true
+              });
+              
+              console.log('App Bridge erfolgreich initialisiert');
+            })
+            .catch(error => {
+              console.error('Fehler beim Initialisieren von App Bridge:', error);
+            });
+        } catch (error) {
+          console.error('Fehler:', error);
+        }
+      }
+    });
+  </script>
+</body>
+</html> 
