@@ -12,11 +12,14 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/embedded", "dest": "/public/embedded.html" },
+    { "src": "/dashboard", "dest": "/public/dashboard/index.html" },
     { "src": "/(.*)", "dest": "/public/$1" },
     { "handle": "filesystem" }
   ],
   "env": {
     "NODE_ENV": "production",
-    "APP_URL": "https://shoppulse.vercel.app"
+    "APP_URL": "https://shoppulse.vercel.app",
+    "SHOPIFY_API_VERSION": "2024-04"
   }
 } 

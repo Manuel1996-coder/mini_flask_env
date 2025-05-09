@@ -608,5 +608,12 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// ----- APP BRIDGE ROUTE -----
+
+// Endpoint, um den API-Key für AppBridge zu holen
+app.get('/api/shopify/api-key', (req, res) => {
+  res.json({ apiKey: SHOPIFY_API_KEY });
+});
+
 // Export the app for Vercel
 module.exports = app; 

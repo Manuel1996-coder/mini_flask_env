@@ -4,250 +4,142 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShopPulseAI Dashboard</title>
+  
+  <!-- Shopify App Bridge -->
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  
+  <!-- Styles -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F3F3F3;
+    }
+  </style>
 </head>
-<body class="bg-gray-100">
-  <div class="min-h-screen">
-    <!-- Top Navigation -->
-    <nav class="bg-green-600 text-white shadow-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex">
-            <div class="flex-shrink-0 flex items-center">
-              <h1 class="text-xl font-bold">ShopPulseAI</h1>
-            </div>
-          </div>
-          <div class="flex items-center">
-            <span id="shop-name" class="mr-4">-</span>
-            <button id="logout-button" class="bg-white text-green-600 px-4 py-2 rounded-md text-sm font-medium">
-              Abmelden
-            </button>
+<body>
+  <div id="app" class="p-6">
+    <div class="max-w-6xl mx-auto">
+      <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-4">ShopPulseAI Dashboard</h1>
+        <p class="text-gray-600" id="shop-info">Laden...</p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-lg shadow-sm">
+          <h2 class="text-xl font-semibold mb-4">Empfehlungen</h2>
+          <div id="recommendations-container" class="space-y-4">
+            <p class="text-gray-500">Daten werden geladen...</p>
           </div>
         </div>
-      </div>
-    </nav>
-
-    <!-- Dashboard Content -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <!-- Welcome Panel -->
-      <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Willkommen im Dashboard</h2>
-        <p class="text-gray-600">
-          Sie sind erfolgreich mit Ihrem Shopify-Shop verbunden. 
-          Hier können Sie Ihre Produktempfehlungen und Preisoptimierungen verwalten.
-        </p>
-      </div>
-
-      <!-- Features Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <!-- Products Card -->
-        <div class="bg-white shadow-sm rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Produkte</h3>
-          <p class="text-gray-600 mb-4">Verwalten Sie Ihre Produktdaten und sehen Sie Analysen.</p>
-          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="products">
-            Produkte anzeigen
-          </button>
-        </div>
-
-        <!-- Recommendations Card -->
-        <div class="bg-white shadow-sm rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Empfehlungen</h3>
-          <p class="text-gray-600 mb-4">KI-generierte Empfehlungen für Ihren Shop.</p>
-          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="recommendations">
-            Empfehlungen anzeigen
-          </button>
-        </div>
-
-        <!-- Pricing Card -->
-        <div class="bg-white shadow-sm rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Preisoptimierung</h3>
-          <p class="text-gray-600 mb-4">Optimieren Sie Ihre Preise für maximalen Gewinn.</p>
-          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="pricing">
-            Preistool öffnen
-          </button>
+        
+        <div class="bg-white p-6 rounded-lg shadow-sm">
+          <h2 class="text-xl font-semibold mb-4">Preisoptimierung</h2>
+          <div id="price-optimization" class="space-y-4">
+            <p class="text-gray-500">Daten werden geladen...</p>
+          </div>
         </div>
       </div>
-
-      <!-- Data Display Area -->
-      <div id="data-display" class="bg-white shadow-sm rounded-lg p-6 hidden">
-        <div class="flex justify-between items-center mb-4">
-          <h3 id="feature-title" class="text-xl font-semibold text-gray-800">Daten</h3>
-          <button id="close-data" class="text-gray-500 hover:text-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div id="data-content" class="text-gray-600">
-          <!-- Data will be inserted here -->
-        </div>
-      </div>
-    </main>
+    </div>
   </div>
 
-  <!-- Authentication check and dashboard functionality -->
   <script>
+    // App Bridge-Initialisierung
     document.addEventListener('DOMContentLoaded', function() {
-      // Check if authenticated
-      checkAuth();
-
-      // Feature buttons
-      document.querySelectorAll('.feature-button').forEach(button => {
-        button.addEventListener('click', function() {
-          const feature = this.getAttribute('data-feature');
-          loadFeatureData(feature);
-        });
-      });
-
-      // Close data display
-      document.getElementById('close-data').addEventListener('click', function() {
-        document.getElementById('data-display').classList.add('hidden');
-      });
-
-      // Logout button
-      document.getElementById('logout-button').addEventListener('click', function() {
-        // Clear cookies and redirect to home
-        document.cookie = 'shopifyAccessToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure';
-        document.cookie = 'shopifyShop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure';
-        window.location.href = '/';
-      });
+      const shopInfo = document.getElementById('shop-info');
+      const recommendationsContainer = document.getElementById('recommendations-container');
+      
+      try {
+        // URL-Parameter abrufen
+        const searchParams = new URLSearchParams(window.location.search);
+        const host = searchParams.get('host');
+        const shop = searchParams.get('shop');
+        
+        if (!host || !shop) {
+          shopInfo.textContent = 'Fehler: Host oder Shop-Parameter fehlen.';
+          return;
+        }
+        
+        shopInfo.textContent = `Verbunden mit Shop: ${shop}`;
+        
+        // API-Key vom Server holen und dann App Bridge initialisieren
+        fetch('/api/shopify/api-key')
+          .then(response => response.json())
+          .then(data => {
+            if (!data.apiKey) {
+              throw new Error('API-Key nicht gefunden');
+            }
+            
+            // App Bridge initialisieren
+            const app = window.ShopifyAppBridge.createApp({
+              apiKey: data.apiKey,
+              host: host,
+              forceRedirect: true
+            });
+            
+            // Erfolgreiche Initialisierung
+            console.log('App Bridge erfolgreich initialisiert');
+            
+            // Mock-Daten anzeigen
+            displayMockData();
+          })
+          .catch(error => {
+            console.error('Fehler beim Laden des API-Keys:', error);
+            shopInfo.textContent = `Fehler beim Laden des API-Keys: ${error.message}`;
+          });
+        
+      } catch (error) {
+        console.error('Fehler bei der App Bridge-Initialisierung:', error);
+        shopInfo.textContent = `Fehler bei der Initialisierung: ${error.message}`;
+      }
     });
-
-    // Check authentication status
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth-status');
-        const data = await response.json();
-        
-        if (!data.authenticated) {
-          // Not authenticated, redirect to home
-          window.location.href = '/';
-          return;
-        }
-
-        // Display shop name
-        document.getElementById('shop-name').textContent = data.shop || 'Ihr Shop';
-        
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        window.location.href = '/';
-      }
-    }
-
-    // Load feature data
-    async function loadFeatureData(feature) {
-      const titles = {
-        products: 'Produkte',
-        recommendations: 'Empfehlungen',
-        pricing: 'Preisoptimierung'
-      };
+    
+    // Mock-Daten anzeigen
+    function displayMockData() {
+      const recommendationsContainer = document.getElementById('recommendations-container');
+      const priceOptimization = document.getElementById('price-optimization');
       
-      document.getElementById('feature-title').textContent = titles[feature];
-      document.getElementById('data-display').classList.remove('hidden');
+      // Empfehlungen
+      recommendationsContainer.innerHTML = `
+        <div class="p-4 border border-green-200 rounded bg-green-50">
+          <h3 class="font-medium text-green-800">Top-Produkt promoten</h3>
+          <p class="text-green-700 text-sm">Vertrauen: 92%</p>
+          <p class="mt-2 text-gray-700">Ihr meistverkauftes Produkt sollte prominenter auf der Startseite platziert werden.</p>
+        </div>
+        <div class="p-4 border border-blue-200 rounded bg-blue-50">
+          <h3 class="font-medium text-blue-800">Versandkosten anpassen</h3>
+          <p class="text-blue-700 text-sm">Vertrauen: 86%</p>
+          <p class="mt-2 text-gray-700">Kostenloser Versand ab 50€ könnte Ihren durchschnittlichen Bestellwert erhöhen.</p>
+        </div>
+      `;
       
-      const contentArea = document.getElementById('data-content');
-      contentArea.innerHTML = '<p class="text-center">Daten werden geladen...</p>';
-
-      try {
-        let endpoint = '';
-        switch(feature) {
-          case 'products':
-            endpoint = '/api/products';
-            break;
-          case 'recommendations':
-            endpoint = '/api/recommendations';
-            break;
-          case 'pricing':
-            endpoint = '/api/price-optimize';
-            break;
-        }
-
-        if (!endpoint) {
-          contentArea.innerHTML = '<p>Feature nicht verfügbar</p>';
-          return;
-        }
-
-        // Get the shop from URL parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const shop = urlParams.get('shop');
-        
-        // Mock data for demo
-        const mockData = {
-          products: [
-            { id: 1, title: 'Beispielprodukt 1', price: '29.99€' },
-            { id: 2, title: 'Beispielprodukt 2', price: '49.99€' },
-            { id: 3, title: 'Beispielprodukt 3', price: '19.99€' }
-          ],
-          recommendations: 'KI-Empfehlung: Basierend auf Ihren Verkaufsdaten könnten Sie Ihre Preise für Bestseller um 7% erhöhen, ohne die Nachfrage zu beeinträchtigen.',
-          pricing: {
-            products: [
-              { title: 'Beispielprodukt 1', currentPrice: '29.99€', suggestedPrice: '32.99€', revenue: '+10.2%' },
-              { title: 'Beispielprodukt 2', currentPrice: '49.99€', suggestedPrice: '47.99€', revenue: '+5.8%' },
-              { title: 'Beispielprodukt 3', currentPrice: '19.99€', suggestedPrice: '24.99€', revenue: '+15.3%' }
-            ]
-          }
-        };
-
-        // Generate HTML based on feature
-        let html = '';
-        
-        if (feature === 'products') {
-          html = `<div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preis</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                ${mockData.products.map(product => `
-                  <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.id}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.title}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>`;
-        } else if (feature === 'recommendations') {
-          html = `<div class="p-4 bg-green-50 border border-green-100 rounded-md">
-            <p class="text-gray-800">${mockData.recommendations}</p>
-          </div>`;
-        } else if (feature === 'pricing') {
-          html = `<div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktueller Preis</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empfohlener Preis</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Umsatzpotenzial</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                ${mockData.pricing.products.map(product => `
-                  <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.title}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.currentPrice}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.suggestedPrice}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">${product.revenue}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>`;
-        }
-        
-        contentArea.innerHTML = html;
-        
-      } catch (error) {
-        console.error(`Failed to load ${feature} data:`, error);
-        contentArea.innerHTML = `<p>Fehler beim Laden der Daten: ${error.message}</p>`;
-      }
+      // Preisoptimierung
+      priceOptimization.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktueller Preis</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empfohlener Preis</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">Beispielprodukt 1</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">39,99 €</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-green-600 font-medium">44,99 €</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">Beispielprodukt 2</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">79,99 €</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-green-600 font-medium">74,99 €</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
     }
   </script>
 </body>

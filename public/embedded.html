@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPulseAI - Eingebettete App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f3f3f3;
+    }
+    .loading {
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: #09f;
+      margin: 20px auto;
+      animation: spin 1s ease infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading">
+    <h1>ShopPulseAI wird geladen...</h1>
+    <div class="spinner"></div>
+    <p id="statusMessage">Überprüfe Parameter und leite weiter...</p>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const statusEl = document.getElementById('statusMessage');
+      statusEl.textContent = 'Überprüfe URL-Parameter...';
+      
+      // URL-Parameter abrufen
+      const urlParams = new URLSearchParams(window.location.search);
+      console.log('URL Search Params:', window.location.search);
+      
+      // Wichtige Parameter
+      const shop = urlParams.get('shop');
+      const host = urlParams.get('host');
+      const embedded = urlParams.get('embedded');
+      
+      // Debug-Ausgabe 
+      console.log('Shop Parameter:', shop);
+      console.log('Host Parameter:', host);
+      console.log('Embedded Parameter:', embedded);
+      
+      // Prüfen, ob wir im embedded-Modus sind
+      if (embedded === '1') {
+        statusEl.textContent = 'Eingebetteter Modus erkannt, leite zum Dashboard weiter...';
+        
+        // Leite zum Dashboard mit allen Parametern weiter
+        setTimeout(() => {
+          window.location.href = `/dashboard?${window.location.search.substring(1)}`;
+        }, 1000);
+      } else if (shop) {
+        // Falls kein embedded-Modus aber shop-Parameter, leite zur Auth weiter
+        statusEl.textContent = 'Leite zur Autorisierung weiter...';
+        setTimeout(() => {
+          window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
+        }, 1000);
+      } else {
+        // Keine gültigen Parameter gefunden
+        statusEl.textContent = 'Fehler: Keine gültigen Shopify-Parameter gefunden.';
+      }
+    });
+  </script>
+</body>
+</html> 
