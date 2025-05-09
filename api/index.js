@@ -19,6 +19,12 @@ const SCOPES = process.env.SCOPES || 'read_products,write_products,read_customer
 const APP_URL = process.env.APP_URL || 'https://shoppulse.vercel.app';
 const REDIRECT_URI = `${APP_URL}/api/auth/callback`;
 
+// --- App Version Log ---
+const APP_NAME = 'ShopPulseAI'; // Or read from package.json if you prefer
+const DEPLOYMENT_TIMESTAMP = new Date().toISOString();
+console.log(`🚀 ${APP_NAME} - Version/Deployment: ${DEPLOYMENT_TIMESTAMP} - Server starting...`);
+// --- End App Version Log ---
+
 // Create Express app
 const app = express();
 
