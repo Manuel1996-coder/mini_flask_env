@@ -8,14 +8,15 @@
   "regions": ["fra1"],
   "builds": [
     { "src": "api/index.js", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
+    { "src": "public/**", "use": "@vercel/static" },
+    { "src": "embedded.html", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/embedded", "dest": "/public/embedded.html" },
+    { "src": "/embedded", "dest": "/embedded.html" },
     { "src": "/dashboard", "dest": "/public/dashboard/index.html" },
-    { "src": "/(.*)", "dest": "/public/$1" },
-    { "handle": "filesystem" }
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/public/$1" }
   ],
   "env": {
     "NODE_ENV": "production",

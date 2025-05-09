@@ -51,27 +51,53 @@
       const recommendationsContainer = document.getElementById('recommendations-container');
       
       try {
+        // Debug-Informationen anzeigen
+        console.log('Dashboard wird geladen...');
+        console.log('URL:', window.location.href);
+        console.log('Search Params:', window.location.search);
+        
         // URL-Parameter abrufen
         const searchParams = new URLSearchParams(window.location.search);
         const host = searchParams.get('host');
         const shop = searchParams.get('shop');
         
+        // Alle Parameter anzeigen (für Debugging)
+        console.log('Alle URL-Parameter:');
+        searchParams.forEach((value, key) => {
+          console.log(`${key}: ${value}`);
+        });
+        
         if (!host || !shop) {
-          shopInfo.textContent = 'Fehler: Host oder Shop-Parameter fehlen.';
+          shopInfo.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-md">
+            <h3 class="text-red-800 font-medium">Fehler: Fehlende Parameter</h3>
+            <p>Host: ${host || 'fehlt'}<br>Shop: ${shop || 'fehlt'}</p>
+            <p class="mt-2">URL: ${window.location.href}</p>
+          </div>`;
           return;
         }
         
         shopInfo.textContent = `Verbunden mit Shop: ${shop}`;
         
         // API-Key vom Server holen und dann App Bridge initialisieren
+        console.log('Hole API-Key vom Server...');
         fetch('/api/shopify/api-key')
-          .then(response => response.json())
+          .then(response => {
+            console.log('API-Key Response erhalten:', response.status);
+            return response.json();
+          })
           .then(data => {
+            console.log('API-Key Daten erhalten:', data);
+            
             if (!data.apiKey) {
               throw new Error('API-Key nicht gefunden');
             }
             
             // App Bridge initialisieren
+            console.log('Initialisiere App Bridge mit:', {
+              apiKey: data.apiKey,
+              host: host
+            });
+            
             const app = window.ShopifyAppBridge.createApp({
               apiKey: data.apiKey,
               host: host,
@@ -86,12 +112,18 @@
           })
           .catch(error => {
             console.error('Fehler beim Laden des API-Keys:', error);
-            shopInfo.textContent = `Fehler beim Laden des API-Keys: ${error.message}`;
+            shopInfo.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-md">
+              <h3 class="text-red-800 font-medium">Fehler beim Laden des API-Keys</h3>
+              <p>${error.message}</p>
+            </div>`;
           });
         
       } catch (error) {
         console.error('Fehler bei der App Bridge-Initialisierung:', error);
-        shopInfo.textContent = `Fehler bei der Initialisierung: ${error.message}`;
+        shopInfo.innerHTML = `<div class="p-4 bg-red-50 border border-red-200 rounded-md">
+          <h3 class="text-red-800 font-medium">Fehler bei der Initialisierung</h3>
+          <p>${error.message}</p>
+        </div>`;
       }
     });
     
