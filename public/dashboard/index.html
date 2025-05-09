@@ -4,291 +4,250 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShopPulseAI Dashboard</title>
-  <link rel="preconnect" href="https://cdn.shopify.com/">
-  <link rel="stylesheet" href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css">
-  <!-- Shopify Polaris styles -->
-  <link rel="stylesheet" href="https://unpkg.com/@shopify/polaris@10.49.1/build/esm/styles.css" />
-  <!-- App Bridge -->
-  <script src="https://unpkg.com/@shopify/app-bridge@3.7.9"></script>
-  <script src="https://unpkg.com/@shopify/app-bridge-utils@3.5.1"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-      background-color: #f6f6f7;
-      color: #202223;
-      line-height: 1.6;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-    h1 {
-      font-size: 1.8rem;
-      margin: 0;
-      color: #008060;
-    }
-    .dashboard-content {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-    .card {
-      background-color: white;
-      border-radius: 8px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-    .card h2 {
-      margin-top: 0;
-      font-size: 1.2rem;
-      color: #008060;
-    }
-    .back-link {
-      display: inline-block;
-      margin-top: 1rem;
-      color: #008060;
-      text-decoration: none;
-    }
-    .back-link:hover {
-      text-decoration: underline;
-    }
-    #auth-required {
-      display: none;
-      text-align: center;
-      padding: 2rem;
-      background-color: #fff;
-      border-radius: 8px;
-      margin: 2rem auto;
-      max-width: 600px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-    .loading {
-      text-align: center;
-      padding: 2rem;
-    }
-  </style>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-  <div id="loading" class="loading">
-    <p>Initialisiere ShopPulseAI...</p>
-  </div>
-
-  <div id="auth-required" style="display: none;">
-    <h2>Authentifizierung erforderlich</h2>
-    <p>Bitte autorisieren Sie ShopPulseAI, um auf Ihre Shop-Daten zuzugreifen.</p>
-    <button id="auth-button" class="button" style="background-color: #008060; color: white; padding: 1rem 2rem; border-radius: 4px; border: none; cursor: pointer; font-weight: bold;">
-      Autorisieren
-    </button>
-  </div>
-
-  <div id="app-content" style="display: none;">
-    <header>
-      <h1>ShopPulseAI Dashboard</h1>
-      <div>
-        <span id="store-name">Loading...</span>
-      </div>
-    </header>
-
-    <main>
-      <div class="dashboard-content">
-        <div class="card">
-          <h2>Produktempfehlungen</h2>
-          <p>Laden von KI-gestützten Produktempfehlungen...</p>
-          <div id="recommendations-container"></div>
-        </div>
-        <div class="card">
-          <h2>Preisoptimierung</h2>
-          <p>Laden der Preisoptimierungsvorschläge...</p>
-          <div id="price-optimize-container"></div>
-        </div>
-        <div class="card">
-          <h2>Shop-Übersicht</h2>
-          <p>Laden der Shop-Statistiken...</p>
-          <div id="shop-stats-container"></div>
+<body class="bg-gray-100">
+  <div class="min-h-screen">
+    <!-- Top Navigation -->
+    <nav class="bg-green-600 text-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+          <div class="flex">
+            <div class="flex-shrink-0 flex items-center">
+              <h1 class="text-xl font-bold">ShopPulseAI</h1>
+            </div>
+          </div>
+          <div class="flex items-center">
+            <span id="shop-name" class="mr-4">-</span>
+            <button id="logout-button" class="bg-white text-green-600 px-4 py-2 rounded-md text-sm font-medium">
+              Abmelden
+            </button>
+          </div>
         </div>
       </div>
+    </nav>
 
-      <a href="../" class="back-link">← Zurück zur Startseite</a>
+    <!-- Dashboard Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <!-- Welcome Panel -->
+      <div class="bg-white shadow-sm rounded-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Willkommen im Dashboard</h2>
+        <p class="text-gray-600">
+          Sie sind erfolgreich mit Ihrem Shopify-Shop verbunden. 
+          Hier können Sie Ihre Produktempfehlungen und Preisoptimierungen verwalten.
+        </p>
+      </div>
+
+      <!-- Features Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <!-- Products Card -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Produkte</h3>
+          <p class="text-gray-600 mb-4">Verwalten Sie Ihre Produktdaten und sehen Sie Analysen.</p>
+          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="products">
+            Produkte anzeigen
+          </button>
+        </div>
+
+        <!-- Recommendations Card -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Empfehlungen</h3>
+          <p class="text-gray-600 mb-4">KI-generierte Empfehlungen für Ihren Shop.</p>
+          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="recommendations">
+            Empfehlungen anzeigen
+          </button>
+        </div>
+
+        <!-- Pricing Card -->
+        <div class="bg-white shadow-sm rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Preisoptimierung</h3>
+          <p class="text-gray-600 mb-4">Optimieren Sie Ihre Preise für maximalen Gewinn.</p>
+          <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition duration-300 feature-button" data-feature="pricing">
+            Preistool öffnen
+          </button>
+        </div>
+      </div>
+
+      <!-- Data Display Area -->
+      <div id="data-display" class="bg-white shadow-sm rounded-lg p-6 hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="feature-title" class="text-xl font-semibold text-gray-800">Daten</h3>
+          <button id="close-data" class="text-gray-500 hover:text-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div id="data-content" class="text-gray-600">
+          <!-- Data will be inserted here -->
+        </div>
+      </div>
     </main>
   </div>
 
+  <!-- Authentication check and dashboard functionality -->
   <script>
-    // App setup
     document.addEventListener('DOMContentLoaded', function() {
-      // Wichtig: Immer den Shop-Parameter aus der URL holen
-      const urlParams = new URLSearchParams(window.location.search);
-      const shopDomain = urlParams.get('shop');
-      
-      if (!shopDomain) {
-        // Redirect zum Install-Flow, wenn kein Shop-Parameter vorhanden ist
-        console.log('Kein Shop-Parameter gefunden, weiterleiten zur Install-Seite');
-        window.location.href = '/install';
-        return;
-      }
-      
-      // Versuche AppBridge zu initialisieren
-      initializeAppBridge(shopDomain);
+      // Check if authenticated
+      checkAuth();
+
+      // Feature buttons
+      document.querySelectorAll('.feature-button').forEach(button => {
+        button.addEventListener('click', function() {
+          const feature = this.getAttribute('data-feature');
+          loadFeatureData(feature);
+        });
+      });
+
+      // Close data display
+      document.getElementById('close-data').addEventListener('click', function() {
+        document.getElementById('data-display').classList.add('hidden');
+      });
+
+      // Logout button
+      document.getElementById('logout-button').addEventListener('click', function() {
+        // Clear cookies and redirect to home
+        document.cookie = 'shopifyAccessToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure';
+        document.cookie = 'shopifyShop=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure';
+        window.location.href = '/';
+      });
     });
-    
-    // Initialize Shopify App Bridge
-    function initializeAppBridge(shop) {
+
+    // Check authentication status
+    async function checkAuth() {
       try {
-        // Hole API key für die App Bridge
-        // Dies sollte in einer Produktionsumgebung durch 
-        // serverseitige Injektion erfolgen
-        const apiKey = 'your-api-key'; // Ersetze mit deinem tatsächlichen API-Key
+        const response = await fetch('/api/auth-status');
+        const data = await response.json();
         
-        console.log(`Initialisiere App Bridge für Shop: ${shop}`);
+        if (!data.authenticated) {
+          // Not authenticated, redirect to home
+          window.location.href = '/';
+          return;
+        }
+
+        // Display shop name
+        document.getElementById('shop-name').textContent = data.shop || 'Ihr Shop';
         
-        // Initialisiere App Bridge
-        const app = window['app-bridge'].createApp({
-          apiKey: apiKey,
-          host: shop,
-          forceRedirect: true
-        });
-        
-        // App Bridge Session Token holen
-        window['app-bridge-utils'].getSessionToken(app)
-          .then(token => {
-            console.log('Session Token erhalten, verifiziere mit API');
-            
-            // Token im SessionStorage speichern
-            sessionStorage.setItem('sessionToken', token);
-            
-            // Token mit unserer API verifizieren
-            return verifySessionToken(token, shop);
-          })
-          .then(verified => {
-            if (verified) {
-              // Token ist gültig, Dashboard anzeigen
-              document.getElementById('loading').style.display = 'none';
-              document.getElementById('app-content').style.display = 'block';
-              
-              // Dashboard-Daten laden
-              loadDashboardData(sessionStorage.getItem('sessionToken'), shop);
-            } else {
-              throw new Error('Session Token konnte nicht verifiziert werden');
-            }
-          })
-          .catch(err => {
-            console.error('Fehler mit Session Token:', err);
-            
-            // Auth-Required-Screen anzeigen
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('auth-required').style.display = 'block';
-            
-            // Auth-Button-Handler hinzufügen
-            document.getElementById('auth-button').addEventListener('click', function() {
-              window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
-            });
-          });
       } catch (error) {
-        console.error('Fehler beim Initialisieren von App Bridge:', error);
-        
-        // Redirect zur Auth-Seite bei Fehler
-        window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
+        console.error('Auth check failed:', error);
+        window.location.href = '/';
       }
     }
-    
-    // Verify the session token with our API
-    async function verifySessionToken(token, shop) {
+
+    // Load feature data
+    async function loadFeatureData(feature) {
+      const titles = {
+        products: 'Produkte',
+        recommendations: 'Empfehlungen',
+        pricing: 'Preisoptimierung'
+      };
+      
+      document.getElementById('feature-title').textContent = titles[feature];
+      document.getElementById('data-display').classList.remove('hidden');
+      
+      const contentArea = document.getElementById('data-content');
+      contentArea.innerHTML = '<p class="text-center">Daten werden geladen...</p>';
+
       try {
-        console.log('Verifiziere Session Token mit API');
-        const response = await fetch('/api/verify-session', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-Shopify-Shop-Domain': shop
+        let endpoint = '';
+        switch(feature) {
+          case 'products':
+            endpoint = '/api/products';
+            break;
+          case 'recommendations':
+            endpoint = '/api/recommendations';
+            break;
+          case 'pricing':
+            endpoint = '/api/price-optimize';
+            break;
+        }
+
+        if (!endpoint) {
+          contentArea.innerHTML = '<p>Feature nicht verfügbar</p>';
+          return;
+        }
+
+        // Get the shop from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const shop = urlParams.get('shop');
+        
+        // Mock data for demo
+        const mockData = {
+          products: [
+            { id: 1, title: 'Beispielprodukt 1', price: '29.99€' },
+            { id: 2, title: 'Beispielprodukt 2', price: '49.99€' },
+            { id: 3, title: 'Beispielprodukt 3', price: '19.99€' }
+          ],
+          recommendations: 'KI-Empfehlung: Basierend auf Ihren Verkaufsdaten könnten Sie Ihre Preise für Bestseller um 7% erhöhen, ohne die Nachfrage zu beeinträchtigen.',
+          pricing: {
+            products: [
+              { title: 'Beispielprodukt 1', currentPrice: '29.99€', suggestedPrice: '32.99€', revenue: '+10.2%' },
+              { title: 'Beispielprodukt 2', currentPrice: '49.99€', suggestedPrice: '47.99€', revenue: '+5.8%' },
+              { title: 'Beispielprodukt 3', currentPrice: '19.99€', suggestedPrice: '24.99€', revenue: '+15.3%' }
+            ]
           }
-        });
+        };
+
+        // Generate HTML based on feature
+        let html = '';
         
-        if (response.ok) {
-          console.log('Session Token erfolgreich verifiziert');
-          return true;
-        } else {
-          console.error('Konnte Session Token nicht verifizieren:', await response.text());
-          return false;
+        if (feature === 'products') {
+          html = `<div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preis</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${mockData.products.map(product => `
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+        } else if (feature === 'recommendations') {
+          html = `<div class="p-4 bg-green-50 border border-green-100 rounded-md">
+            <p class="text-gray-800">${mockData.recommendations}</p>
+          </div>`;
+        } else if (feature === 'pricing') {
+          html = `<div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktueller Preis</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empfohlener Preis</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Umsatzpotenzial</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${mockData.pricing.products.map(product => `
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.currentPrice}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.suggestedPrice}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">${product.revenue}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
         }
+        
+        contentArea.innerHTML = html;
+        
       } catch (error) {
-        console.error('Fehler bei der Verifizierung des Session Tokens:', error);
-        return false;
+        console.error(`Failed to load ${feature} data:`, error);
+        contentArea.innerHTML = `<p>Fehler beim Laden der Daten: ${error.message}</p>`;
       }
-    }
-    
-    // Load dashboard data using session token
-    function loadDashboardData(sessionToken, shop) {
-      document.getElementById('store-name').textContent = shop;
-      
-      // Produkte mit Session Token abrufen
-      fetch('/api/products', {
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'X-Shopify-Shop-Domain': shop
-        }
-      })
-      .then(response => {
-        if (!response.ok) throw new Error('Konnte Produkte nicht laden');
-        return response.json();
-      })
-      .then(products => {
-        console.log('Produkte geladen:', products);
-        // In einer echten App würden die Produkte hier angezeigt werden
-      })
-      .catch(error => {
-        console.error('Fehler beim Laden der Produkte:', error);
-      });
-      
-      // Empfehlungen mit Session Token abrufen
-      fetch('/api/recommendations', {
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'X-Shopify-Shop-Domain': shop
-        }
-      })
-      .then(response => {
-        if (!response.ok) throw new Error('Konnte Empfehlungen nicht laden');
-        return response.json();
-      })
-      .then(recommendations => {
-        console.log('Empfehlungen geladen:', recommendations);
-        
-        // Empfehlungen anzeigen
-        const html = recommendations.map(rec => `
-          <div style="margin-bottom: 1rem;">
-            <strong>Produkt ${rec.product_id}:</strong> ${rec.suggestion}
-            <div style="font-size: 0.9rem; color: #6d7175;">Konfidenz: ${(rec.confidence * 100).toFixed(0)}%</div>
-          </div>
-        `).join('');
-        
-        document.getElementById('recommendations-container').innerHTML = html || 
-          '<p>Keine Empfehlungen verfügbar. Verbinden Sie Ihren Shop, um Vorschläge zu erhalten.</p>';
-        
-        document.getElementById('price-optimize-container').innerHTML = 
-          '<p>Keine Preisvorschläge verfügbar. Verbinden Sie Ihren Shop, um Optimierungen zu erhalten.</p>';
-        
-        document.getElementById('shop-stats-container').innerHTML = 
-          '<p>Keine Shop-Statistiken verfügbar. Verbinden Sie Ihren Shop, um Statistiken zu sehen.</p>';
-      })
-      .catch(error => {
-        console.error('Fehler beim Laden der Empfehlungen:', error);
-        document.getElementById('recommendations-container').innerHTML = 
-          '<p>Fehler beim Laden der Empfehlungen. Bitte versuchen Sie es später erneut.</p>';
-      });
-    }
-    
-    // Helper function to get cookies
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
     }
   </script>
-  
-  <script src="../app.js"></script>
 </body>
 </html> 

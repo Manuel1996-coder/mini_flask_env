@@ -3,110 +3,58 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShopPulseAI</title>
-  <link rel="preconnect" href="https://cdn.shopify.com/">
-  <link rel="stylesheet" href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css">
+  <title>ShopPulseAI - Shopify App</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-      background-color: #f6f6f7;
-      color: #202223;
-      line-height: 1.6;
-      text-align: center;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      color: #008060;
-    }
-    main {
-      margin: 2rem 0;
-    }
-    .card {
-      background-color: white;
-      border-radius: 8px;
-      padding: 2rem;
-      margin: 2rem auto;
-      max-width: 600px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-    .button {
-      display: inline-block;
-      background-color: #008060;
-      color: white;
-      padding: 1rem 2rem;
-      border-radius: 4px;
-      text-decoration: none;
-      font-weight: bold;
-      margin-top: 1rem;
-    }
-    .button:hover {
-      background-color: #006e52;
-    }
-    .button-secondary {
-      background-color: #f6f6f7;
-      color: #008060;
-      border: 1px solid #008060;
-      margin-left: 1rem;
-    }
-    .button-secondary:hover {
-      background-color: #f0f0f1;
-    }
-    #loading {
-      display: none;
-      margin-top: 2rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     }
   </style>
 </head>
-<body>
-  <header>
-    <h1>ShopPulseAI</h1>
-    <p>KI-gestützte Shopify-App für intelligente Produktempfehlungen und Preisoptimierung</p>
-  </header>
+<body class="bg-gray-50">
+  <div class="max-w-4xl mx-auto px-4 py-16">
+    <header class="text-center mb-12">
+      <h1 class="text-5xl font-bold text-green-600 mb-2">ShopPulseAI</h1>
+      <p class="text-xl text-gray-600">KI-gestützte Shopify-App für intelligente Produktempfehlungen und Preisoptimierung</p>
+    </header>
 
-  <main>
-    <div class="card">
-      <h2>Willkommen bei ShopPulseAI</h2>
-      <p>Dies ist die statische Startseite für das ShopPulseAI-Projekt, das auf Vercel gehostet wird.</p>
-      <div id="loading">Leite zur Shopify-Autorisierung weiter...</div>
-      <div id="buttons">
-        <a href="./install" class="button">App installieren</a>
-      </div>
-    </div>
-  </main>
-
-  <footer>
-    <p>&copy; 2024 ShopPulseAI</p>
-  </footer>
-
-  <script>
-    // WICHTIG: Automatische Weiterleitung zu OAuth, wenn von Shopify kommend
-    document.addEventListener('DOMContentLoaded', function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const shopParam = urlParams.get('shop');
-      const hmacParam = urlParams.get('hmac');
-      const hostParam = urlParams.get('host');
+    <main class="bg-white p-8 rounded-lg shadow-md">
+      <h2 class="text-3xl font-semibold text-center mb-8">Willkommen bei ShopPulseAI</h2>
       
-      // Wenn die URL die Shopify-Parameter enthält (kommt von Shopify Partner Dashboard)
-      if (shopParam && hmacParam && hostParam) {
-        console.log('Shopify-Parameter erkannt, leite zur Authentifizierung weiter');
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('buttons').style.display = 'none';
-        
-        // Direkt zum OAuth-Prozess weiterleiten
-        window.location.href = `/api/auth?shop=${encodeURIComponent(shopParam)}`;
-      } 
-      // Wenn nur der Shop-Parameter vorhanden ist
-      else if (shopParam) {
-        // Zum Dashboard weiterleiten, falls der Benutzer bereits authentifiziert ist
-        window.location.href = `/dashboard?shop=${encodeURIComponent(shopParam)}`;
+      <p class="text-lg text-center mb-6">
+        Dies ist die statische Startseite für das ShopPulseAI-Projekt, das auf Vercel gehostet wird.
+      </p>
+      
+      <p class="text-lg text-center mb-10">
+        Um zum Dashboard zu gelangen, klicken Sie auf den Button unten.
+      </p>
+      
+      <div class="flex justify-center">
+        <a href="/api/install?shop=teststore.myshopify.com" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+          Zum Dashboard
+        </a>
+      </div>
+    </main>
+
+    <footer class="text-center mt-12 text-gray-600">
+      &copy; 2024 ShopPulseAI
+    </footer>
+  </div>
+
+  <!-- Auto-redirect script for Shopify OAuth -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check if there are Shopify parameters in the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      const hmac = urlParams.get('hmac');
+      
+      // If we have Shopify parameters, redirect to the auth endpoint
+      if (shop && hmac) {
+        console.log('Detected Shopify parameters, redirecting to OAuth...');
+        window.location.href = '/api/auth?' + window.location.search.substring(1);
       }
     });
   </script>
-
-  <script src="./app.js"></script>
 </body>
 </html> 

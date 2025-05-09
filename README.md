@@ -1,151 +1,81 @@
-# ShopPulseAI - Shopify App
+# ShopPulseAI - Shopify OAuth App
 
-Eine moderne TypeScript/React-Anwendung für Shopify, die intelligente Produktempfehlungen und Preisoptimierungen bietet.
+A Shopify app for intelligente product recommendations and price optimization, deployable to Vercel.
 
-## Funktionen
+## Features
 
-- 🤖 AI-gestützte Produktempfehlungen
-- 💰 Automatische Preisoptimierung
-- 📊 Datengetriebene Entscheidungsfindung
-- 🔒 Shopify App Bridge Integration
+- Complete Shopify OAuth implementation
+- Compliance with Shopify's app requirements
+- GDPR webhook handlers
+- Automatic redirect to authorization for merchants
+- Dashboard for authenticated users
+- API endpoints for products, recommendations, and price optimization
 
-## Tech-Stack
+## Setup
 
-- **Frontend**: React, TypeScript, Shopify Polaris
-- **Backend**: Node.js mit Express
-- **Serverless**: Vercel Serverless Functions
-- **Shopify Integration**: App Bridge, GraphQL API
-- **AI**: OpenAI Integration
+### Prerequisites
 
-## Entwicklung
+- Node.js (v18+)
+- A Shopify Partner account
+- A Vercel account
 
-1. Klonen Sie das Repository:
-```bash
-git clone https://github.com/yourusername/shoppulseai.git
-cd shoppulseai
-```
+### Shopify App Setup
 
-2. Installieren Sie die Abhängigkeiten:
-```bash
-npm install
-```
+1. Create a new custom app in your Shopify Partner Dashboard
+2. Set the App URL to: `https://shoppulse.vercel.app` 
+3. Set the Allowed Redirection URL to: `https://shoppulse.vercel.app/api/auth/callback`
+4. Add the GDPR webhooks:
+   - Customer Data Request: `https://shoppulse.vercel.app/api/webhooks/customers/data_request`
+   - Customer Redact: `https://shoppulse.vercel.app/api/webhooks/customers/redact`
+   - Shop Redact: `https://shoppulse.vercel.app/api/webhooks/shop/redact`
+5. Note your API key and API secret key
 
-3. Erstellen Sie eine `.env`-Datei mit den benötigten Umgebungsvariablen:
-```
-SHOPIFY_API_KEY=your_api_key
-SHOPIFY_API_SECRET=your_api_secret
-OPENAI_API_KEY=your_openai_api_key
-SCOPES=write_products,read_products,read_orders,write_orders
-```
+### Environment Variables
 
-4. Starten Sie die Entwicklungsumgebung:
-```bash
-npm run dev
-```
-
-## Bereitstellung auf Vercel
-
-Diese App ist für eine Bereitstellung auf Vercel optimiert.
-
-1. Erstellen Sie ein Konto auf [Vercel](https://vercel.com)
-2. Installieren Sie die Vercel CLI:
-```bash
-npm install -g vercel
-```
-
-3. Loggen Sie sich ein:
-```bash
-vercel login
-```
-
-4. Führen Sie die Bereitstellung durch:
-```bash
-vercel
-```
-
-5. Für Produktionsbereitstellungen:
-```bash
-vercel --prod
-```
-
-## Umgebungsvariablen in Vercel
-
-Stellen Sie sicher, dass Sie die folgenden Umgebungsvariablen in Ihrem Vercel-Projekt einrichten:
-
-- `SHOPIFY_API_KEY`
-- `SHOPIFY_API_SECRET`
-- `OPENAI_API_KEY`
-- `SCOPES`
-- `NODE_ENV` (sollte auf `production` gesetzt sein)
-
-## Struktur der Serverless-Funktionen
-
-Die App verwendet Vercel Serverless Functions für die Backend-Logik:
-
-- `/api/index.js` - Hauptendpunkt, der alle Routen bereitstellt
-- `/api/products.js` - Produktabfragen
-- `/api/recommendations.js` - AI-gestützte Empfehlungen
-- `/api/price-optimize.js` - Preisoptimierungen
-
-## Lizenz
-
-MIT
-
-## Shopify App Compliance
-
-Die App erfüllt alle Anforderungen für die Shopify App Store Einreichung:
-
-### OAuth-Authentifizierung
-- Vollständiger OAuth-Flow mit Shopify
-- Sichere HMAC-Validierung der Anfragen
-- Ordnungsgemäße Behandlung von Zugriffstoken
-
-### Session Tokens
-- Integration mit App Bridge für Authentifizierung
-- Verwendung von Session Tokens für alle API-Anfragen
-- Eingebettete App-Funktionalität mit korrektem Token-Handling
-
-### GDPR-Compliance Webhooks
-- Implementierung aller erforderlichen GDPR-Webhooks:
-  - `customers/data_request`
-  - `customers/redact`
-  - `shop/redact`
-- Automatische Registrierung der Webhooks bei App-Installation
-- HMAC-Validierung für alle Webhook-Anfragen
-
-### Sicherheit
-- TLS-Verschlüsselung für alle Verbindungen
-- Sichere Cookie-Einstellungen (HttpOnly, Secure, SameSite)
-- CORS-Konfiguration für sichere API-Anfragen
-
-## Lokale Entwicklung
-
-```
-npm install
-npm run dev
-```
-
-## Deployment auf Vercel
-
-```
-vercel deploy --prod
-```
-
-## Umgebungsvariablen
-
-Erstellen Sie eine `.env`-Datei mit den folgenden Variablen:
+Create a `.env` file with the following variables:
 
 ```
 SHOPIFY_API_KEY=your_shopify_api_key
 SHOPIFY_API_SECRET=your_shopify_api_secret
-APP_URL=https://your-app-url.vercel.app
+APP_URL=https://shoppulse.vercel.app
+SCOPES=read_products,write_products,read_customers,read_orders,write_orders
+NODE_ENV=production
 ```
 
-## Wichtige URLs
+### Local Development
 
-- App-URL: https://mini-flask-env.vercel.app
-- OAuth-Callback: https://mini-flask-env.vercel.app/api/auth/callback
-- Webhook-URLs:
-  - https://mini-flask-env.vercel.app/api/webhooks/customers/data_request
-  - https://mini-flask-env.vercel.app/api/webhooks/customers/redact
-  - https://mini-flask-env.vercel.app/api/webhooks/shop/redact
+1. Clone this repository
+2. Install dependencies: `npm install`
+3. Set up your environment variables in `.env`
+4. Start the development server: `npm run dev`
+5. Use a tool like ngrok to expose your local server to test the OAuth flow
+
+### Deployment to Vercel
+
+1. Push your code to GitHub
+2. Create a new project in Vercel and connect it to your GitHub repository
+3. Set the environment variables in Vercel project settings
+4. Deploy the app
+
+## Project Structure
+
+- `/api/index.js` - The main Express app with all API routes
+- `/public/index.html` - Landing page with auto-redirect to OAuth
+- `/public/dashboard/index.html` - Dashboard for authenticated users
+- `/public/install.html` - App installation page
+- `vercel.json` - Vercel configuration for routing
+
+## Technical Details
+
+This app implements the Shopify OAuth flow according to Shopify's requirements:
+
+1. When a merchant visits the app, they're immediately redirected to authenticate
+2. The app exchanges the authorization code for an access token
+3. GDPR webhooks are registered upon installation
+4. Once authenticated, merchants can access the dashboard
+
+All routes are consolidated into a single serverless function in `api/index.js` to optimize for Vercel's Hobby plan limit of 12 serverless functions.
+
+## License
+
+MIT
