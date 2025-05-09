@@ -26,14 +26,15 @@
       </p>
       
       <p class="text-lg text-center mb-10">
-        Um zum Dashboard zu gelangen, klicken Sie auf den Button unten.
+        Um zum Dashboard zu gelangen, klicken Sie auf den Button unten. (Dieser Button ist für den direkten Aufruf gedacht, nicht für den Installations-Flow)
       </p>
       
       <div class="flex justify-center">
-        <a href="/api/install?shop=teststore.myshopify.com" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-          Zum Dashboard
+        <a href="/public/install.html" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+          Zur manuellen Installation
         </a>
       </div>
+      <p id="debug-message" class="text-center mt-4 text-red-500 font-bold"></p>
     </main>
 
     <footer class="text-center mt-12 text-gray-600">
@@ -44,15 +45,41 @@
   <!-- Auto-redirect script for Shopify OAuth -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      // Check if there are Shopify parameters in the URL
+      console.log('DOMContentLoaded event fired. Starting Shopify OAuth check...');
+      const debugMessageEl = document.getElementById('debug-message');
+      debugMessageEl.textContent = 'Prüfe Shopify Installationsparameter...';
+
       const urlParams = new URLSearchParams(window.location.search);
+      console.log('URL Search Params:', window.location.search);
+
       const shop = urlParams.get('shop');
       const hmac = urlParams.get('hmac');
+      const host = urlParams.get('host'); // Host ist auch wichtig
       
-      // If we have Shopify parameters, redirect to the auth endpoint
-      if (shop && hmac) {
-        console.log('Detected Shopify parameters, redirecting to OAuth...');
-        window.location.href = '/api/auth?' + window.location.search.substring(1);
+      console.log('Shop Parameter:', shop);
+      console.log('HMAC Parameter:', hmac);
+      console.log('Host Parameter:', host);
+
+      // Wichtig: Shopify sendet 'shop', 'hmac', 'host', und 'timestamp' beim ersten Installieren.
+      // 'host' ist besonders wichtig für embedded apps und App Bridge.
+      if (shop && hmac && host) {
+        alert('Shopify-Parameter erkannt! Versuche Weiterleitung zu /api/auth.\nShop: ' + shop + '\nHMAC: ' + hmac + '\nHost: ' + host);
+        debugMessageEl.textContent = 'Shopify-Parameter erkannt (' + shop + '). Leite weiter zu /api/auth...';
+        console.log('Detected Shopify parameters (shop, hmac, host). Redirecting to /api/auth...');
+        
+        // Alle Parameter an /api/auth weitergeben
+        const redirectTo = '/api/auth?' + window.location.search.substring(1);
+        console.log('Redirecting to:', redirectTo);
+        window.location.href = redirectTo;
+      } else {
+        let missingParams = [];
+        if (!shop) missingParams.push('shop');
+        if (!hmac) missingParams.push('hmac');
+        if (!host) missingParams.push('host');
+        const message = 'Keine (vollständigen) Shopify-Installationsparameter (shop, hmac, host) in der URL gefunden. Fehlend: ' + missingParams.join(', ') + '. Normale Startseite wird angezeigt.';
+        console.warn(message);
+        debugMessageEl.textContent = message;
+        // alert(message); // Optional: Alert auch hier, wenn Parameter fehlen
       }
     });
   </script>

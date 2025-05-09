@@ -111,27 +111,28 @@ function verifyWebhookHmac(req) {
 
 // Register required GDPR webhooks
 async function registerWebhooks(shop, accessToken) {
+  const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-04'; // Use env variable or fallback
   const webhooks = [
     {
       topic: 'customers/data_request',
-      address: `${APP_URL}/api/webhooks/customers/data_request`,
+      address: `${APP_URL}/api/webhooks/customers/data_request`, // This one seems to match already
       format: 'json'
     },
     {
       topic: 'customers/redact',
-      address: `${APP_URL}/api/webhooks/customers/redact`,
+      address: `${APP_URL}/api/gdpr/customer-redact`, // Updated path
       format: 'json'
     },
     {
       topic: 'shop/redact',
-      address: `${APP_URL}/api/webhooks/shop/redact`,
+      address: `${APP_URL}/api/gdpr/shop-redact`, // Updated path
       format: 'json'
     }
   ];
 
   const registerPromises = webhooks.map(webhook => {
     return axios.post(
-      `https://${shop}/admin/api/2023-10/webhooks.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`, // Use dynamic API version
       { webhook },
       {
         headers: {
@@ -501,7 +502,8 @@ app.post('/api/webhooks/customers/data_request', rawBodyParser, (req, res) => {
   res.status(200).send('Customer data request received');
 });
 
-app.post('/api/webhooks/customers/redact', rawBodyParser, (req, res) => {
+// Renamed route to match Shopify config
+app.post('/api/gdpr/customer-redact', rawBodyParser, (req, res) => {
   // Verify the webhook is from Shopify
   if (!verifyWebhookHmac(req)) {
     return res.status(401).send('Webhook HMAC validation failed');
@@ -518,7 +520,8 @@ app.post('/api/webhooks/customers/redact', rawBodyParser, (req, res) => {
   res.status(200).send('Customer redact request received');
 });
 
-app.post('/api/webhooks/shop/redact', rawBodyParser, (req, res) => {
+// Renamed route to match Shopify config
+app.post('/api/gdpr/shop-redact', rawBodyParser, (req, res) => {
   // Verify the webhook is from Shopify
   if (!verifyWebhookHmac(req)) {
     return res.status(401).send('Webhook HMAC validation failed');
