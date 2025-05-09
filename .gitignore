@@ -61,3 +61,12 @@ __pycache__/
 *.so
 venv/
 ENV/ 
+
+# Vercel
+.vercel
+.vercel/
+.now/
+.vercelignore
+
+# Local Vercel folder
+.local-vercel 

@@ -14,7 +14,8 @@
       "test": "jest",
       "test:e2e": "playwright test",
       "typecheck": "tsc --noEmit",
-      "railway:up": "railway up"
+      "vercel-build": "npm run build",
+      "vercel-dev": "vercel dev"
     },
     "dependencies": {
       "@emotion/react": "^11.11.0",
@@ -26,6 +27,9 @@
       "@shopify/shopify-api": "^11.12.0",
       "@shopify/shopify-app-session-storage-postgresql": "^4.0.17",
       "@shopify/shopify-app-session-storage-sqlite": "^4.0.17",
+      "axios": "^1.6.2",
+      "body-parser": "^1.20.2",
+      "cookie-parser": "^1.4.6",
       "cors": "^2.8.5",
       "cross-env": "^7.0.3",
       "dotenv": "^16.3.1",

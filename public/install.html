@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPulseAI - Shopify App Installation</title>
+  <link rel="preconnect" href="https://cdn.shopify.com/">
+  <link rel="stylesheet" href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background-color: #f6f6f7;
+      color: #202223;
+      line-height: 1.6;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #008060;
+    }
+    .installation-card {
+      background-color: white;
+      border-radius: 8px;
+      padding: 2rem;
+      margin: 2rem auto;
+      max-width: 600px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #c9cccf;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .button {
+      display: inline-block;
+      background-color: #008060;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      margin-top: 1rem;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .button:hover {
+      background-color: #006e52;
+    }
+    .note {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #6d7175;
+    }
+    .loading {
+      display: none;
+      margin-top: 1rem;
+    }
+    .loading.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ShopPulseAI</h1>
+    <p>KI-gestützte Shopify-App für intelligente Produktempfehlungen und Preisoptimierung</p>
+  </header>
+
+  <main>
+    <div class="installation-card">
+      <h2>App installieren</h2>
+      <p>Bitte gib deine Shopify-Store-URL ein, um die Installation zu starten.</p>
+      
+      <form id="install-form" onsubmit="handleInstall(event)">
+        <div class="form-group">
+          <label for="shop">Shopify-Shop-URL</label>
+          <input 
+            type="text" 
+            id="shop" 
+            name="shop" 
+            placeholder="dein-shop.myshopify.com" 
+            required
+            pattern="[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com"
+            title="Gültige Shopify Store URL, z.B. dein-shop.myshopify.com"
+          >
+        </div>
+        
+        <button type="submit" class="button">Installation starten</button>
+        <div id="loading" class="loading">Leite weiter zum Shopify Authorization...</div>
+      </form>
+      
+      <p class="note">
+        ShopPulseAI benötigt Zugriff auf deine Shopify-Daten, um intelligente Empfehlungen und Preisoptimierungen anzubieten.
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 ShopPulseAI</p>
+  </footer>
+  
+  <script>
+    // Auto-Weiterleitung wenn ein Shop-Parameter in der URL ist
+    document.addEventListener('DOMContentLoaded', function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopParam = urlParams.get('shop');
+      
+      if (shopParam) {
+        document.getElementById('shop').value = shopParam;
+        // Automatisch weiterleiten, wenn Shop-Parameter vorhanden ist
+        redirectToAuth(shopParam);
+      }
+    });
+    
+    function handleInstall(event) {
+      event.preventDefault();
+      
+      const shopInput = document.getElementById('shop');
+      const shop = shopInput.value.trim();
+      
+      if (!shop) {
+        alert('Bitte gib eine gültige Shopify-Shop-URL ein.');
+        return;
+      }
+      
+      document.getElementById('loading').classList.add('active');
+      redirectToAuth(shop);
+    }
+    
+    function redirectToAuth(shop) {
+      // Direkt zum OAuth-Prozess weiterleiten
+      window.location.href = `/api/auth?shop=${encodeURIComponent(shop)}`;
+    }
+  </script>
+</body>
+</html> 

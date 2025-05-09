@@ -1,112 +1,151 @@
-# ShopPulseAI
+# ShopPulseAI - Shopify App
 
-ShopPulseAI ist eine moderne Shopify-App, die KI-gestützte Wachstumsempfehlungen und Preisoptimierungen für Shopify-Händler bietet.
+Eine moderne TypeScript/React-Anwendung für Shopify, die intelligente Produktempfehlungen und Preisoptimierungen bietet.
 
 ## Funktionen
 
-- **Handlungsempfehlungen**: KI-gestützte, umsetzbare Wachstumsempfehlungen basierend auf Shopdaten
-- **Preisoptimierung**: Intelligente Preisvorschläge für Produkte mit Begründung
-- **Shopify-Integration**: Nahtlose Einbindung in den Shopify Admin-Bereich
-- **Reaktives Dashboard**: Moderne UI mit React und Shopify Polaris
+- 🤖 AI-gestützte Produktempfehlungen
+- 💰 Automatische Preisoptimierung
+- 📊 Datengetriebene Entscheidungsfindung
+- 🔒 Shopify App Bridge Integration
 
-## Technologien
+## Tech-Stack
 
-- **Frontend**: React, TypeScript, Emotion (CSS-in-JS), Shopify Polaris
-- **Backend**: Node.js, Express, TypeScript
-- **Datenbank**: SQLite (Entwicklung), PostgreSQL (Produktion)
-- **AI**: OpenAI GPT-4o Integration
-- **Authentifizierung**: Shopify OAuth 2.0
-- **Deployment**: Railway
+- **Frontend**: React, TypeScript, Shopify Polaris
+- **Backend**: Node.js mit Express
+- **Serverless**: Vercel Serverless Functions
+- **Shopify Integration**: App Bridge, GraphQL API
+- **AI**: OpenAI Integration
 
-## Installation
+## Entwicklung
 
-### Voraussetzungen
-
-- Node.js 18 oder höher
-- Shopify Partner Account (für API-Schlüssel)
-- OpenAI API-Schlüssel
-
-### Einrichtung
-
-1. Repository klonen:
-   ```
-   git clone https://github.com/yourusername/shoppulseai.git
-   cd shoppulseai
-   ```
-
-2. Abhängigkeiten installieren:
-   ```
-   npm install
-   ```
-
-3. Umgebungsvariablen konfigurieren:
-   - Kopiere `.env.example` zu `.env`
-   - Ergänze deine API-Schlüssel und andere Konfigurationen
-
-4. Entwicklungsserver starten:
-   ```
-   npm run dev
-   ```
-
-### Für Produktionsumgebung
-
-1. Build erstellen:
-   ```
-   npm run build
-   ```
-
-2. Anwendung starten:
-   ```
-   npm start
-   ```
-
-3. Deployment auf Railway:
-   ```
-   npm run railway:up
-   ```
-
-## Projektstuktur
-
-```
-shoppulseai/
-├── server/                   # Backend-Code
-│   ├── auth.ts               # Authentifizierung
-│   ├── webhooks.ts           # GDPR & andere Webhooks
-│   ├── openai.ts             # OpenAI Integration
-│   ├── routes.ts             # API-Endpunkte
-│   └── index.ts              # Server-Entrypoint
-├── frontend/                 # Frontend-Code
-│   ├── src/
-│   │   ├── components/       # React-Komponenten
-│   │   ├── pages/            # Seitenkomponenten
-│   │   ├── styles/           # CSS-Styles
-│   │   ├── types/            # TypeScript-Definitionen
-│   │   ├── App.tsx           # Haupt-App-Komponente
-│   │   └── main.tsx          # Frontend-Entrypoint
-│   └── public/               # Statische Assets
-├── shopify.app.toml          # Shopify App-Konfiguration
-└── tsconfig.json             # TypeScript-Konfiguration
+1. Klonen Sie das Repository:
+```bash
+git clone https://github.com/yourusername/shoppulseai.git
+cd shoppulseai
 ```
 
-## Fehlersuche
+2. Installieren Sie die Abhängigkeiten:
+```bash
+npm install
+```
 
-Bei roten Code-Markierungen in der IDE:
+3. Erstellen Sie eine `.env`-Datei mit den benötigten Umgebungsvariablen:
+```
+SHOPIFY_API_KEY=your_api_key
+SHOPIFY_API_SECRET=your_api_secret
+OPENAI_API_KEY=your_openai_api_key
+SCOPES=write_products,read_products,read_orders,write_orders
+```
 
-1. Prüfe, ob alle Abhängigkeiten installiert sind:
-   ```
-   npm install
-   ```
+4. Starten Sie die Entwicklungsumgebung:
+```bash
+npm run dev
+```
 
-2. TypeScript-Typprüfung ausführen:
-   ```
-   npm run typecheck
-   ```
+## Bereitstellung auf Vercel
 
-3. Linter-Fehler beheben:
-   ```
-   npm run lint
-   ```
+Diese App ist für eine Bereitstellung auf Vercel optimiert.
+
+1. Erstellen Sie ein Konto auf [Vercel](https://vercel.com)
+2. Installieren Sie die Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+3. Loggen Sie sich ein:
+```bash
+vercel login
+```
+
+4. Führen Sie die Bereitstellung durch:
+```bash
+vercel
+```
+
+5. Für Produktionsbereitstellungen:
+```bash
+vercel --prod
+```
+
+## Umgebungsvariablen in Vercel
+
+Stellen Sie sicher, dass Sie die folgenden Umgebungsvariablen in Ihrem Vercel-Projekt einrichten:
+
+- `SHOPIFY_API_KEY`
+- `SHOPIFY_API_SECRET`
+- `OPENAI_API_KEY`
+- `SCOPES`
+- `NODE_ENV` (sollte auf `production` gesetzt sein)
+
+## Struktur der Serverless-Funktionen
+
+Die App verwendet Vercel Serverless Functions für die Backend-Logik:
+
+- `/api/index.js` - Hauptendpunkt, der alle Routen bereitstellt
+- `/api/products.js` - Produktabfragen
+- `/api/recommendations.js` - AI-gestützte Empfehlungen
+- `/api/price-optimize.js` - Preisoptimierungen
 
 ## Lizenz
 
 MIT
+
+## Shopify App Compliance
+
+Die App erfüllt alle Anforderungen für die Shopify App Store Einreichung:
+
+### OAuth-Authentifizierung
+- Vollständiger OAuth-Flow mit Shopify
+- Sichere HMAC-Validierung der Anfragen
+- Ordnungsgemäße Behandlung von Zugriffstoken
+
+### Session Tokens
+- Integration mit App Bridge für Authentifizierung
+- Verwendung von Session Tokens für alle API-Anfragen
+- Eingebettete App-Funktionalität mit korrektem Token-Handling
+
+### GDPR-Compliance Webhooks
+- Implementierung aller erforderlichen GDPR-Webhooks:
+  - `customers/data_request`
+  - `customers/redact`
+  - `shop/redact`
+- Automatische Registrierung der Webhooks bei App-Installation
+- HMAC-Validierung für alle Webhook-Anfragen
+
+### Sicherheit
+- TLS-Verschlüsselung für alle Verbindungen
+- Sichere Cookie-Einstellungen (HttpOnly, Secure, SameSite)
+- CORS-Konfiguration für sichere API-Anfragen
+
+## Lokale Entwicklung
+
+```
+npm install
+npm run dev
+```
+
+## Deployment auf Vercel
+
+```
+vercel deploy --prod
+```
+
+## Umgebungsvariablen
+
+Erstellen Sie eine `.env`-Datei mit den folgenden Variablen:
+
+```
+SHOPIFY_API_KEY=your_shopify_api_key
+SHOPIFY_API_SECRET=your_shopify_api_secret
+APP_URL=https://your-app-url.vercel.app
+```
+
+## Wichtige URLs
+
+- App-URL: https://mini-flask-env.vercel.app
+- OAuth-Callback: https://mini-flask-env.vercel.app/api/auth/callback
+- Webhook-URLs:
+  - https://mini-flask-env.vercel.app/api/webhooks/customers/data_request
+  - https://mini-flask-env.vercel.app/api/webhooks/customers/redact
+  - https://mini-flask-env.vercel.app/api/webhooks/shop/redact
