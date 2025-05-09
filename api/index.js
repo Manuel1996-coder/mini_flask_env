@@ -406,6 +406,19 @@ app.get('/api/app/install', (req, res) => {
   res.redirect(`/api/auth?shop=${shop}`);
 });
 
+// Fix für die install.html Form - neue Route
+app.get('/api/install', (req, res) => {
+  console.log('Received install request with query:', JSON.stringify(req.query));
+  const shop = req.query.shop;
+  
+  if (!shop) {
+    return res.status(400).json({ error: 'Shop parameter is required' });
+  }
+  
+  console.log(`Redirecting to auth flow for shop: ${shop}`);
+  res.redirect(`/api/auth?shop=${shop}`);
+});
+
 // ----- PRODUCT ROUTES -----
 
 // Products endpoint
