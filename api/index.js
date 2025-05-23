@@ -14,7 +14,7 @@ dotenv.config();
 
 const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
-const SCOPES = 'read_products,write_products,read_orders,read_customers,write_customers,read_script_tags,write_script_tags';
+const SCOPES = 'read_products,write_products,read_orders,read_script_tags,write_script_tags';
 // Direkte URL statt environment Variable verwenden, damit es garantiert klappt
 const REDIRECT_URI = 'https://mini-flask-env.vercel.app/api/auth/callback';
 // Shopify API Version
@@ -256,25 +256,15 @@ app.get('/api/shop-kpis', async (req, res) => {
         return { data: { products: [] } };
       });
       
-      // 4. Hole Kunden
-      console.log('👥 Hole Kunden');
-      const customersCountResponse = await axios({
-        method: 'get',
-        url: `https://${shop}/admin/api/${API_VERSION}/customers/count.json`,
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json'
-        }
-      }).catch(err => {
-        console.error('❌ Fehler bei Customers-API:', err.response?.status, err.response?.statusText);
-        return { data: { count: 0 } };
-      });
-
+      // 4. Kundendaten nicht mehr holen, da wir keine Berechtigung haben
+      console.log('👥 Skipping Kunden API (keine Berechtigung)');
+      // Platzhalter für Kundenzahl
+      const customerCount = 0;  // Statt API-Aufruf verwenden wir einen Platzhalter
+      
       // Daten extrahieren
       const orders = ordersResponse.data.orders || [];
       const shopData = shopResponse.data.shop;
       const products = productsResponse.data.products || [];
-      const customerCount = customersCountResponse.data.count || 0;
 
       console.log(`✅ Daten geladen: ${orders.length} Bestellungen, ${products.length} Produkte, ${customerCount} Kunden`);
       
