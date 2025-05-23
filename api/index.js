@@ -14,9 +14,10 @@ dotenv.config();
 
 const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
-const SCOPES = 'read_products,write_products,read_orders,read_script_tags,write_script_tags';
-// Direkte URL statt environment Variable verwenden, damit es garantiert klappt
-const REDIRECT_URI = 'https://mini-flask-env.vercel.app/api/auth/callback';
+const SCOPES = 'read_products,write_products,read_orders,read_customers';
+// Statt direkter URL, nutze die HOST-Umgebungsvariable wie in shopify.app.toml
+const HOST = process.env.HOST || 'https://mini-flask-env.vercel.app';
+const REDIRECT_URI = `${HOST}/auth/callback`;
 // Shopify API Version
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2023-10';
 
