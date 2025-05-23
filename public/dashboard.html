@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>Dashboard | ShopPulse</title>
-  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
-  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  <!-- Shopify App Bridge von offiziellem CDN -->
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge-utils/1.x/index.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
@@ -366,12 +367,21 @@
         
         // App Bridge initialisieren
         if (host && apiKeyData.apiKey) {
-          const app = window.shopify.createApp({
-            apiKey: apiKeyData.apiKey,
-            host: host,
-            forceRedirect: true
-          });
+          // Shopify App Bridge initialisieren mit offiziellem Format
+          const app = window.shopify && window.shopify.Shopify 
+            ? window.shopify.Shopify.createApp({
+                apiKey: apiKeyData.apiKey,
+                host: host,
+                forceRedirect: true
+              })
+            : window.createApp({  // Fallback für das neue CDN-Format
+                apiKey: apiKeyData.apiKey,
+                host: host,
+                forceRedirect: true
+              });
+          
           console.log('App Bridge erfolgreich initialisiert');
+          window.app = app; // Für globalen Zugriff
         }
         
         // KPIs laden
