@@ -328,7 +328,6 @@ app.get('/api/shop-kpis', async (req, res) => {
           total: calculateRevenue(orders) // Vereinfacht: Nur die letzten 50 Bestellungen
         },
         topProducts,
-        customerCount: Math.round(totalOrderCount * 0.8), // Geschätzter Wert basierend auf Bestellungen
         // Debug-Informationen
         debug: {
           apiVersion: API_VERSION,

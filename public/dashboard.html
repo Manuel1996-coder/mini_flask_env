@@ -63,7 +63,7 @@
           </div>
           <div class="ml-3">
             <p class="text-sm text-blue-700">
-              <strong>Echtzeit-Daten:</strong> Die Daten werden direkt aus Ihrem Shopify-Store geladen. Kundendaten sind aus Datenschutzgründen geschätzt.
+              <strong>Echtzeit-Daten:</strong> Das Dashboard zeigt nur ungeschützte Daten aus Ihrem Shopify-Store. Bestellungen, Umsätze und Produkte werden in Echtzeit aktualisiert.
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@
       </div>
 
       <!-- KPI Cards -->
-      <div id="kpi-cards" class="grid md:grid-cols-4 gap-6 mb-6 hidden">
+      <div id="kpi-cards" class="grid md:grid-cols-3 gap-6 mb-6 hidden">
         <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-blue-500">
           <h3 class="text-lg font-semibold text-gray-700">Bestellungen Heute</h3>
           <p class="text-3xl font-bold text-blue-600 mt-2" id="orders-today">-</p>
@@ -90,12 +90,6 @@
         <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-purple-500">
           <h3 class="text-lg font-semibold text-gray-700">Bestellungen (30 Tage)</h3>
           <p class="text-3xl font-bold text-purple-600 mt-2" id="orders-month">-</p>
-        </div>
-        
-        <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-yellow-500">
-          <h3 class="text-lg font-semibold text-gray-700">Kunden</h3>
-          <p class="text-3xl font-bold text-yellow-600 mt-2" id="customer-count">-</p>
-          <p class="text-xs text-gray-500 mt-1">(Geschätzter Wert - keine API-Berechtigung)</p>
         </div>
       </div>
 
@@ -373,9 +367,6 @@
           document.getElementById('revenue-today-small').textContent = formatCurrency(kpiData.revenue.today);
           document.getElementById('revenue-week').textContent = formatCurrency(kpiData.revenue.thisWeek);
           document.getElementById('revenue-month').textContent = formatCurrency(kpiData.revenue.thisMonth);
-          
-          // Kunden-KPIs aktualisieren
-          document.getElementById('customer-count').textContent = kpiData.customerCount;
           
           // Top Produkte-Tabelle füllen
           const tableBody = document.getElementById('product-table-body');
