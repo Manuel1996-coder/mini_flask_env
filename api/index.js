@@ -150,7 +150,11 @@ app.get('/api/auth/callback', async (req, res) => {
     setSecureCookies(res, 'shopifyAccessToken', accessToken);
     setSecureCookies(res, 'shopifyShop', shop);
     
-    res.redirect(`/dashboard?shop=${shop}`);
+    // Sofort zur App-UI weiterleiten (wichtig für Shopify-Check)
+    // Baue die Redirect-URL mit den erforderlichen Parametern
+    const redirectUrl = `/dashboard?shop=${shop}&host=${req.query.host || ''}&embedded=1`;
+    console.log(`Redirect nach Authentication zu: ${redirectUrl}`);
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('OAuth-Fehler:', error.message);
     res.status(500).json({ error: 'Failed to complete OAuth', details: error.message });
@@ -439,6 +443,55 @@ app.get('/api/test-shopify', async (req, res) => {
       error: 'Unexpected server error',
       message: error.message
     });
+  }
+});
+
+// Webhook-Endpunkt für Shopify mit HMAC-Validierung
+app.post('/api/webhooks', express.raw({type: 'application/json'}), (req, res) => {
+  try {
+    // HMAC-Header von Shopify auslesen
+    const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+    if (!hmacHeader) {
+      console.error('Webhook ohne HMAC-Signatur erhalten');
+      return res.status(401).send('Keine HMAC-Signatur gefunden');
+    }
+
+    // HMAC-Signatur verifizieren
+    const calculatedHmac = crypto
+      .createHmac('sha256', SHOPIFY_API_SECRET)
+      .update(req.body)
+      .digest('base64');
+
+    // Timing-Safe Compare der Signaturen
+    if (crypto.timingSafeEqual(Buffer.from(calculatedHmac), Buffer.from(hmacHeader))) {
+      console.log('✅ Webhook HMAC-Signatur ist gültig');
+
+      // Verarbeite den Webhook-Payload
+      const webhookPayload = JSON.parse(req.body.toString('utf8'));
+      const topic = req.headers['x-shopify-topic'];
+      
+      console.log(`📥 Webhook empfangen: ${topic}`);
+      
+      switch (topic) {
+        case 'products/create':
+          console.log('Neues Produkt erstellt:', webhookPayload.id);
+          break;
+        case 'orders/create':
+          console.log('Neue Bestellung erstellt:', webhookPayload.id);
+          break;
+        // Weitere Webhook-Topics hier verarbeiten
+        default:
+          console.log(`Webhook-Topic "${topic}" nicht verarbeitet`);
+      }
+
+      res.status(200).send('Webhook erfolgreich verarbeitet');
+    } else {
+      console.error('❌ Ungültige HMAC-Signatur');
+      res.status(401).send('Ungültige Signatur');
+    }
+  } catch (error) {
+    console.error('Fehler bei der Webhook-Verarbeitung:', error);
+    res.status(500).send('Interner Serverfehler');
   }
 });
 
