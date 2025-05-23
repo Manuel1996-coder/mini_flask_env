@@ -1,102 +1,397 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shopify App Dashboard</title>
-  
-  <!-- Shopify App Bridge von CDN laden -->
-  <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.7/app-bridge.js"></script>
-  
+  <meta charset="utf-8">
+  <title>Dashboard | ShopPulse</title>
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #F6F6F7;
       margin: 0;
-      padding: 20px;
-      background-color: #f6f6f7;
+      padding: 0;
     }
-    .container {
-      max-width: 960px;
+    .metric-card {
+      transition: transform 0.2s;
+    }
+    .metric-card:hover {
+      transform: translateY(-4px);
+    }
+    .loading {
+      border: 3px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 3px solid #3b82f6;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
       margin: 0 auto;
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
-    h1 {
-      margin-top: 0;
-      font-size: 24px;
-      color: #212b36;
-    }
-    p {
-      color: #6d7175;
-      line-height: 1.5;
-    }
-    .info {
-      background-color: #f4f6f8;
-      padding: 15px;
-      border-radius: 4px;
-      margin-top: 20px;
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Shopify App Dashboard</h1>
-    <p>Die OAuth-Autorisierung wurde erfolgreich abgeschlossen.</p>
-    <div id="shop-info"></div>
-    
-    <div class="info">
-      <p>Diese minimale App erfüllt die grundlegenden Anforderungen für den Shopify App Store:</p>
-      <ul>
-        <li>OAuth-Authentifizierung</li>
-        <li>App Bridge Integration</li>
-        <li>Embedded App-Modus</li>
-      </ul>
+  <div id="app" class="p-6">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">Shop Dashboard</h1>
+            <p class="text-gray-600" id="shop-info">Verbunden mit Shop: <span id="shop-name">Wird geladen...</span></p>
+          </div>
+          <div>
+            <button id="test-connection" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
+              Verbindung testen
+            </button>
+            <div class="text-xs text-gray-500 mt-2" id="last-updated"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="loading-state" class="bg-white p-6 rounded-lg shadow-sm mb-6 text-center">
+        <div class="loading mb-4"></div>
+        <p class="text-gray-600">Daten werden geladen...</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div id="kpi-cards" class="grid md:grid-cols-4 gap-6 mb-6 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-blue-500">
+          <h3 class="text-lg font-semibold text-gray-700">Bestellungen Heute</h3>
+          <p class="text-3xl font-bold text-blue-600 mt-2" id="orders-today">-</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-green-500">
+          <h3 class="text-lg font-semibold text-gray-700">Umsatz Heute</h3>
+          <p class="text-3xl font-bold text-green-600 mt-2" id="revenue-today">-</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-purple-500">
+          <h3 class="text-lg font-semibold text-gray-700">Bestellungen (30 Tage)</h3>
+          <p class="text-3xl font-bold text-purple-600 mt-2" id="orders-month">-</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-sm metric-card border-t-4 border-yellow-500">
+          <h3 class="text-lg font-semibold text-gray-700">Kunden</h3>
+          <p class="text-3xl font-bold text-yellow-600 mt-2" id="customer-count">-</p>
+        </div>
+      </div>
+
+      <!-- Chart Cards -->
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <!-- Orders Card -->
+        <div id="orders-stats" class="bg-white p-6 rounded-lg shadow-sm hidden">
+          <h2 class="text-xl font-semibold mb-4">Bestellungen</h2>
+          <div class="grid grid-cols-3 gap-4">
+            <div class="text-center p-3 bg-blue-50 rounded-lg">
+              <p class="text-sm text-gray-600">Heute</p>
+              <p class="text-xl font-bold text-blue-700" id="orders-today-small">-</p>
+            </div>
+            <div class="text-center p-3 bg-blue-50 rounded-lg">
+              <p class="text-sm text-gray-600">Diese Woche</p>
+              <p class="text-xl font-bold text-blue-700" id="orders-week">-</p>
+            </div>
+            <div class="text-center p-3 bg-blue-50 rounded-lg">
+              <p class="text-sm text-gray-600">Diesen Monat</p>
+              <p class="text-xl font-bold text-blue-700" id="orders-month-small">-</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Revenue Card -->
+        <div id="revenue-stats" class="bg-white p-6 rounded-lg shadow-sm hidden">
+          <h2 class="text-xl font-semibold mb-4">Umsatz</h2>
+          <div class="grid grid-cols-3 gap-4">
+            <div class="text-center p-3 bg-green-50 rounded-lg">
+              <p class="text-sm text-gray-600">Heute</p>
+              <p class="text-xl font-bold text-green-700" id="revenue-today-small">-</p>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded-lg">
+              <p class="text-sm text-gray-600">Diese Woche</p>
+              <p class="text-xl font-bold text-green-700" id="revenue-week">-</p>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded-lg">
+              <p class="text-sm text-gray-600">Diesen Monat</p>
+              <p class="text-xl font-bold text-green-700" id="revenue-month">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Products -->
+      <div id="top-products" class="bg-white p-6 rounded-lg shadow-sm hidden">
+        <h2 class="text-xl font-semibold mb-4">Top Produkte</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produkt</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lagerbestand</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preis</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200" id="product-table-body">
+              <!-- Dynamic content will be added here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    // App Bridge-Initialisierung
+    document.addEventListener('DOMContentLoaded', async function() {
       const shopInfoEl = document.getElementById('shop-info');
+      const shopNameEl = document.getElementById('shop-name');
+      const lastUpdatedEl = document.getElementById('last-updated');
+      const testButton = document.getElementById('test-connection');
       
-      // Shop-Parameter aus URL auslesen
+      // URL-Parameter abrufen
       const params = new URLSearchParams(window.location.search);
-      const shop = params.get('shop');
+      const shop = params.get('shop') || getCookie('shopifyShop');
       const host = params.get('host');
       
       if (shop) {
-        shopInfoEl.innerHTML = `<p>Verbunden mit Shop: <strong>${shop}</strong></p>`;
+        shopNameEl.textContent = shop;
       }
       
-      // App Bridge initialisieren
-      if (host) {
+      // Test-Button Event-Handler
+      testButton.addEventListener('click', async function() {
+        testButton.disabled = true;
+        testButton.textContent = 'Teste...';
+        
         try {
-          // API-Key vom Server holen
-          fetch('/api/shopify/api-key')
-            .then(response => response.json())
-            .then(data => {
-              if (!data.apiKey) {
-                throw new Error('API-Key nicht gefunden');
-              }
-              
-              // App Bridge initialisieren
-              const app = window.shopify.createApp({
-                apiKey: data.apiKey,
-                host: host,
-                forceRedirect: true
-              });
-              
-              console.log('App Bridge erfolgreich initialisiert');
-            })
-            .catch(error => {
-              console.error('Fehler beim Initialisieren von App Bridge:', error);
-            });
+          const response = await fetch(`/api/test-shopify?shop=${encodeURIComponent(shop)}`, {
+            credentials: 'include'
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            alert(`Verbindung erfolgreich!\nShop: ${data.shop.name}\nAPI-Version: ${data.apiVersion}`);
+            console.log('Test erfolgreich:', data);
+          } else {
+            alert(`Fehler: ${data.error}\nDetails: ${data.message}`);
+            console.error('Test fehlgeschlagen:', data);
+          }
         } catch (error) {
-          console.error('Fehler:', error);
+          alert(`Fehler beim Testen: ${error.message}`);
+          console.error('Testfehler:', error);
+        } finally {
+          testButton.disabled = false;
+          testButton.textContent = 'Verbindung testen';
         }
+      });
+      
+      try {
+        // API-Key vom Server holen
+        const apiKeyResponse = await fetch('/api/shopify/api-key');
+        const apiKeyData = await apiKeyResponse.json();
+        
+        // App Bridge initialisieren
+        if (host && apiKeyData.apiKey) {
+          const app = window.shopify.createApp({
+            apiKey: apiKeyData.apiKey,
+            host: host,
+            forceRedirect: true
+          });
+          console.log('App Bridge erfolgreich initialisiert');
+        }
+        
+        // KPIs laden
+        await loadKPIs();
+        
+      } catch (error) {
+        console.error('Fehler:', error);
+        document.getElementById('loading-state').innerHTML = `
+          <div class="bg-red-50 p-4 rounded-md border border-red-200">
+            <h3 class="text-red-800 font-medium">Fehler beim Laden der Daten</h3>
+            <p class="text-red-700 mt-2">${error.message}</p>
+          </div>
+        `;
       }
     });
+    
+    // Hilfsfunktion zum Auslesen von Cookies
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    async function loadKPIs() {
+      try {
+        // Wir prüfen, ob wir die Authentifizierung aus Client-Cookies haben
+        const accessToken = getCookie('shopifyAccessToken');
+        const shop = getCookie('shopifyShop');
+        
+        console.log('Client-Cookies:', { 
+          shop: shop ? 'vorhanden' : 'fehlt', 
+          token: accessToken ? 'vorhanden' : 'fehlt',
+          cookieString: document.cookie
+        });
+        
+        // KPIs vom Server holen mit Credentials
+        console.log('Starte API-Anfrage...');
+        document.getElementById('loading-state').innerHTML = `
+          <div class="p-4 text-center">
+            <div class="loading mb-4"></div>
+            <p class="text-gray-600">Daten werden geladen...</p>
+            <p class="text-xs text-gray-500 mt-2">API-Version: 2023-10</p>
+            <p class="text-xs text-gray-500">Shop: ${shop || 'nicht gefunden'}</p>
+          </div>
+        `;
+        
+        const response = await fetch('/api/shop-kpis', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'X-Shopify-Shop': shop || '',
+            'X-Shopify-Access-Token': accessToken || ''
+          }
+        });
+        
+        console.log('API-Status:', response.status);
+        
+        if (!response.ok) {
+          let errorText = `Status: ${response.status}`;
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            console.error('API-Fehlerdetails:', errorData);
+            errorText += ` - ${errorData.error || 'Unbekannter Fehler'}`;
+            if (errorData.message) {
+              errorDetails += `<p class="text-red-600 mt-2 text-sm">${errorData.message}</p>`;
+            }
+            if (errorData.debug) {
+              console.error('Debug-Info:', errorData.debug);
+              // Detailliertere Fehlermeldung anzeigen
+              if (!errorData.debug.cookies?.shopifyAccessToken) {
+                errorText += ' - Keine Authentifizierung gefunden. Bitte neu anmelden.';
+                // Zurück zur Einbettungsseite umleiten
+                setTimeout(() => {
+                  window.location.href = '/embedded?shop=' + (new URLSearchParams(window.location.search).get('shop') || '');
+                }, 3000);
+              }
+            }
+          } catch (e) {
+            console.error('Fehler beim Parsen der API-Antwort:', e);
+            errorText += ' - Konnte Fehlerdetails nicht lesen';
+          }
+          
+          document.getElementById('loading-state').innerHTML = `
+            <div class="bg-red-50 p-4 rounded-md border border-red-200">
+              <h3 class="text-red-800 font-medium">Fehler beim Laden der KPIs</h3>
+              <p class="text-red-700 mt-2">${errorText}</p>
+              ${errorDetails}
+              <div class="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-700 overflow-auto" style="max-height: 150px;">
+                <strong>Debug-Info:</strong><br>
+                Shop: ${shop || 'nicht gefunden'}<br>
+                Token: ${accessToken ? 'vorhanden' : 'fehlt'}<br>
+                API-Version: 2023-10<br>
+                Zeitpunkt: ${new Date().toISOString()}<br>
+                URL: ${window.location.href}
+              </div>
+              <p class="text-gray-600 mt-3">
+                Versuchen Sie die App neu zu installieren. 
+                <a href="/embedded?shop=${getCookie('shopifyShop') || ''}" class="underline text-blue-500">
+                  Zurück zur Installation
+                </a>
+              </p>
+            </div>
+          `;
+          throw new Error(errorText);
+        }
+        
+        const kpiData = await response.json();
+        console.log('Empfangene KPI-Daten:', kpiData);
+        
+        // Debug-Infos anzeigen, wenn vorhanden
+        if (kpiData.debug) {
+          console.log('Server-Debug-Info:', kpiData.debug);
+        }
+        
+        // Loading-State entfernen und KPI-Bereiche anzeigen
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('kpi-cards').classList.remove('hidden');
+        document.getElementById('orders-stats').classList.remove('hidden');
+        document.getElementById('revenue-stats').classList.remove('hidden');
+        document.getElementById('top-products').classList.remove('hidden');
+        
+        // Bestellungs-KPIs aktualisieren
+        document.getElementById('orders-today').textContent = kpiData.orders.today;
+        document.getElementById('orders-today-small').textContent = kpiData.orders.today;
+        document.getElementById('orders-week').textContent = kpiData.orders.thisWeek;
+        document.getElementById('orders-month').textContent = kpiData.orders.thisMonth;
+        document.getElementById('orders-month-small').textContent = kpiData.orders.thisMonth;
+        
+        // Umsatz-KPIs aktualisieren
+        document.getElementById('revenue-today').textContent = formatCurrency(kpiData.revenue.today);
+        document.getElementById('revenue-today-small').textContent = formatCurrency(kpiData.revenue.today);
+        document.getElementById('revenue-week').textContent = formatCurrency(kpiData.revenue.thisWeek);
+        document.getElementById('revenue-month').textContent = formatCurrency(kpiData.revenue.thisMonth);
+        
+        // Kunden-KPIs aktualisieren
+        document.getElementById('customer-count').textContent = kpiData.customerCount;
+        
+        // Top Produkte-Tabelle füllen
+        const tableBody = document.getElementById('product-table-body');
+        tableBody.innerHTML = '';
+        
+        kpiData.topProducts.forEach(product => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-10 w-10">
+                  ${product.image ? `<img class="h-10 w-10 rounded-md object-cover" src="${product.image}" alt="${product.title}">` : 
+                  '<div class="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">N/A</div>'}
+                </div>
+                <div class="ml-4">
+                  <div class="text-sm font-medium text-gray-900">${product.title}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.inventory}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(product.price)}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+        
+        // Letzte Aktualisierung anzeigen
+        const now = new Date();
+        document.getElementById('last-updated').textContent = `Letzte Aktualisierung: ${now.toLocaleTimeString()}`;
+        
+      } catch (error) {
+        console.error('Fehler beim Laden der KPIs:', error);
+        document.getElementById('loading-state').innerHTML = `
+          <div class="bg-red-50 p-4 rounded-md border border-red-200">
+            <h3 class="text-red-800 font-medium">Fehler beim Laden der KPIs</h3>
+            <p class="text-red-700 mt-2">${error.message}</p>
+            <p class="text-gray-600 mt-3">
+              Versuchen Sie die App neu zu installieren. 
+              <a href="/embedded?shop=${getCookie('shopifyShop') || ''}" class="underline text-blue-500">
+                Zurück zur Installation
+              </a>
+            </p>
+          </div>
+        `;
+      }
+    }
+    
+    // Hilfsfunktion zum Formatieren von Währungsbeträgen
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('de-DE', {
+        style: 'currency',
+        currency: 'EUR'
+      }).format(amount);
+    }
   </script>
 </body>
 </html> 

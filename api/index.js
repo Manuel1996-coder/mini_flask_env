@@ -203,6 +203,16 @@ app.get('/api/shop-kpis', async (req, res) => {
       }).catch(err => {
         console.error('❌ Fehler bei Orders-API:', err.response?.status, err.response?.statusText);
         console.error('❌ Details:', err.response?.data || err.message);
+        // Ausführlichere Fehlerdetails für Debugging
+        console.error('❌ Vollständiger Fehler:', JSON.stringify({
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          message: err.message,
+          url: `https://${shop}/admin/api/${API_VERSION}/orders.json`,
+          shop: shop,
+          apiVersion: API_VERSION
+        }, null, 2));
         throw new Error(`Orders API Error: ${err.response?.status} ${err.response?.data?.errors || err.message}`);
       });
       
@@ -217,6 +227,15 @@ app.get('/api/shop-kpis', async (req, res) => {
         }
       }).catch(err => {
         console.error('❌ Fehler bei Shop-API:', err.response?.status, err.response?.statusText);
+        console.error('❌ Shop API Details:', JSON.stringify({
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          message: err.message,
+          url: `https://${shop}/admin/api/${API_VERSION}/shop.json`,
+          shop: shop,
+          apiVersion: API_VERSION
+        }, null, 2));
         throw new Error(`Shop API Error: ${err.response?.status} ${err.response?.data?.errors || err.message}`);
       });
       
@@ -271,22 +290,36 @@ app.get('/api/shop-kpis', async (req, res) => {
       
       // Datumsfilterung mit Toleranz für Zeitzonen
       const getOrderDate = (dateString) => {
-        return new Date(dateString);
+        try {
+          return new Date(dateString);
+        } catch (error) {
+          console.error('⚠️ Fehler beim Parsen des Datums:', dateString, error);
+          return new Date(); // Fallback auf aktuelles Datum
+        }
       };
       
       // Heute = alle Bestellungen mit "Today" im Name ODER sehen aus der API-Sicht aus wie heute
       const ordersToday = orders.filter(order => {
-        const orderDate = getOrderDate(order.created_at);
-        const isToday = orderDate.toISOString().split('T')[0] === now.toISOString().split('T')[0];
-        const isNameToday = order.created_at.includes('Today') || 
-                           order.name.includes('1001') || 
-                           order.name.includes('1002');
-        
-        if (isToday || isNameToday) {
-          console.log(`✓ Heutige Bestellung gefunden: ${order.name}, ${order.created_at}`);
-          return true;
+        try {
+          if (!order.created_at) {
+            console.log('⚠️ Bestellung ohne Erstellungsdatum:', order.name || 'unbekannt');
+            return false;
+          }
+
+          const orderDate = getOrderDate(order.created_at);
+          const isToday = orderDate.toISOString().split('T')[0] === now.toISOString().split('T')[0];
+          const isNameToday = (order.created_at && order.created_at.includes('Today')) || 
+                            (order.name && (order.name.includes('1001') || order.name.includes('1002')));
+          
+          if (isToday || isNameToday) {
+            console.log(`✓ Heutige Bestellung gefunden: ${order.name}, ${order.created_at}`);
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('⚠️ Fehler beim Filtern der Bestellung:', order.name || 'unbekannt', error);
+          return false;
         }
-        return false;
       });
       
       console.log(`🔍 Heutige Bestellungen: ${ordersToday.length}`);
@@ -296,7 +329,13 @@ app.get('/api/shop-kpis', async (req, res) => {
       lastWeek.setDate(today.getDate() - 7);
       
       const ordersThisWeek = orders.filter(order => {
-        return getOrderDate(order.created_at) >= lastWeek;
+        try {
+          if (!order.created_at) return false;
+          return getOrderDate(order.created_at) >= lastWeek;
+        } catch (error) {
+          console.error('⚠️ Fehler beim Filtern der Wochenbestellungen:', error);
+          return false;
+        }
       });
       
       // Letzter Monat 
@@ -304,7 +343,13 @@ app.get('/api/shop-kpis', async (req, res) => {
       lastMonth.setMonth(today.getMonth() - 1);
       
       const ordersThisMonth = orders.filter(order => {
-        return getOrderDate(order.created_at) >= lastMonth;
+        try {
+          if (!order.created_at) return false;
+          return getOrderDate(order.created_at) >= lastMonth;
+        } catch (error) {
+          console.error('⚠️ Fehler beim Filtern der Monatsbestellungen:', error);
+          return false;
+        }
       });
 
       // Umsatz berechnen
