@@ -226,8 +226,8 @@ app.get('/api/shop-kpis', async (req, res) => {
         url: `https://${shop}/admin/api/${API_VERSION}/orders.json`,
         params: {
           status: 'any',
-          limit: 50,
-          fields: 'id,created_at,total_price' // Nur essentielle Felder anfordern
+          limit: 100, // Erhöht auf 100 für mehr Daten
+          fields: 'id,created_at,processed_at,total_price,currency' // Zusätzliche Felder für bessere Filterung
         },
         headers: {
           'X-Shopify-Access-Token': accessToken,
@@ -272,12 +272,18 @@ app.get('/api/shop-kpis', async (req, res) => {
       // Bestellungen heute filtern
       const ordersToday = orders.filter(order => {
         try {
-          return order.created_at.startsWith(todayStr);
+          // Convert order.created_at to shop's timezone before comparison
+          const orderDate = new Date(order.created_at);
+          const orderDateStr = orderDate.toISOString().split('T')[0];
+          return orderDateStr === todayStr;
         } catch (e) {
           console.error('⚠️ Fehler beim Filtern heutiger Bestellungen:', e);
           return false;
         }
       });
+      
+      console.log(`DEBUG: Heute ist ${todayStr}, gefundene Bestellungen heute: ${ordersToday.length}`);
+      console.log('DEBUG: Alle Bestellungsdaten:', orders.map(o => ({ id: o.id, date: o.created_at })));
       
       // Letzte 7 Tage
       const lastWeekDate = new Date(now);
@@ -334,7 +340,15 @@ app.get('/api/shop-kpis', async (req, res) => {
           ordersLoaded: orders.length,
           ordersToday: ordersToday.length,
           ordersThisWeek: ordersThisWeek.length,
+          todayDate: todayStr,
           serverTime: new Date().toISOString(),
+          orderDateSamples: orders.length > 0 ? 
+            orders.slice(0, Math.min(5, orders.length)).map(o => ({
+              id: o.id,
+              created_at: o.created_at,
+              processed_at: o.processed_at,
+              is_today: new Date(o.created_at).toISOString().split('T')[0] === todayStr
+            })) : [],
           isRealData: true
         }
       };

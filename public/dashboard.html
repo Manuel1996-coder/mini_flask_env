@@ -45,8 +45,14 @@
             <p class="text-gray-600" id="shop-info">Verbunden mit Shop: <span id="shop-name">Wird geladen...</span></p>
           </div>
           <div>
-            <button id="test-connection" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
+            <button id="test-connection" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm mr-2">
               Verbindung testen
+            </button>
+            <button id="refresh-data" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Aktualisieren
             </button>
             <div class="text-xs text-gray-500 mt-2" id="last-updated"></div>
           </div>
@@ -152,6 +158,15 @@
           </table>
         </div>
       </div>
+      
+      <!-- Debug Info (hidden by default) -->
+      <div id="debug-panel" class="bg-gray-50 p-4 mt-6 rounded-lg border border-gray-200 hidden">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-semibold text-gray-700">Debug-Informationen</h3>
+          <button id="toggle-debug" class="text-xs text-blue-600 hover:text-blue-800">Ausblenden</button>
+        </div>
+        <div id="debug-content" class="text-xs font-mono whitespace-pre-wrap bg-gray-100 p-3 rounded overflow-auto max-h-64"></div>
+      </div>
     </div>
   </div>
 
@@ -162,11 +177,40 @@
       const shopNameEl = document.getElementById('shop-name');
       const lastUpdatedEl = document.getElementById('last-updated');
       const testButton = document.getElementById('test-connection');
+      const refreshButton = document.getElementById('refresh-data');
+      const debugPanel = document.getElementById('debug-panel');
+      const debugContent = document.getElementById('debug-content');
+      const toggleDebugBtn = document.getElementById('toggle-debug');
+      
+      // Debug-Panel Toggle-Funktion
+      toggleDebugBtn.addEventListener('click', function() {
+        const isHidden = debugContent.classList.contains('hidden');
+        if (isHidden) {
+          debugContent.classList.remove('hidden');
+          toggleDebugBtn.textContent = 'Ausblenden';
+        } else {
+          debugContent.classList.add('hidden');
+          toggleDebugBtn.textContent = 'Anzeigen';
+        }
+      });
+      
+      // Funktion zum Anzeigen von Debug-Infos
+      function showDebugInfo(data, show = false) {
+        debugContent.textContent = JSON.stringify(data, null, 2);
+        if (show) {
+          debugPanel.classList.remove('hidden');
+        }
+      }
       
       // URL-Parameter abrufen
       const params = new URLSearchParams(window.location.search);
       const shop = params.get('shop') || getCookie('shopifyShop');
       const host = params.get('host');
+      const debug = params.get('debug') === 'true';
+      
+      if (debug) {
+        debugPanel.classList.remove('hidden');
+      }
       
       if (shop) {
         shopNameEl.textContent = shop;
@@ -197,6 +241,32 @@
         } finally {
           testButton.disabled = false;
           testButton.textContent = 'Verbindung testen';
+        }
+      });
+      
+      // Refresh-Button Event-Handler
+      refreshButton.addEventListener('click', async function() {
+        refreshButton.disabled = true;
+        refreshButton.innerHTML = `
+          <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Aktualisieren...
+        `;
+        
+        try {
+          await loadKPIs();
+        } catch (error) {
+          console.error('Fehler beim Aktualisieren:', error);
+        } finally {
+          refreshButton.disabled = false;
+          refreshButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Aktualisieren
+          `;
         }
       });
       
@@ -346,6 +416,7 @@
           // Debug-Infos anzeigen, wenn vorhanden
           if (kpiData.debug) {
             console.log('Server-Debug-Info:', kpiData.debug);
+            showDebugInfo(kpiData, debug);
           }
           
           // Loading-State entfernen und KPI-Bereiche anzeigen
