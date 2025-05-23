@@ -243,10 +243,18 @@
       const debugContent = document.getElementById('debug-content');
       const toggleDebugBtn = document.getElementById('toggle-debug');
       
+      // Stelle eine globale debug-Funktion bereit
+      window.debug = function(data) {
+        console.log("[DEBUG]", data);
+      };
+      
       // Überschreibe die globale showDebugInfo-Funktion mit der tatsächlichen Implementierung
       window.showDebugInfo = function(data, show = false) {
+        // Guard-Clause für debugContent
+        if (!debugContent) return;
+        
         debugContent.textContent = JSON.stringify(data, null, 2);
-        if (show) {
+        if (show && debugPanel) {
           debugPanel.classList.remove('hidden');
         }
       };
@@ -491,64 +499,79 @@
           if (kpiData.debug) {
             console.log('Server-Debug-Info:', kpiData.debug);
             try {
-              showDebugInfo(kpiData, debug);
+              // Guard-Clause für debug-Funktion
+              if (typeof debug === 'function') {
+                debug(kpiData);
+              }
+              
+              // Guard-Clause für debugPanel
+              const debugPanelElement = document.getElementById('debug-panel');
+              if (debugPanelElement) {
+                showDebugInfo(kpiData, window.location.search.includes('debug=true'));
+              }
             } catch (debugError) {
               console.error('Fehler beim Anzeigen von Debug-Informationen:', debugError);
-              // Versuche eine alternative Anzeige der Debug-Daten
-              if (debugPanel && debugContent) {
-                debugContent.textContent = JSON.stringify(kpiData, null, 2);
-                if (debug) debugPanel.classList.remove('hidden');
-              }
+              // Ignorieren, Debug-Informationen sind optional
             }
           }
           
-          // Loading-State entfernen und KPI-Bereiche anzeigen
-          document.getElementById('loading-state').classList.add('hidden');
-          document.getElementById('kpi-cards').classList.remove('hidden');
-          document.getElementById('orders-stats').classList.remove('hidden');
-          document.getElementById('revenue-stats').classList.remove('hidden');
-          document.getElementById('top-products').classList.remove('hidden');
+          // Loading-State ausblenden
+          const loadingEl = document.getElementById('loading-state');
+          if (loadingEl) loadingEl.classList.add('hidden');
+          
+          // KPI-Bereiche anzeigen
+          const kpiCards = document.getElementById('kpi-cards');
+          const ordersStats = document.getElementById('orders-stats');
+          const revenueStats = document.getElementById('revenue-stats');
+          const topProducts = document.getElementById('top-products');
+          
+          if (kpiCards) kpiCards.classList.remove('hidden');
+          if (ordersStats) ordersStats.classList.remove('hidden');
+          if (revenueStats) revenueStats.classList.remove('hidden');
+          if (topProducts) topProducts.classList.remove('hidden');
           
           // Bestellungs-KPIs aktualisieren
-          document.getElementById('orders-today').textContent = kpiData.orders.today;
-          document.getElementById('orders-today-small').textContent = kpiData.orders.today;
-          document.getElementById('orders-week').textContent = kpiData.orders.thisWeek;
-          document.getElementById('orders-month').textContent = kpiData.orders.thisMonth;
-          document.getElementById('orders-month-small').textContent = kpiData.orders.thisMonth;
+          updateElementSafely('orders-today', kpiData.orders.today);
+          updateElementSafely('orders-today-small', kpiData.orders.today);
+          updateElementSafely('orders-week', kpiData.orders.thisWeek);
+          updateElementSafely('orders-month', kpiData.orders.thisMonth);
+          updateElementSafely('orders-month-small', kpiData.orders.thisMonth);
           
           // Umsatz-KPIs aktualisieren
-          document.getElementById('revenue-today').textContent = formatCurrency(kpiData.revenue.today);
-          document.getElementById('revenue-today-small').textContent = formatCurrency(kpiData.revenue.today);
-          document.getElementById('revenue-week').textContent = formatCurrency(kpiData.revenue.thisWeek);
-          document.getElementById('revenue-month').textContent = formatCurrency(kpiData.revenue.thisMonth);
+          updateElementSafely('revenue-today', formatCurrency(kpiData.revenue.today));
+          updateElementSafely('revenue-today-small', formatCurrency(kpiData.revenue.today));
+          updateElementSafely('revenue-week', formatCurrency(kpiData.revenue.thisWeek));
+          updateElementSafely('revenue-month', formatCurrency(kpiData.revenue.thisMonth));
           
           // Top Produkte-Tabelle füllen
           const tableBody = document.getElementById('product-table-body');
-          tableBody.innerHTML = '';
-          
-          kpiData.topProducts.forEach(product => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="flex items-center">
-                  <div class="flex-shrink-0 h-10 w-10">
-                    ${product.image ? `<img class="h-10 w-10 rounded-md object-cover" src="${product.image}" alt="${product.title}">` : 
-                    '<div class="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">N/A</div>'}
+          if (tableBody) {
+            tableBody.innerHTML = '';
+            
+            kpiData.topProducts.forEach(product => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10">
+                      ${product.image ? `<img class="h-10 w-10 rounded-md object-cover" src="${product.image}" alt="${product.title}">` : 
+                      '<div class="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">N/A</div>'}
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">${product.title}</div>
+                    </div>
                   </div>
-                  <div class="ml-4">
-                    <div class="text-sm font-medium text-gray-900">${product.title}</div>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.inventory}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(product.price)}</td>
-            `;
-            tableBody.appendChild(row);
-          });
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.inventory}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(product.price)}</td>
+              `;
+              tableBody.appendChild(row);
+            });
+          }
           
           // Letzte Aktualisierung anzeigen
           const now = new Date();
-          document.getElementById('last-updated').textContent = `Letzte Aktualisierung: ${now.toLocaleTimeString()}`;
+          updateElementSafely('last-updated', `Letzte Aktualisierung: ${now.toLocaleTimeString()}`);
           
         } catch (error) {
           console.error('Fehler beim Laden der KPIs:', error);
@@ -576,6 +599,16 @@
         style: 'currency',
         currency: 'EUR'
       }).format(amount);
+    }
+    
+    // Hilfsfunktion zum sicheren Aktualisieren von DOM-Elementen
+    function updateElementSafely(id, value, property = 'textContent') {
+      const element = document.getElementById(id);
+      if (element) {
+        element[property] = value;
+      } else {
+        console.warn(`Element mit ID '${id}' nicht gefunden`);
+      }
     }
   </script>
 </body>
