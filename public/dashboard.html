@@ -33,6 +33,67 @@
       100% { transform: rotate(360deg); }
     }
   </style>
+  <script>
+    // Stellt sicher, dass eine Funktion verfügbar ist oder erstellt eine Fallback-Funktion
+    function ensureFunctionExists(funcName, fallback) {
+      if (typeof window[funcName] !== 'function') {
+        console.log(`Funktion ${funcName} nicht gefunden, erstelle Fallback`);
+        window[funcName] = fallback || function() {
+          console.log(`${funcName} wurde aufgerufen, aber war noch nicht definiert. Argumente:`, arguments);
+          // Speichere Argumente für spätere Ausführung
+          if (!window._pendingCalls) window._pendingCalls = {};
+          if (!window._pendingCalls[funcName]) window._pendingCalls[funcName] = [];
+          window._pendingCalls[funcName].push(Array.from(arguments));
+        };
+      }
+    }
+    
+    // Stelle sicher, dass kritische Funktionen immer definiert sind
+    ensureFunctionExists('showDebugInfo');
+    ensureFunctionExists('getCookie', function(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    });
+    
+    // Global Hilfsfunktionen, damit sie vor dem DOM-Load verfügbar sind
+    function showDebugInfo(data, show = false) {
+      // Diese Funktion wird später mit den DOM-Elementen initialisiert
+      window._debugData = data;
+      window._showDebugPanel = show;
+    }
+    
+    // Hilfsfunktion zum Auslesen von Cookies
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    // Globaler Error-Handler, um Fehler im HTML zu fangen
+    window.addEventListener('error', function(event) {
+      console.error('Gefangener globaler Fehler:', event.error);
+      
+      // Prüfe, ob es der spezifische showDebugInfo-Fehler ist
+      if (event.message && event.message.includes('showDebugInfo')) {
+        // Verzögere ein wenig, damit das DOM vollständig geladen wird
+        setTimeout(function() {
+          const errorEl = document.getElementById('loading-state');
+          if (errorEl) {
+            errorEl.innerHTML = `
+              <div class="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                <h3 class="text-yellow-800 font-medium">Dashboard lädt...</h3>
+                <p class="text-yellow-700 mt-2">
+                  Die Daten werden bald angezeigt. Bitte warten Sie einen Moment...
+                </p>
+                <div class="loading mt-4"></div>
+              </div>
+            `;
+          }
+        }, 500);
+      }
+    });
+  </script>
 </head>
 <body>
   <div id="app" class="p-6">
@@ -182,6 +243,34 @@
       const debugContent = document.getElementById('debug-content');
       const toggleDebugBtn = document.getElementById('toggle-debug');
       
+      // Überschreibe die globale showDebugInfo-Funktion mit der tatsächlichen Implementierung
+      window.showDebugInfo = function(data, show = false) {
+        debugContent.textContent = JSON.stringify(data, null, 2);
+        if (show) {
+          debugPanel.classList.remove('hidden');
+        }
+      };
+      
+      // Verarbeite ausstehende Funktionsaufrufe
+      if (window._pendingCalls && window._pendingCalls.showDebugInfo) {
+        console.log('Verarbeite ausstehende showDebugInfo-Aufrufe:', window._pendingCalls.showDebugInfo.length);
+        window._pendingCalls.showDebugInfo.forEach(args => {
+          try {
+            window.showDebugInfo(...args);
+          } catch (e) {
+            console.error('Fehler beim Nachholen von showDebugInfo:', e);
+          }
+        });
+        delete window._pendingCalls.showDebugInfo;
+      }
+      
+      // Wenn Daten bereits vorhanden sind (durch den frühen Aufruf), zeige sie jetzt an
+      if (window._debugData) {
+        showDebugInfo(window._debugData, window._showDebugPanel);
+        delete window._debugData;
+        delete window._showDebugPanel;
+      }
+      
       // Debug-Panel Toggle-Funktion
       toggleDebugBtn.addEventListener('click', function() {
         const isHidden = debugContent.classList.contains('hidden');
@@ -193,14 +282,6 @@
           toggleDebugBtn.textContent = 'Anzeigen';
         }
       });
-      
-      // Funktion zum Anzeigen von Debug-Infos
-      function showDebugInfo(data, show = false) {
-        debugContent.textContent = JSON.stringify(data, null, 2);
-        if (show) {
-          debugPanel.classList.remove('hidden');
-        }
-      }
       
       // URL-Parameter abrufen
       const params = new URLSearchParams(window.location.search);
@@ -298,13 +379,6 @@
         `;
       }
     });
-    
-    // Hilfsfunktion zum Auslesen von Cookies
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-    }
     
     async function loadKPIs() {
       let retryCount = 0;
@@ -416,7 +490,16 @@
           // Debug-Infos anzeigen, wenn vorhanden
           if (kpiData.debug) {
             console.log('Server-Debug-Info:', kpiData.debug);
-            showDebugInfo(kpiData, debug);
+            try {
+              showDebugInfo(kpiData, debug);
+            } catch (debugError) {
+              console.error('Fehler beim Anzeigen von Debug-Informationen:', debugError);
+              // Versuche eine alternative Anzeige der Debug-Daten
+              if (debugPanel && debugContent) {
+                debugContent.textContent = JSON.stringify(kpiData, null, 2);
+                if (debug) debugPanel.classList.remove('hidden');
+              }
+            }
           }
           
           // Loading-State entfernen und KPI-Bereiche anzeigen
