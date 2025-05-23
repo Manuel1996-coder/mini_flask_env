@@ -53,6 +53,22 @@
         </div>
       </div>
 
+      <!-- Demo Data Alert -->
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              <strong>Demo-Modus aktiv:</strong> Um API-Berechtigungsprobleme zu umgehen, werden derzeit Demo-Daten angezeigt.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading state -->
       <div id="loading-state" class="bg-white p-6 rounded-lg shadow-sm mb-6 text-center">
         <div class="loading mb-4"></div>
@@ -227,78 +243,174 @@
     }
     
     async function loadKPIs() {
-      try {
-        // Wir prüfen, ob wir die Authentifizierung aus Client-Cookies haben
-        const accessToken = getCookie('shopifyAccessToken');
-        const shop = getCookie('shopifyShop');
-        
-        console.log('Client-Cookies:', { 
-          shop: shop ? 'vorhanden' : 'fehlt', 
-          token: accessToken ? 'vorhanden' : 'fehlt',
-          cookieString: document.cookie
-        });
-        
-        // KPIs vom Server holen mit Credentials
-        console.log('Starte API-Anfrage...');
-        document.getElementById('loading-state').innerHTML = `
-          <div class="p-4 text-center">
-            <div class="loading mb-4"></div>
-            <p class="text-gray-600">Daten werden geladen...</p>
-            <p class="text-xs text-gray-500 mt-2">API-Version: 2023-10</p>
-            <p class="text-xs text-gray-500">Shop: ${shop || 'nicht gefunden'}</p>
-          </div>
-        `;
-        
-        const response = await fetch('/api/shop-kpis', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json',
-            'X-Shopify-Shop': shop || '',
-            'X-Shopify-Access-Token': accessToken || ''
-          }
-        });
-        
-        console.log('API-Status:', response.status);
-        
-        if (!response.ok) {
-          let errorText = `Status: ${response.status}`;
-          let errorDetails = '';
-          try {
-            const errorData = await response.json();
-            console.error('API-Fehlerdetails:', errorData);
-            errorText += ` - ${errorData.error || 'Unbekannter Fehler'}`;
-            if (errorData.message) {
-              errorDetails += `<p class="text-red-600 mt-2 text-sm">${errorData.message}</p>`;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      async function attemptLoad() {
+        try {
+          // Wir prüfen, ob wir die Authentifizierung aus Client-Cookies haben
+          const accessToken = getCookie('shopifyAccessToken');
+          const shop = getCookie('shopifyShop');
+          
+          console.log('Client-Cookies:', { 
+            shop: shop ? 'vorhanden' : 'fehlt', 
+            token: accessToken ? 'vorhanden' : 'fehlt',
+            cookieString: document.cookie
+          });
+          
+          // KPIs vom Server holen mit Credentials
+          console.log('Starte API-Anfrage...');
+          document.getElementById('loading-state').innerHTML = `
+            <div class="p-4 text-center">
+              <div class="loading mb-4"></div>
+              <p class="text-gray-600">Daten werden geladen...${retryCount > 0 ? ` (Versuch ${retryCount + 1})` : ''}</p>
+              <p class="text-xs text-gray-500 mt-2">API-Version: 2023-10</p>
+              <p class="text-xs text-gray-500">Shop: ${shop || 'nicht gefunden'}</p>
+            </div>
+          `;
+          
+          const response = await fetch('/api/shop-kpis', {
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'X-Shopify-Shop': shop || '',
+              'X-Shopify-Access-Token': accessToken || ''
             }
-            if (errorData.debug) {
-              console.error('Debug-Info:', errorData.debug);
-              // Detailliertere Fehlermeldung anzeigen
-              if (!errorData.debug.cookies?.shopifyAccessToken) {
-                errorText += ' - Keine Authentifizierung gefunden. Bitte neu anmelden.';
-                // Zurück zur Einbettungsseite umleiten
-                setTimeout(() => {
-                  window.location.href = '/embedded?shop=' + (new URLSearchParams(window.location.search).get('shop') || '');
-                }, 3000);
+          });
+          
+          console.log('API-Status:', response.status);
+          
+          if (!response.ok) {
+            let errorText = `Status: ${response.status}`;
+            let errorDetails = '';
+            try {
+              const errorData = await response.json();
+              console.error('API-Fehlerdetails:', errorData);
+              errorText += ` - ${errorData.error || 'Unbekannter Fehler'}`;
+              if (errorData.message) {
+                errorDetails += `<p class="text-red-600 mt-2 text-sm">${errorData.message}</p>`;
               }
+              if (errorData.debug) {
+                console.error('Debug-Info:', errorData.debug);
+                // Detailliertere Fehlermeldung anzeigen
+                if (!errorData.debug.cookies?.shopifyAccessToken) {
+                  errorText += ' - Keine Authentifizierung gefunden. Bitte neu anmelden.';
+                  // Zurück zur Einbettungsseite umleiten
+                  setTimeout(() => {
+                    window.location.href = '/embedded?shop=' + (new URLSearchParams(window.location.search).get('shop') || '');
+                  }, 3000);
+                }
+              }
+            } catch (e) {
+              console.error('Fehler beim Parsen der API-Antwort:', e);
+              errorText += ' - Konnte Fehlerdetails nicht lesen';
             }
-          } catch (e) {
-            console.error('Fehler beim Parsen der API-Antwort:', e);
-            errorText += ' - Konnte Fehlerdetails nicht lesen';
+            
+            // Wenn wir noch Versuche übrig haben, versuchen wir es erneut
+            if (retryCount < maxRetries) {
+              retryCount++;
+              console.log(`Retry ${retryCount}/${maxRetries}...`);
+              document.getElementById('loading-state').innerHTML = `
+                <div class="p-4 text-center">
+                  <div class="loading mb-4"></div>
+                  <p class="text-gray-600">Neuer Versuch ${retryCount}/${maxRetries}...</p>
+                </div>
+              `;
+              
+              // Kurz warten und dann erneut versuchen
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              return attemptLoad();
+            }
+            
+            document.getElementById('loading-state').innerHTML = `
+              <div class="bg-red-50 p-4 rounded-md border border-red-200">
+                <h3 class="text-red-800 font-medium">Fehler beim Laden der KPIs</h3>
+                <p class="text-red-700 mt-2">${errorText}</p>
+                ${errorDetails}
+                <div class="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-700 overflow-auto" style="max-height: 150px;">
+                  <strong>Debug-Info:</strong><br>
+                  Shop: ${shop || 'nicht gefunden'}<br>
+                  Token: ${accessToken ? 'vorhanden' : 'fehlt'}<br>
+                  API-Version: 2023-10<br>
+                  Zeitpunkt: ${new Date().toISOString()}<br>
+                  URL: ${window.location.href}
+                </div>
+                <p class="text-gray-600 mt-3">
+                  Versuchen Sie die App neu zu installieren. 
+                  <a href="/embedded?shop=${getCookie('shopifyShop') || ''}" class="underline text-blue-500">
+                    Zurück zur Installation
+                  </a>
+                </p>
+              </div>
+            `;
+            throw new Error(errorText);
           }
           
+          const kpiData = await response.json();
+          console.log('Empfangene KPI-Daten:', kpiData);
+          
+          // Debug-Infos anzeigen, wenn vorhanden
+          if (kpiData.debug) {
+            console.log('Server-Debug-Info:', kpiData.debug);
+          }
+          
+          // Loading-State entfernen und KPI-Bereiche anzeigen
+          document.getElementById('loading-state').classList.add('hidden');
+          document.getElementById('kpi-cards').classList.remove('hidden');
+          document.getElementById('orders-stats').classList.remove('hidden');
+          document.getElementById('revenue-stats').classList.remove('hidden');
+          document.getElementById('top-products').classList.remove('hidden');
+          
+          // Bestellungs-KPIs aktualisieren
+          document.getElementById('orders-today').textContent = kpiData.orders.today;
+          document.getElementById('orders-today-small').textContent = kpiData.orders.today;
+          document.getElementById('orders-week').textContent = kpiData.orders.thisWeek;
+          document.getElementById('orders-month').textContent = kpiData.orders.thisMonth;
+          document.getElementById('orders-month-small').textContent = kpiData.orders.thisMonth;
+          
+          // Umsatz-KPIs aktualisieren
+          document.getElementById('revenue-today').textContent = formatCurrency(kpiData.revenue.today);
+          document.getElementById('revenue-today-small').textContent = formatCurrency(kpiData.revenue.today);
+          document.getElementById('revenue-week').textContent = formatCurrency(kpiData.revenue.thisWeek);
+          document.getElementById('revenue-month').textContent = formatCurrency(kpiData.revenue.thisMonth);
+          
+          // Kunden-KPIs aktualisieren
+          document.getElementById('customer-count').textContent = kpiData.customerCount;
+          
+          // Top Produkte-Tabelle füllen
+          const tableBody = document.getElementById('product-table-body');
+          tableBody.innerHTML = '';
+          
+          kpiData.topProducts.forEach(product => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="flex-shrink-0 h-10 w-10">
+                    ${product.image ? `<img class="h-10 w-10 rounded-md object-cover" src="${product.image}" alt="${product.title}">` : 
+                    '<div class="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">N/A</div>'}
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-900">${product.title}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.inventory}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(product.price)}</td>
+            `;
+            tableBody.appendChild(row);
+          });
+          
+          // Letzte Aktualisierung anzeigen
+          const now = new Date();
+          document.getElementById('last-updated').textContent = `Letzte Aktualisierung: ${now.toLocaleTimeString()}`;
+          
+        } catch (error) {
+          console.error('Fehler beim Laden der KPIs:', error);
           document.getElementById('loading-state').innerHTML = `
             <div class="bg-red-50 p-4 rounded-md border border-red-200">
               <h3 class="text-red-800 font-medium">Fehler beim Laden der KPIs</h3>
-              <p class="text-red-700 mt-2">${errorText}</p>
-              ${errorDetails}
-              <div class="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-700 overflow-auto" style="max-height: 150px;">
-                <strong>Debug-Info:</strong><br>
-                Shop: ${shop || 'nicht gefunden'}<br>
-                Token: ${accessToken ? 'vorhanden' : 'fehlt'}<br>
-                API-Version: 2023-10<br>
-                Zeitpunkt: ${new Date().toISOString()}<br>
-                URL: ${window.location.href}
-              </div>
+              <p class="text-red-700 mt-2">${error.message}</p>
               <p class="text-gray-600 mt-3">
                 Versuchen Sie die App neu zu installieren. 
                 <a href="/embedded?shop=${getCookie('shopifyShop') || ''}" class="underline text-blue-500">
@@ -307,83 +419,10 @@
               </p>
             </div>
           `;
-          throw new Error(errorText);
         }
-        
-        const kpiData = await response.json();
-        console.log('Empfangene KPI-Daten:', kpiData);
-        
-        // Debug-Infos anzeigen, wenn vorhanden
-        if (kpiData.debug) {
-          console.log('Server-Debug-Info:', kpiData.debug);
-        }
-        
-        // Loading-State entfernen und KPI-Bereiche anzeigen
-        document.getElementById('loading-state').classList.add('hidden');
-        document.getElementById('kpi-cards').classList.remove('hidden');
-        document.getElementById('orders-stats').classList.remove('hidden');
-        document.getElementById('revenue-stats').classList.remove('hidden');
-        document.getElementById('top-products').classList.remove('hidden');
-        
-        // Bestellungs-KPIs aktualisieren
-        document.getElementById('orders-today').textContent = kpiData.orders.today;
-        document.getElementById('orders-today-small').textContent = kpiData.orders.today;
-        document.getElementById('orders-week').textContent = kpiData.orders.thisWeek;
-        document.getElementById('orders-month').textContent = kpiData.orders.thisMonth;
-        document.getElementById('orders-month-small').textContent = kpiData.orders.thisMonth;
-        
-        // Umsatz-KPIs aktualisieren
-        document.getElementById('revenue-today').textContent = formatCurrency(kpiData.revenue.today);
-        document.getElementById('revenue-today-small').textContent = formatCurrency(kpiData.revenue.today);
-        document.getElementById('revenue-week').textContent = formatCurrency(kpiData.revenue.thisWeek);
-        document.getElementById('revenue-month').textContent = formatCurrency(kpiData.revenue.thisMonth);
-        
-        // Kunden-KPIs aktualisieren
-        document.getElementById('customer-count').textContent = kpiData.customerCount;
-        
-        // Top Produkte-Tabelle füllen
-        const tableBody = document.getElementById('product-table-body');
-        tableBody.innerHTML = '';
-        
-        kpiData.topProducts.forEach(product => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center">
-                <div class="flex-shrink-0 h-10 w-10">
-                  ${product.image ? `<img class="h-10 w-10 rounded-md object-cover" src="${product.image}" alt="${product.title}">` : 
-                  '<div class="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">N/A</div>'}
-                </div>
-                <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">${product.title}</div>
-                </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.inventory}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatCurrency(product.price)}</td>
-          `;
-          tableBody.appendChild(row);
-        });
-        
-        // Letzte Aktualisierung anzeigen
-        const now = new Date();
-        document.getElementById('last-updated').textContent = `Letzte Aktualisierung: ${now.toLocaleTimeString()}`;
-        
-      } catch (error) {
-        console.error('Fehler beim Laden der KPIs:', error);
-        document.getElementById('loading-state').innerHTML = `
-          <div class="bg-red-50 p-4 rounded-md border border-red-200">
-            <h3 class="text-red-800 font-medium">Fehler beim Laden der KPIs</h3>
-            <p class="text-red-700 mt-2">${error.message}</p>
-            <p class="text-gray-600 mt-3">
-              Versuchen Sie die App neu zu installieren. 
-              <a href="/embedded?shop=${getCookie('shopifyShop') || ''}" class="underline text-blue-500">
-                Zurück zur Installation
-              </a>
-            </p>
-          </div>
-        `;
       }
+      
+      await attemptLoad();
     }
     
     // Hilfsfunktion zum Formatieren von Währungsbeträgen

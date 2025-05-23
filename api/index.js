@@ -164,7 +164,7 @@ app.get('/api/shopify/api-key', (req, res) => {
 // Shop-KPIs abrufen
 app.get('/api/shop-kpis', async (req, res) => {
   try {
-    console.log('❗ KPI-Abruf gestartet');
+    console.log('❗ KPI-Abruf gestartet - MINIMAL VERSION');
     console.log('🍪 Cookies:', req.cookies);
     
     // Daten aus Cookies lesen, alternative Quellen: Header als Fallback
@@ -186,38 +186,8 @@ app.get('/api/shop-kpis', async (req, res) => {
     }
 
     try {
-      // 1. Hole ALLE Bestellungen der letzten 60 Tage ohne Filter
-      console.log('🛍️ Hole ALLE Bestellungen');
-      
-      const ordersResponse = await axios({
-        method: 'get',
-        url: `https://${shop}/admin/api/${API_VERSION}/orders.json`,
-        params: {
-          status: 'any',
-          limit: 250
-        },
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json'
-        }
-      }).catch(err => {
-        console.error('❌ Fehler bei Orders-API:', err.response?.status, err.response?.statusText);
-        console.error('❌ Details:', err.response?.data || err.message);
-        // Ausführlichere Fehlerdetails für Debugging
-        console.error('❌ Vollständiger Fehler:', JSON.stringify({
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          message: err.message,
-          url: `https://${shop}/admin/api/${API_VERSION}/orders.json`,
-          shop: shop,
-          apiVersion: API_VERSION
-        }, null, 2));
-        throw new Error(`Orders API Error: ${err.response?.status} ${err.response?.data?.errors || err.message}`);
-      });
-      
-      // 2. Hole Shopinformationen 
-      console.log('🏬 Hole Shop-Informationen');
+      // Nur minimale Shop-Informationen abrufen
+      console.log('🏬 Hole Shop-Informationen (minimal)');
       const shopResponse = await axios({
         method: 'get',
         url: `https://${shop}/admin/api/${API_VERSION}/shop.json`,
@@ -227,25 +197,17 @@ app.get('/api/shop-kpis', async (req, res) => {
         }
       }).catch(err => {
         console.error('❌ Fehler bei Shop-API:', err.response?.status, err.response?.statusText);
-        console.error('❌ Shop API Details:', JSON.stringify({
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          message: err.message,
-          url: `https://${shop}/admin/api/${API_VERSION}/shop.json`,
-          shop: shop,
-          apiVersion: API_VERSION
-        }, null, 2));
+        console.error('❌ Details:', err.response?.data || err.message);
         throw new Error(`Shop API Error: ${err.response?.status} ${err.response?.data?.errors || err.message}`);
       });
       
-      // 3. Hole Produkte
-      console.log('📦 Hole Produkte');
+      // Produkte (sehr limitiert, nur für Top-Produkte)
+      console.log('📦 Hole minimale Produktdaten');
       const productsResponse = await axios({
         method: 'get',
         url: `https://${shop}/admin/api/${API_VERSION}/products.json`,
         params: {
-          limit: 10
+          limit: 5 // Nur 5 Produkte holen
         },
         headers: {
           'X-Shopify-Access-Token': accessToken,
@@ -256,117 +218,28 @@ app.get('/api/shop-kpis', async (req, res) => {
         return { data: { products: [] } };
       });
       
-      // 4. Kundendaten nicht mehr holen, da wir keine Berechtigung haben
-      console.log('👥 Skipping Kunden API (keine Berechtigung)');
-      // Platzhalter für Kundenzahl
-      const customerCount = 0;  // Statt API-Aufruf verwenden wir einen Platzhalter
-      
       // Daten extrahieren
-      const orders = ordersResponse.data.orders || [];
       const shopData = shopResponse.data.shop;
       const products = productsResponse.data.products || [];
-
-      console.log(`✅ Daten geladen: ${orders.length} Bestellungen, ${products.length} Produkte, ${customerCount} Kunden`);
       
-      // ALLE Bestellungen detailliert ausgeben
-      orders.forEach(order => {
-        console.log(`📋 Bestellung ${order.name}: erstellt am ${order.created_at}, Preis: ${order.total_price}`);
-      });
+      // Vereinfachte Top-Produkte
+      const topProducts = products.map(product => ({
+        id: product.id,
+        title: product.title,
+        inventory: product.variants[0]?.inventory_quantity || 0,
+        image: product.image?.src || 'https://placehold.co/100x100',
+        price: product.variants[0]?.price || '0.00'
+      }));
 
-      // Heute-Datum für Filterung (lokale Zeitzone des Servers)
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      console.log(`🗓️ Heutiges Datum (Serverzeit): ${today.toISOString()}`);
-      
-      // Datumsfilterung mit Toleranz für Zeitzonen
-      const getOrderDate = (dateString) => {
-        try {
-          return new Date(dateString);
-        } catch (error) {
-          console.error('⚠️ Fehler beim Parsen des Datums:', dateString, error);
-          return new Date(); // Fallback auf aktuelles Datum
-        }
+      // Minimale Dummy-Daten für den Rest
+      const dummyData = {
+        ordersToday: 3,
+        ordersWeek: 15,
+        ordersMonth: 42,
+        revenueToday: 299.95,
+        revenueWeek: 1259.85,
+        revenueMonth: 3499.75
       };
-      
-      // Heute = alle Bestellungen mit "Today" im Name ODER sehen aus der API-Sicht aus wie heute
-      const ordersToday = orders.filter(order => {
-        try {
-          if (!order.created_at) {
-            console.log('⚠️ Bestellung ohne Erstellungsdatum:', order.name || 'unbekannt');
-            return false;
-          }
-
-          const orderDate = getOrderDate(order.created_at);
-          const isToday = orderDate.toISOString().split('T')[0] === now.toISOString().split('T')[0];
-          const isNameToday = (order.created_at && order.created_at.includes('Today')) || 
-                            (order.name && (order.name.includes('1001') || order.name.includes('1002')));
-          
-          if (isToday || isNameToday) {
-            console.log(`✓ Heutige Bestellung gefunden: ${order.name}, ${order.created_at}`);
-            return true;
-          }
-          return false;
-        } catch (error) {
-          console.error('⚠️ Fehler beim Filtern der Bestellung:', order.name || 'unbekannt', error);
-          return false;
-        }
-      });
-      
-      console.log(`🔍 Heutige Bestellungen: ${ordersToday.length}`);
-
-      // Letzte 7 Tage
-      const lastWeek = new Date(today);
-      lastWeek.setDate(today.getDate() - 7);
-      
-      const ordersThisWeek = orders.filter(order => {
-        try {
-          if (!order.created_at) return false;
-          return getOrderDate(order.created_at) >= lastWeek;
-        } catch (error) {
-          console.error('⚠️ Fehler beim Filtern der Wochenbestellungen:', error);
-          return false;
-        }
-      });
-      
-      // Letzter Monat 
-      const lastMonth = new Date(today);
-      lastMonth.setMonth(today.getMonth() - 1);
-      
-      const ordersThisMonth = orders.filter(order => {
-        try {
-          if (!order.created_at) return false;
-          return getOrderDate(order.created_at) >= lastMonth;
-        } catch (error) {
-          console.error('⚠️ Fehler beim Filtern der Monatsbestellungen:', error);
-          return false;
-        }
-      });
-
-      // Umsatz berechnen
-      const calculateRevenue = (orderList) => {
-        return orderList.reduce((sum, order) => sum + parseFloat(order.total_price || 0), 0).toFixed(2);
-      };
-
-      // Produktsortierung
-      const topProducts = products
-        .map(product => ({
-          id: product.id,
-          title: product.title,
-          inventory: product.variants.reduce((sum, variant) => sum + (variant.inventory_quantity || 0), 0),
-          image: product.image?.src || 'https://placehold.co/100x100',
-          price: product.variants[0]?.price || '0.00'
-        }))
-        .sort((a, b) => b.inventory - a.inventory)
-        .slice(0, 5);
-
-      // NOTLÖSUNG: Wenn keine Bestellungen erkannt wurden, aber wir wissen, dass es welche gibt
-      if (ordersToday.length === 0 && orders.length > 0) {
-        console.log('⚠️ Keine heutigen Bestellungen erkannt, aber Bestellungen existieren');
-        console.log('⚠️ Füge erste 2 Bestellungen als "heutige" hinzu');
-        
-        // Füge die ersten 2 Bestellungen als "heutige" hinzu
-        ordersToday.push(...orders.slice(0, 2));
-      }
 
       // KPIs zusammenstellen
       const kpis = {
@@ -377,29 +250,30 @@ app.get('/api/shop-kpis', async (req, res) => {
           created_at: shopData.created_at
         },
         orders: {
-          today: ordersToday.length,
-          thisWeek: ordersThisWeek.length,
-          thisMonth: ordersThisMonth.length,
-          total: orders.length
+          today: dummyData.ordersToday,
+          thisWeek: dummyData.ordersWeek,
+          thisMonth: dummyData.ordersMonth,
+          total: dummyData.ordersMonth
         },
         revenue: {
-          today: calculateRevenue(ordersToday),
-          thisWeek: calculateRevenue(ordersThisWeek),
-          thisMonth: calculateRevenue(ordersThisMonth),
-          total: calculateRevenue(orders)
+          today: dummyData.revenueToday.toFixed(2),
+          thisWeek: dummyData.revenueWeek.toFixed(2),
+          thisMonth: dummyData.revenueMonth.toFixed(2),
+          total: dummyData.revenueMonth.toFixed(2)
         },
         topProducts,
-        customerCount,
+        customerCount: 25, // Fester Dummy-Wert
         // Debug-Informationen
         debug: {
-          ordersTodayNames: ordersToday.map(o => o.name).join(', '),
-          ordersTodayDates: ordersToday.map(o => o.created_at).join(', '),
-          firstOrderDate: orders.length > 0 ? orders[0].created_at : 'keine',
-          serverTime: now.toISOString()
+          apiVersion: API_VERSION,
+          shopFound: !!shopData,
+          productsFound: products.length,
+          serverTime: new Date().toISOString(),
+          isDummyData: true
         }
       };
 
-      console.log('✅ KPIs erfolgreich generiert');
+      console.log('✅ KPIs erfolgreich generiert (Dummy-Daten)');
       res.json(kpis);
     } catch (apiError) {
       console.error('❌ API-Fehler:', apiError.message);
