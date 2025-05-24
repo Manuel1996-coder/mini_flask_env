@@ -21,8 +21,8 @@ console.log('Verwendete HOST-Umgebungsvariable:', HOST);
 
 // Stelle sicher, dass REDIRECT_URI keine doppelten Slashes oder Protokolle enthält
 const REDIRECT_URI = HOST.endsWith('/') 
-  ? `${HOST}auth/callback` 
-  : `${HOST}/auth/callback`;
+  ? `${HOST}api/auth/callback` 
+  : `${HOST}/api/auth/callback`;
 console.log('Konfigurierte REDIRECT_URI:', REDIRECT_URI);
 
 // Shopify API Version
