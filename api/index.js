@@ -164,8 +164,9 @@ app.get('/api/auth/callback', async (req, res) => {
     setSecureCookies(res, 'shopifyShop', shop);
     
     // Sofort zur App-UI weiterleiten (wichtig für Shopify-Check)
-    // Baue die Redirect-URL mit den erforderlichen Parametern
-    const redirectUrl = `/dashboard?shop=${shop}&host=${req.query.host || ''}&embedded=1`;
+    // Baue die Redirect-URL mit den erforderlichen Parametern - ABSOLUTER Pfad
+    const hostUrl = HOST.endsWith('/') ? HOST.slice(0, -1) : HOST;
+    const redirectUrl = `${hostUrl}/dashboard?shop=${shop}&host=${req.query.host || ''}&embedded=1`;
     console.log(`Redirect nach Authentication zu: ${redirectUrl}`);
     res.redirect(redirectUrl);
   } catch (error) {
