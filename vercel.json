@@ -9,6 +9,8 @@
     { "src": "/dashboard", "dest": "/public/dashboard.html" },
     { "src": "/embedded", "dest": "/public/embedded.html" },
     { "src": "/auth/callback(.*)", "dest": "/api/auth/callback$1" },
+    { "src": "/auth/callback", "dest": "/api/auth/callback" },
+    { "src": "/api/auth/callback", "dest": "/api/index.js" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/public/$1" }

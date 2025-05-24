@@ -17,7 +17,14 @@ const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
 const SCOPES = 'read_products,write_products,read_orders,read_customers';
 // Statt direkter URL, nutze die HOST-Umgebungsvariable wie in shopify.app.toml
 const HOST = process.env.HOST || 'https://mini-flask-env.vercel.app';
-const REDIRECT_URI = `${HOST}/auth/callback`;
+console.log('Verwendete HOST-Umgebungsvariable:', HOST);
+
+// Stelle sicher, dass REDIRECT_URI keine doppelten Slashes oder Protokolle enthält
+const REDIRECT_URI = HOST.endsWith('/') 
+  ? `${HOST}auth/callback` 
+  : `${HOST}/auth/callback`;
+console.log('Konfigurierte REDIRECT_URI:', REDIRECT_URI);
+
 // Shopify API Version
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2023-10';
 
@@ -120,6 +127,11 @@ app.get('/api/auth', (req, res) => {
       redirect_uri: REDIRECT_URI,
       state: nonce
     });
+  
+  // Debug: Log die verwendete Redirect-URI
+  console.log('Verwendete REDIRECT_URI:', REDIRECT_URI);
+  console.log('Vollständige Auth-URL:', redirectUrl);
+  
   res.redirect(redirectUrl);
 });
 
