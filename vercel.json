@@ -1,15 +1,16 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.js", "use": "@vercel/node" }
+    { "src": "api/index.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/", "dest": "/public/embedded.html" },
     { "src": "/api/auth/callback", "dest": "/api/index.js" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/dashboard", "dest": "/public/dashboard.html" },
     { "src": "/embedded", "dest": "/public/embedded.html" },
-    { "src": "/", "dest": "/embedded" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
-} 
+}

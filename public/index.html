@@ -1,96 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShopPulseAI - Shopify App</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    }
-  </style>
-</head>
-<body class="bg-gray-50">
-  <div class="max-w-4xl mx-auto px-4 py-16">
-    <header class="text-center mb-12">
-      <h1 class="text-5xl font-bold text-green-600 mb-2">ShopPulseAI</h1>
-      <p class="text-xl text-gray-600">KI-gestützte Shopify-App für intelligente Produktempfehlungen und Preisoptimierung</p>
-    </header>
-
-    <main class="bg-white p-8 rounded-lg shadow-md">
-      <h2 class="text-3xl font-semibold text-center mb-8">Willkommen bei ShopPulseAI</h2>
-      
-      <p class="text-lg text-center mb-6">
-        Dies ist die statische Startseite für das ShopPulseAI-Projekt, das auf Vercel gehostet wird.
-      </p>
-      
-      <p class="text-lg text-center mb-10">
-        Um zum Dashboard zu gelangen, klicken Sie auf den Button unten. (Dieser Button ist für den direkten Aufruf gedacht, nicht für den Installations-Flow)
-      </p>
-      
-      <div class="flex justify-center">
-        <a href="/install.html" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
-          Zur manuellen Installation
-        </a>
-      </div>
-      <p id="debug-message" class="text-center mt-4 text-red-500 font-bold"></p>
-    </main>
-
-    <footer class="text-center mt-12 text-gray-600">
-      &copy; 2024 ShopPulseAI
-    </footer>
-  </div>
-
-  <!-- Auto-redirect script for Shopify OAuth -->
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMContentLoaded event fired. Starting Shopify OAuth check...');
-      const debugMessageEl = document.getElementById('debug-message');
-      debugMessageEl.textContent = 'Prüfe Shopify Installationsparameter...';
-
-      const urlParams = new URLSearchParams(window.location.search);
-      console.log('URL Search Params:', window.location.search);
-      
-      // Log all URL parameters for debugging
-      urlParams.forEach((value, key) => {
-        console.log(`Parameter: ${key} = ${value}`);
-      });
-
-      const shop = urlParams.get('shop');
-      const hmac = urlParams.get('hmac');
-      const host = urlParams.get('host'); // Host ist auch wichtig
-      
-      console.log('Shop Parameter:', shop);
-      console.log('HMAC Parameter:', hmac);
-      console.log('Host Parameter:', host);
-
-      // Display all parameters for debugging
-      debugMessageEl.textContent = `URL Parameters: ${window.location.search}`;
-
-      // Wichtig: Shopify sendet 'shop', 'hmac', 'host', und 'timestamp' beim ersten Installieren.
-      // 'host' ist besonders wichtig für embedded apps und App Bridge.
-      if (shop || hmac || host) {
-        const message = `Shopify-Parameter gefunden!\nShop: ${shop || 'fehlt'}\nHMAC: ${hmac || 'fehlt'}\nHost: ${host || 'fehlt'}`;
-        alert(message);
-        debugMessageEl.textContent = 'Shopify-Parameter erkannt (' + shop + '). Leite weiter zu /api/auth...';
-        console.log('Detected Shopify parameters. Redirecting to /api/auth...');
-        
-        // Alle Parameter an /api/auth weitergeben
-        const redirectTo = '/api/auth?' + window.location.search.substring(1);
-        console.log('Redirecting to:', redirectTo);
-        window.location.href = redirectTo;
-      } else {
-        let missingParams = [];
-        if (!shop) missingParams.push('shop');
-        if (!hmac) missingParams.push('hmac');
-        if (!host) missingParams.push('host');
-        const message = 'Keine (vollständigen) Shopify-Installationsparameter (shop, hmac, host) in der URL gefunden. Fehlend: ' + missingParams.join(', ') + '. Normale Startseite wird angezeigt.';
-        console.warn(message);
-        debugMessageEl.textContent = message;
-        // alert(message); // Optional: Alert auch hier, wenn Parameter fehlen
-      }
-    });
+    window.location.href = `/embedded${window.location.search}`;
   </script>
+</head>
+<body>
+  <p>Redirecting to embedded app...</p>
 </body>
 </html> 
