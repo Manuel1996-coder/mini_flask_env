@@ -5,8 +5,8 @@
     { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/auth/callback", "dest": "/api/index.js" },
-    { "src": "/auth/callback/(.*)", "dest": "/api/index.js" },
+    { "src": "/auth/callback", "dest": "/api/auth/callback" },
+    { "src": "/auth/callback/(.*)", "dest": "/api/auth/callback" },
     { "src": "/dashboard", "dest": "/public/dashboard.html" },
     { "src": "/embedded", "dest": "/public/embedded.html" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
